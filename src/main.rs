@@ -100,11 +100,13 @@ fn s_box(byte: u8) {
 }
 
 fn shift_rows(state: &mut [u8; 0x10]) {
-    todo!();
+    for row in 0..4 {
+        state[row * 4..(row + 1) * 4].rotate_left(row);
+    }
 }
 
 fn sub_bytes(state: &mut [u8; 0x10]) {
-    state.iter().map(|byte| s_box(*byte));
+    state.iter_mut().for_each(|byte| s_box(*byte));
 }
 
 fn sub_word() {
