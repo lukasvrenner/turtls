@@ -84,7 +84,18 @@ fn key_expansion_eic() {
 }
 
 fn mix_columns(state: &mut [u8; 0x10]) {
-    todo!();
+    for col in 0..4 {
+        let column =
+            [state[col], state[4 + col], state[8 + col], state[12 + col]];
+        state[col] =
+            (0x2 * column[0]) ^ (0x3 * column[1]) ^ column[2] ^ column[3];
+        state[4 + col] =
+            column[0] ^ (0x2 * column[1]) ^ (0x3 * column[2]) ^ column[3];
+        state[8 + col] =
+            column[0] ^ column[1] ^ (0x2 * column[2]) ^ (0x3 * column[3]);
+        state[12 + col] =
+            (0x3 * column[0]) ^ column[1] ^ column[2] ^ (0x2 * column[3]);
+    }
 }
 
 fn rotate_words() {
