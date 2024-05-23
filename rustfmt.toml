@@ -1,0 +1,2 @@
+max_width = 80
+print_misformatted_file_names = true
