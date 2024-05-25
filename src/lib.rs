@@ -79,22 +79,18 @@ pub fn encrypt(input: [u8; 16], key: [u8; 32]) -> [u8; 16] {
 
 fn key_expansion(key: [u8; 32]) -> [[[u8; 4]; 4]; NUM_ROUNDS + 1] {
     // let key = key.
-    let key: [MaybeUninit<u32>; 8] = unsafe { transmute(key) };
-    let mut expanded_keys = [MaybeUninit::<u32>::uninit(); 4 * NUM_ROUNDS + 4];
+    let key: [u32; 8] = unsafe { transmute(key) };
+    let mut expanded_keys = [0u32; 4 * NUM_ROUNDS + 4];
 
-    // key is guaranteed to be initialized
     expanded_keys[0..key.len()].clone_from_slice(&key);
     for i in N_K..expanded_keys.len() {
-        // SAFETY: all indexes less than `i` are guaranteed to be initialized
-        let mut temp = unsafe { expanded_keys[i - 1].assume_init() };
+        let mut temp = expanded_keys[i - 1] ;
         temp = match i % N_K {
             0 => sub_word(rotate_word(temp)) ^ R_CON[i / N_K],
             4 => sub_word(temp),
             _ => temp,
         };
-        expanded_keys[i]
-            // SAFETY: all indexes less than `i` are guaranteed to be initialized
-            .write(unsafe { expanded_keys[i - N_K].assume_init() } ^ temp);
+        expanded_keys[i] = expanded_keys[i - N_K] ^ temp;
     }
     unsafe { transmute(expanded_keys) }
 }
