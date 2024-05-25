@@ -56,25 +56,31 @@ const R_CON: [u32; 256] = [
     0x74, 0xe8, 0xcb, 0x8d,
 ];
 
-pub fn encrypt(input: [u8; 16], key: [u8; 32]) -> [u8; 16] {
-    // SAFETY: a 2d array is represented by the same memory as a 1d array
-    let mut state: [[u8; 4]; 4] = unsafe { transmute(input) };
+pub fn encrypt(input: &[u8], key: [u8; 32]) -> Vec<u8> {
+    assert_eq!(0, input.len() % 16);
+    let mut output = Vec::with_capacity(input.len());
+    for chunk in input.chunks_exact(16) {
+        // SAFETY: a 2d array is represented by the same memory as a 1d array
+        let mut state: [[u8; 4]; 4] = unsafe { transmute(chunk) };
 
-    let round_keys = key_expansion(key);
+        let round_keys = key_expansion(key);
 
-    state = add_round_key(state, round_keys[0]);
-    for round in round_keys.iter().take(NUM_ROUNDS).skip(1) {
+        state = add_round_key(state, round_keys[0]);
+        for round in round_keys.iter().take(NUM_ROUNDS).skip(1) {
+            state = sub_bytes(state);
+            state = shift_rows(state);
+            state = mix_columns(state);
+            state = add_round_key(state, *round);
+        }
         state = sub_bytes(state);
         state = shift_rows(state);
-        state = mix_columns(state);
-        state = add_round_key(state, *round);
-    }
-    state = sub_bytes(state);
-    state = shift_rows(state);
-    state = add_round_key(state, round_keys[NUM_ROUNDS]);
+        state = add_round_key(state, round_keys[NUM_ROUNDS]);
 
-    // use flatten() once stabilized
-    unsafe { transmute(state) }
+        // use flatten() instead of transmute once stabilized
+        output.extend_from_slice( unsafe {transmute(state)})
+        
+    }
+    output
 }
 
 fn key_expansion(key: [u8; 32]) -> [[[u8; 4]; 4]; NUM_ROUNDS + 1] {
