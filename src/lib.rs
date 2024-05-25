@@ -78,7 +78,6 @@ pub fn encrypt(input: [u8; 16], key: [u8; 32]) -> [u8; 16] {
 }
 
 fn key_expansion(key: [u8; 32]) -> [[[u8; 4]; 4]; NUM_ROUNDS + 1] {
-    // let key = key.
     let key: [u32; 8] = unsafe { transmute(key) };
     let mut expanded_keys = [0u32; 4 * NUM_ROUNDS + 4];
 
@@ -114,8 +113,24 @@ fn sub_bytes(state: [[u8; 4]; 4]) -> [[u8; 4]; 4] {
 }
 
 #[inline]
-fn shift_rows(state: [[u8; 4]; 4]) -> [[u8; 4]; 4] {
-    todo!();
+fn shift_rows(mut state: [[u8; 4]; 4]) -> [[u8; 4]; 4] {
+    let mut auxiliary = [[0u8; 4]; 4];
+    // swap rows and columns
+    for col in 0..state.len() {
+        for row in 0..state[0].len() {
+            auxiliary[col][row] = state[row][col]
+        }
+    }
+    for (index, col) in auxiliary.iter_mut().enumerate() {
+        col.rotate_left(index);
+    }
+    // swap rows and columns
+    for col in 0..state.len() {
+        for row in 0..state[0].len() {
+            state[col][row] = auxiliary[row][col];
+        }
+    }
+    state
 }
 
 #[inline]
