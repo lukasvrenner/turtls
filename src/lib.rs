@@ -139,7 +139,7 @@ pub fn encrypt(input: &[u8], key: &[u8; 32]) -> Vec<u8> {
     let mut output = Vec::with_capacity(input.len());
     for chunk in input.chunks_exact(16) {
         let mut state = [0; 16];
-        state.clone_from_slice(chunk);
+        state.copy_from_slice(chunk);
         let round_keys = key_expansion(*key);
 
         state = add_round_key(state, round_keys[0]);
@@ -163,7 +163,7 @@ fn key_expansion(key: [u8; 32]) -> [[u8; 16]; NUM_ROUNDS + 1] {
     let key: [u32; 8] = unsafe { transmute(key) };
     let mut expanded_keys = [0u32; 4 * NUM_ROUNDS + 4];
 
-    expanded_keys[0..key.len()].clone_from_slice(&key);
+    expanded_keys[0..key.len()].copy_from_slice(&key);
     for i in N_K..expanded_keys.len() {
         let mut temp = expanded_keys[i - 1];
         temp = match i % N_K {
@@ -226,8 +226,7 @@ fn mix_columns(mut state: [u8; 16]) -> [u8; 16] {
         for row in 0..4 {
             let mut word = 0u8;
             for i in 0..4 {
-                word ^=
-                    MIX_SUB[mix_col_mat[row][i]][col_word[i] as usize];
+                word ^= MIX_SUB[mix_col_mat[row][i]][col_word[i] as usize];
             }
             state[row * 4 + col] = word;
         }
