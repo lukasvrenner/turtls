@@ -60,9 +60,8 @@ pub fn encrypt(input: &[u8], key: [u8; 32]) -> Vec<u8> {
     assert_eq!(0, input.len() % 16);
     let mut output = Vec::with_capacity(input.len());
     for chunk in input.chunks_exact(16) {
-        // SAFETY: a 2d array is represented by the same memory as a 1d array
-        let mut state: [[u8; 4]; 4] = unsafe { transmute(chunk) };
-
+        let mut state = [0; 16];
+        state.clone_from_slice(chunk);
         let round_keys = key_expansion(key);
 
         state = add_round_key(state, round_keys[0]);
@@ -77,19 +76,18 @@ pub fn encrypt(input: &[u8], key: [u8; 32]) -> Vec<u8> {
         state = add_round_key(state, round_keys[NUM_ROUNDS]);
 
         // use flatten() instead of transmute once stabilized
-        output.extend_from_slice( unsafe {transmute(state)})
-        
+        output.extend_from_slice(&state)
     }
     output
 }
 
-fn key_expansion(key: [u8; 32]) -> [[[u8; 4]; 4]; NUM_ROUNDS + 1] {
+fn key_expansion(key: [u8; 32]) -> [[u8; 16]; NUM_ROUNDS + 1] {
     let key: [u32; 8] = unsafe { transmute(key) };
     let mut expanded_keys = [0u32; 4 * NUM_ROUNDS + 4];
 
     expanded_keys[0..key.len()].clone_from_slice(&key);
     for i in N_K..expanded_keys.len() {
-        let mut temp = expanded_keys[i - 1] ;
+        let mut temp = expanded_keys[i - 1];
         temp = match i % N_K {
             0 => sub_word(rotate_word(temp)) ^ R_CON[i / N_K],
             4 => sub_word(temp),
@@ -102,56 +100,66 @@ fn key_expansion(key: [u8; 32]) -> [[[u8; 4]; 4]; NUM_ROUNDS + 1] {
 
 #[inline]
 fn add_round_key(
-    mut state: [[u8; 4]; 4],
-    round_key: [[u8; 4]; 4],
-) -> [[u8; 4]; 4] {
-    for col in 0..state.len() {
-        for row in 0..state[0].len() {
-            state[col][row] ^= round_key[col][row];
-        }
+    mut state: [u8; 16],
+    round_key: [u8; 16],
+) -> [u8; 16] {
+    for i in 0..state.len() {
+            state[i] ^= round_key[i];
     }
     state
 }
 
 #[inline]
-fn sub_bytes(state: [[u8; 4]; 4]) -> [[u8; 4]; 4] {
-    state.map(|col| col.map(s_box))
+fn sub_bytes(state: [u8; 16]) -> [u8; 16] {
+    state.map(s_box)
 }
 
 #[inline]
-fn shift_rows(mut state: [[u8; 4]; 4]) -> [[u8; 4]; 4] {
-    let mut auxiliary = [[0u8; 4]; 4];
+fn shift_rows(mut state: [u8; 16]) -> [u8; 16] {
+    let mut auxiliary = [0u8; 16];
     // swap rows and columns
-    for col in 0..state.len() {
-        for row in 0..state[0].len() {
-            auxiliary[col][row] = state[row][col]
+    for col in 0..4{
+        for row in 0..4 {
+            auxiliary[col * 4 + row] = state[col * 4 + row]
         }
     }
-    for (index, col) in auxiliary.iter_mut().enumerate() {
+    for (index, col) in auxiliary.chunks_exact_mut(4).enumerate() {
         col.rotate_left(index);
     }
     // swap rows and columns
-    for col in 0..state.len() {
-        for row in 0..state[0].len() {
-            state[col][row] = auxiliary[row][col];
+    for col in 0..4 {
+        for row in 0..4 {
+            state[col * 4 + row] = auxiliary[col * 4 + row]
         }
     }
     state
 }
 
 #[inline]
-fn mix_columns(state: [[u8; 4]; 4]) -> [[u8; 4]; 4] {
-    state.map(|mut col| {
-        let column = col;
-        col[0] = (0x2 * column[0]) ^ (0x3 * column[1]) ^ column[2] ^ column[3];
+// TODO: use Galois Field multiplication
+fn mix_columns(mut state: [u8; 16]) -> [u8; 16] {
+    state.chunks_exact_mut(4).for_each(|col| {
+        let mut column = [0u8; 4];
+        column.clone_from_slice(col);
+        let mut multiplier = [0; 4];
+        for i in 0..column.len() {
+            let highest_bit = column[i] >> 7;
+            multiplier[i] = column[i] << 1;
+            multiplier[i] ^= highest_bit * 0x1b;
+        }
+        col[0] =
+            multiplier[0] ^ column[3] ^ column[2] ^ multiplier[1] ^ column[1];
 
-        col[1] = column[0] ^ (0x2 * column[1]) ^ (0x3 * column[2]) ^ column[3];
+        col[1] =
+            multiplier[1] ^ column[0] ^ column[3] ^ multiplier[2] ^ column[2];
 
-        col[2] = column[0] ^ column[1] ^ (0x2 * column[2]) ^ (0x3 * column[3]);
+        col[2] =
+            multiplier[2] ^ column[1] ^ column[0] ^ multiplier[3] ^ column[3];
 
-        col[3] = (0x3 * column[0]) ^ column[1] ^ column[2] ^ (0x2 * column[3]);
-        col
-    })
+        col[3] =
+            multiplier[3] ^ column[2] ^ column[1] ^ multiplier[0] ^ column[0];
+    });
+    state
 }
 
 #[inline]
