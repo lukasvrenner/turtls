@@ -56,13 +56,13 @@ const R_CON: [u32; 256] = [
     0x74, 0xe8, 0xcb, 0x8d,
 ];
 
-pub fn encrypt(input: &[u8], key: [u8; 32]) -> Vec<u8> {
+pub fn encrypt(input: &[u8], key: &[u8; 32]) -> Vec<u8> {
     assert_eq!(0, input.len() % 16);
     let mut output = Vec::with_capacity(input.len());
     for chunk in input.chunks_exact(16) {
         let mut state = [0; 16];
         state.clone_from_slice(chunk);
-        let round_keys = key_expansion(key);
+        let round_keys = key_expansion(*key);
 
         state = add_round_key(state, round_keys[0]);
         for round in round_keys.iter().take(NUM_ROUNDS).skip(1) {
@@ -99,12 +99,9 @@ fn key_expansion(key: [u8; 32]) -> [[u8; 16]; NUM_ROUNDS + 1] {
 }
 
 #[inline]
-fn add_round_key(
-    mut state: [u8; 16],
-    round_key: [u8; 16],
-) -> [u8; 16] {
+fn add_round_key(mut state: [u8; 16], round_key: [u8; 16]) -> [u8; 16] {
     for i in 0..state.len() {
-            state[i] ^= round_key[i];
+        state[i] ^= round_key[i];
     }
     state
 }
@@ -118,7 +115,7 @@ fn sub_bytes(state: [u8; 16]) -> [u8; 16] {
 fn shift_rows(mut state: [u8; 16]) -> [u8; 16] {
     let mut auxiliary = [0u8; 16];
     // swap rows and columns
-    for col in 0..4{
+    for col in 0..4 {
         for row in 0..4 {
             auxiliary[col * 4 + row] = state[col * 4 + row]
         }
@@ -207,4 +204,85 @@ fn key_expansion_eic() {
 
 fn x_times() {
     todo!();
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::mix_columns;
+
+    use super::*;
+
+    #[test]
+    fn test_add_round_key() {
+        let state: [u8; 16] = [
+            0x32, 0x88, 0x31, 0xe0,
+            0x43, 0x5a, 0x31, 0x37,
+            0xf6, 0x30, 0x98, 0x07,
+            0xa8, 0x8d, 0xa2, 0x34,
+        ];
+        let round_key: [u8; 16] = [
+            0x2b, 0x28, 0xab, 0x09,
+            0x7e, 0xae, 0xf7, 0xcf,
+            0x15, 0xd2, 0x15, 0x4f,
+            0x16, 0xa6, 0x88, 0x3c,
+        ];
+        let output_state: [u8; 16] = [
+            0x19, 0xa0, 0x9a, 0xe9,
+            0x3d, 0xf4, 0xc6, 0xf8,
+            0xe3, 0xe2, 0x8d, 0x48,
+            0xbe, 0x2b, 0x2a, 0x08,
+        ];
+        assert_eq!(add_round_key(state, round_key), output_state);
+    }
+
+    #[test]
+    fn test_sub_bytes() {
+        let state: [u8; 16] = [
+            0x19, 0xa0, 0x9a, 0xe9,
+            0x3d, 0xf4, 0xc6, 0xf8,
+            0xe3, 0xe2, 0x8d, 0x48,
+            0xbe, 0x2b, 0x2a, 0x08,
+        ];
+        let output_state: [u8; 16] = [
+            0xd4, 0xe0, 0xb8, 0x1e,
+            0x27, 0xbf, 0xb4, 0x41,
+            0x11, 0x98, 0x5d, 0x52,
+            0xae, 0xf1, 0xe5, 0x30,
+        ];
+        assert_eq!(sub_bytes(state), output_state);
+    }
+
+    #[test]
+    fn test_shift_rows() {
+        let state: [u8; 16] = [
+            0xd4, 0xe0, 0xb8, 0x1e,
+            0x27, 0xbf, 0xb4, 0x41,
+            0x11, 0x98, 0x5d, 0x52,
+            0xae, 0xf1, 0xe5, 0x30,
+        ];
+        let output_state: [u8; 16] = [
+            0xd4, 0xe0, 0xb8, 0x1e,
+            0xbf, 0xb4, 0x41, 0x27,
+            0x5d, 0x52, 0x11, 0x98,
+            0x30, 0xae, 0xf1, 0xe5,
+        ];
+        assert_eq!(shift_rows(state), output_state);
+    }
+
+    #[test]
+    fn test_mix_columns() {
+        let state: [u8; 16] = [
+            0xd4, 0xe0, 0xb8, 0x1e,
+            0xbf, 0xb4, 0x41, 0x27,
+            0x5d, 0x52, 0x11, 0x98,
+            0x30, 0xae, 0xf1, 0xe5,
+        ];
+        let output_state: [u8; 16] = [
+            0x04, 0xe0, 0x48, 0x28,
+            0x66, 0xcb, 0xf8, 0x06,
+            0x81, 0x19, 0xd3, 0x26,
+            0xe5, 0x9a, 0x7a, 0x4c,
+        ];
+        assert_eq!(mix_columns(state), output_state);
+    }
 }
