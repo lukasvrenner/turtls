@@ -1,7 +1,10 @@
 //! AES-256
 
+use std::mem::{transmute, MaybeUninit};
+
 const NUM_ROUNDS: usize = 14;
 const N_K: usize = 8;
+const BLOCK_SIZE: usize = 16;
 
 const S_BOX: [u8; 256] = [
     0x63, 0x7C, 0x77, 0x7B, 0xF2, 0x6B, 0x6F, 0xC5, 0x30, 0x01, 0x67, 0x2B,
@@ -28,56 +31,101 @@ const S_BOX: [u8; 256] = [
     0xB0, 0x54, 0xBB, 0x16,
 ];
 
-pub fn aes_256(input: [u8; 16], key: [u8; 32]) -> [u8; 16] {
+const R_CON: [u32; 256] = [
+    0x8d, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36, 0x6c,
+    0xd8, 0xab, 0x4d, 0x9a, 0x2f, 0x5e, 0xbc, 0x63, 0xc6, 0x97, 0x35, 0x6a,
+    0xd4, 0xb3, 0x7d, 0xfa, 0xef, 0xc5, 0x91, 0x39, 0x72, 0xe4, 0xd3, 0xbd,
+    0x61, 0xc2, 0x9f, 0x25, 0x4a, 0x94, 0x33, 0x66, 0xcc, 0x83, 0x1d, 0x3a,
+    0x74, 0xe8, 0xcb, 0x8d, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80,
+    0x1b, 0x36, 0x6c, 0xd8, 0xab, 0x4d, 0x9a, 0x2f, 0x5e, 0xbc, 0x63, 0xc6,
+    0x97, 0x35, 0x6a, 0xd4, 0xb3, 0x7d, 0xfa, 0xef, 0xc5, 0x91, 0x39, 0x72,
+    0xe4, 0xd3, 0xbd, 0x61, 0xc2, 0x9f, 0x25, 0x4a, 0x94, 0x33, 0x66, 0xcc,
+    0x83, 0x1d, 0x3a, 0x74, 0xe8, 0xcb, 0x8d, 0x01, 0x02, 0x04, 0x08, 0x10,
+    0x20, 0x40, 0x80, 0x1b, 0x36, 0x6c, 0xd8, 0xab, 0x4d, 0x9a, 0x2f, 0x5e,
+    0xbc, 0x63, 0xc6, 0x97, 0x35, 0x6a, 0xd4, 0xb3, 0x7d, 0xfa, 0xef, 0xc5,
+    0x91, 0x39, 0x72, 0xe4, 0xd3, 0xbd, 0x61, 0xc2, 0x9f, 0x25, 0x4a, 0x94,
+    0x33, 0x66, 0xcc, 0x83, 0x1d, 0x3a, 0x74, 0xe8, 0xcb, 0x8d, 0x01, 0x02,
+    0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36, 0x6c, 0xd8, 0xab, 0x4d,
+    0x9a, 0x2f, 0x5e, 0xbc, 0x63, 0xc6, 0x97, 0x35, 0x6a, 0xd4, 0xb3, 0x7d,
+    0xfa, 0xef, 0xc5, 0x91, 0x39, 0x72, 0xe4, 0xd3, 0xbd, 0x61, 0xc2, 0x9f,
+    0x25, 0x4a, 0x94, 0x33, 0x66, 0xcc, 0x83, 0x1d, 0x3a, 0x74, 0xe8, 0xcb,
+    0x8d, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36, 0x6c,
+    0xd8, 0xab, 0x4d, 0x9a, 0x2f, 0x5e, 0xbc, 0x63, 0xc6, 0x97, 0x35, 0x6a,
+    0xd4, 0xb3, 0x7d, 0xfa, 0xef, 0xc5, 0x91, 0x39, 0x72, 0xe4, 0xd3, 0xbd,
+    0x61, 0xc2, 0x9f, 0x25, 0x4a, 0x94, 0x33, 0x66, 0xcc, 0x83, 0x1d, 0x3a,
+    0x74, 0xe8, 0xcb, 0x8d,
+];
+
+pub fn encrypt(input: [u8; 16], key: [u8; 32]) -> [u8; 16] {
     // SAFETY: a 2d array is represented by the same memory as a 1d array
-    let mut state: [[u8; 4]; 4] = unsafe { std::mem::transmute(input) };
+    let mut state: [[u8; 4]; 4] = unsafe { transmute(input) };
 
     let round_keys = key_expansion(key);
 
-    add_round_key(&mut state, round_keys[0]);
-    for round in 1..NUM_ROUNDS {
-        sub_bytes(&mut state);
-        shift_rows(&mut state);
-        mix_columns(&mut state);
-        add_round_key(&mut state, round_keys[round]);
+    state = add_round_key(state, round_keys[0]);
+    for round in round_keys.iter().take(NUM_ROUNDS).skip(1) {
+        state = sub_bytes(state);
+        state = shift_rows(state);
+        state = mix_columns(state);
+        state = add_round_key(state, *round);
     }
-    sub_bytes(&mut state);
-    shift_rows(&mut state);
-    add_round_key(&mut state, round_keys[NUM_ROUNDS]);
+    state = sub_bytes(state);
+    state = shift_rows(state);
+    state = add_round_key(state, round_keys[NUM_ROUNDS]);
 
     // use flatten() once stabilized
-    unsafe { std::mem::transmute(state) }
+    unsafe { transmute(state) }
 }
 
 fn key_expansion(key: [u8; 32]) -> [[[u8; 4]; 4]; NUM_ROUNDS + 1] {
-    todo!();
+    // let key = key.
+    let key: [MaybeUninit<u32>; 8] = unsafe { transmute(key) };
+    let mut expanded_keys = [MaybeUninit::<u32>::uninit(); 4 * NUM_ROUNDS + 4];
+
+    // key is guaranteed to be initialized
+    expanded_keys[0..key.len()].clone_from_slice(&key);
+    for i in N_K..expanded_keys.len() {
+        // SAFETY: all indexes less than `i` are guaranteed to be initialized
+        let mut temp = unsafe { expanded_keys[i - 1].assume_init() };
+        temp = match i % N_K {
+            0 => sub_word(rotate_word(temp)) ^ R_CON[i / N_K],
+            4 => sub_word(temp),
+            _ => temp,
+        };
+        expanded_keys[i]
+            // SAFETY: all indexes less than `i` are guaranteed to be initialized
+            .write(unsafe { expanded_keys[i - N_K].assume_init() } ^ temp);
+    }
+    unsafe { transmute(expanded_keys) }
 }
 
 #[inline]
-fn add_round_key(state: &mut [[u8; 4]; 4], round_key: [[u8; 4]; 4]) {
+fn add_round_key(
+    mut state: [[u8; 4]; 4],
+    round_key: [[u8; 4]; 4],
+) -> [[u8; 4]; 4] {
     for col in 0..state.len() {
         for row in 0..state[0].len() {
             state[col][row] ^= round_key[col][row];
         }
     }
-}
-
-#[inline]
-fn sub_bytes(state: &mut [[u8; 4]; 4]) {
     state
-        .iter_mut()
-        .for_each(|col| col.iter_mut().for_each(|byte| *byte = s_box(*byte)));
 }
 
 #[inline]
-fn shift_rows(state: &mut [[u8; 4]; 4]) {
+fn sub_bytes(state: [[u8; 4]; 4]) -> [[u8; 4]; 4] {
+    state.map(|col| col.map(s_box))
+}
+
+#[inline]
+fn shift_rows(state: [[u8; 4]; 4]) -> [[u8; 4]; 4] {
     todo!();
 }
 
 #[inline]
-fn mix_columns(state: &mut [[u8; 4]; 4]) {
-    for col in state {
-        let column = col.clone();
+fn mix_columns(state: [[u8; 4]; 4]) -> [[u8; 4]; 4] {
+    state.map(|mut col| {
+        let column = col;
         col[0] = (0x2 * column[0]) ^ (0x3 * column[1]) ^ column[2] ^ column[3];
 
         col[1] = column[0] ^ (0x2 * column[1]) ^ (0x3 * column[2]) ^ column[3];
@@ -85,7 +133,8 @@ fn mix_columns(state: &mut [[u8; 4]; 4]) {
         col[2] = column[0] ^ column[1] ^ (0x2 * column[2]) ^ (0x3 * column[3]);
 
         col[3] = (0x3 * column[0]) ^ column[1] ^ column[2] ^ (0x2 * column[3]);
-    }
+        col
+    })
 }
 
 #[inline]
@@ -94,13 +143,13 @@ fn s_box(byte: u8) -> u8 {
 }
 
 #[inline]
-fn sub_word(word: &mut [u8; 4]) {
-    word.iter_mut().for_each(|byte| *byte = s_box(*byte));
+fn sub_word(word: u32) -> u32 {
+    u32::from_ne_bytes(word.to_ne_bytes().map(s_box))
 }
 
 #[inline]
-fn rotate_word(word: &mut [u8; 4]) {
-    word.rotate_left(1);
+fn rotate_word(word: u32) -> u32 {
+    word.rotate_left(8)
 }
 
 fn eq_inv_cipher() {
