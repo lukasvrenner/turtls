@@ -130,32 +130,34 @@ const R_CON: [u32; 256] = [
     0x74, 0xe8, 0xcb, 0x8d,
 ];
 
+/// encrypts `input` with `key`, using AES-256 and ISO padding
 pub fn encrypt(input: &[u8], key: &[u8; 32]) -> Vec<u8> {
-    assert_eq!(0, input.len() % 16);
-    let mut output = Vec::with_capacity(input.len());
-    for chunk in input.chunks_exact(16) {
-        let mut state = [0; 16];
-        state.copy_from_slice(chunk);
-        let round_keys = key_expansion(*key);
+    // add ISO padding
+    let padding_size = 16 - input.len() % 16;
+    let mut data = input.to_vec();
+    data.push(0x80);
+    data.resize(input.len() + padding_size, 0x00);
 
-        state = add_round_key(state, round_keys[0]);
+    let round_keys = key_expansion(*key);
+
+    for state in data.chunks_exact_mut(16) {
+        add_round_key(state, round_keys[0]);
         for round in round_keys.iter().take(NUM_ROUNDS).skip(1) {
-            state = sub_bytes(state);
-            state = shift_rows(state);
-            state = mix_columns(state);
-            state = add_round_key(state, *round);
+            sub_bytes(state);
+            shift_rows(state);
+            mix_columns(state);
+            add_round_key(state, *round);
         }
-        state = sub_bytes(state);
-        state = shift_rows(state);
-        state = add_round_key(state, round_keys[NUM_ROUNDS]);
+        sub_bytes(state);
+        shift_rows(state);
+        add_round_key(state, round_keys[NUM_ROUNDS]);
 
-        output.extend_from_slice(&state)
     }
-    output
+    data
 }
 
 fn key_expansion(key: [u8; 32]) -> [[u8; 16]; NUM_ROUNDS + 1] {
-    let key = {
+    let key: [u32; 8] = {
         let mut new_key = [0u32; 8];
         for (index, bytes) in key.chunks_exact(4).enumerate() {
             new_key[index] = u32::from_ne_bytes(bytes.try_into().unwrap());
@@ -186,20 +188,19 @@ fn key_expansion(key: [u8; 32]) -> [[u8; 16]; NUM_ROUNDS + 1] {
 }
 
 #[inline]
-fn add_round_key(mut state: [u8; 16], round_key: [u8; 16]) -> [u8; 16] {
+fn add_round_key(state: &mut [u8], round_key: [u8; 16]) {
     for i in 0..state.len() {
         state[i] ^= round_key[i];
     }
-    state
 }
 
 #[inline]
-fn sub_bytes(state: [u8; 16]) -> [u8; 16] {
-    state.map(s_box)
+fn sub_bytes(state: &mut [u8]) {
+    state.iter_mut().for_each(|byte| *byte = s_box(*byte));
 }
 
 #[inline]
-fn shift_rows(mut state: [u8; 16]) -> [u8; 16] {
+fn shift_rows(state: &mut [u8]) {
     let mut auxiliary = [0u8; 16];
     // swap rows and columns
     for col in 0..4 {
@@ -216,11 +217,10 @@ fn shift_rows(mut state: [u8; 16]) -> [u8; 16] {
             state[col * 4 + row] = auxiliary[col * 4 + row]
         }
     }
-    state
 }
 
 #[inline]
-fn mix_columns(mut state: [u8; 16]) -> [u8; 16] {
+fn mix_columns(state: &mut [u8]) {
     let mix_col_mat = [
         [0x01, 0x02, 0x00, 0x00],
         [0x00, 0x01, 0x02, 0x00],
@@ -240,7 +240,6 @@ fn mix_columns(mut state: [u8; 16]) -> [u8; 16] {
             state[row * 4 + col] = word;
         }
     }
-    state
 }
 
 #[inline]
@@ -429,19 +428,6 @@ mod tests {
 
     #[test]
     fn cipher() {
-        let input: [u8; 16] = [
-            0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa,
-            0xbb, 0xcc, 0xdd, 0xee, 0xff,
-        ];
-        let key: [u8; 32] = [
-            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a,
-            0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15,
-            0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
-        ];
-        let cipher: [u8; 16] = [
-            0x8e, 0xa2, 0xb7, 0xca, 0x51, 0x67, 0x45, 0xbf, 0xea, 0xfc, 0x49,
-            0x90, 0x4b, 0x49, 0x60, 0x89,
-        ];
-        assert_eq!(encrypt(&input, &key), cipher);
+        todo!();
     }
 }
