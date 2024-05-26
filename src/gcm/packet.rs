@@ -10,7 +10,6 @@ const NONCE_SIZE: usize = 12;
 const TAG_SIZE: usize = 16;
 
 impl Packet {
-
     #[inline]
     pub fn nonce(&self) -> Nonce {
         Nonce(&self.value[0..NONCE_SIZE])
@@ -30,14 +29,6 @@ impl Packet {
     pub fn tag(&self) -> Tag {
         let len = self.value.len();
         Tag(&self.value[len - TAG_SIZE..len])
-    }
-
-    pub fn g_hash(
-        key: &[u8],
-        encrypted_data: &[u8],
-        additional_data: &[u8],
-    ) -> u128 {
-        todo!();
     }
 }
 
@@ -61,7 +52,7 @@ impl Into<Vec<u8>> for Packet {
 }
 
 /// a slice with a guaranteed length of `TAG_SIZE`
-struct Tag(pub &[u8]);
+pub struct Tag(&[u8]);
 
 impl TryFrom<&[u8]> for Tag {
     type Error = TryFromSliceError;
@@ -74,7 +65,7 @@ impl TryFrom<&[u8]> for Tag {
 }
 
 /// a slice with a guaranteed length of `NONCE_SIZE`
-struct Nonce(pub &[u8]);
+pub struct Nonce(&[u8]);
 
 impl TryFrom<&[u8]> for Nonce {
     type Error = TryFromSliceError;
