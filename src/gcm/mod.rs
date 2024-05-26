@@ -1,7 +1,5 @@
 pub mod packet;
 
-use std::array::TryFromSliceError;
-
 use self::packet::Packet;
 pub struct GcmCipher {
     key: [u8; 32],
@@ -20,10 +18,10 @@ impl GcmCipher {
 
     pub fn decrypt(&self, packet: Packet) -> Result<Vec<u8>, InvalidData> {
         match self.packet_is_valid(&packet) {
-            true => Ok(vec![
+            true => Ok([
                 packet.additional_data(),
-                xor_bit_stream(packet.nonce(), packet.data()),
-            ]),
+                self.xor_bit_stream(packet.nonce(), packet.data()).as_slice(),
+            ].concat()),
             false => Err(InvalidData),
         }
     }
@@ -33,7 +31,7 @@ impl GcmCipher {
         &self,
         encrypted_data: &[u8],
         additional_data: &[u8],
-    ) -> u128 {
+    ) -> packet::Tag {
         todo!();
     }
 

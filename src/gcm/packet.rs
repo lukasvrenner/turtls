@@ -1,5 +1,3 @@
-use std::array::TryFromSliceError;
-
 /// represents encryped GCM data
 pub struct Packet {
     value: Vec<u8>,
@@ -32,15 +30,16 @@ impl Packet {
     }
 }
 
-pub struct TooShort;
+pub struct TooShortError;
+pub struct TryFromSliceError;
 
 impl TryFrom<Vec<u8>> for Packet {
-    type Error = TooShort;
+    type Error = TooShortError;
 
     fn try_from(data: Vec<u8>) -> Result<Self, Self::Error> {
         match data.len() >= MIN_PACKET_SIZE {
             true => Ok(Packet { value: data }),
-            false => Err(TooShort),
+            false => Err(TooShortError),
         }
     }
 }
@@ -52,11 +51,12 @@ impl Into<Vec<u8>> for Packet {
 }
 
 /// a slice with a guaranteed length of `TAG_SIZE`
-pub struct Tag(&[u8]);
+#[derive(PartialEq)]
+pub struct Tag<'a>(&'a [u8]);
 
-impl TryFrom<&[u8]> for Tag {
+impl<'a> TryFrom<&'a [u8]> for Tag<'a> {
     type Error = TryFromSliceError;
-    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+    fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
         match value.len() == TAG_SIZE {
             true => Ok(Tag(value)),
             false => Err(TryFromSliceError),
@@ -65,14 +65,15 @@ impl TryFrom<&[u8]> for Tag {
 }
 
 /// a slice with a guaranteed length of `NONCE_SIZE`
-pub struct Nonce(&[u8]);
+#[derive(PartialEq)]
+pub struct Nonce<'a>(&'a [u8]);
 
-impl TryFrom<&[u8]> for Nonce {
+impl<'a> TryFrom<&'a [u8]> for Nonce<'a> {
     type Error = TryFromSliceError;
 
-    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+    fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
         match value.len() == NONCE_SIZE {
-            true => Ok(Tag(value)),
+            true => Ok(Nonce(value)),
             false => Err(TryFromSliceError),
         }
     }
