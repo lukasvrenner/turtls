@@ -182,7 +182,6 @@ fn key_expansion(key: [u8; 32]) -> [[u8; 16]; NUM_ROUNDS + 1] {
             bytes.clone_from_slice(&key[i].to_ne_bytes());
         }
     }
-    println!("{:?}", round_keys);
     round_keys
 }
 
