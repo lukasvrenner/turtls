@@ -296,8 +296,6 @@ fn x_times() {
 
 #[cfg(test)]
 mod tests {
-    use crate::mix_columns;
-
     use super::*;
 
     #[test]
