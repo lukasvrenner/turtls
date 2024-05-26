@@ -137,6 +137,7 @@ pub fn encrypt(input: &[u8], key: &[u8; 32]) -> Vec<u8> {
     let mut data = input.to_vec();
     data.push(0x80);
     data.resize(input.len() + padding_size, 0x00);
+    debug_assert_eq!(data.len() % 16, 0);
 
     let round_keys = key_expansion(*key);
 
@@ -151,7 +152,6 @@ pub fn encrypt(input: &[u8], key: &[u8; 32]) -> Vec<u8> {
         sub_bytes(state);
         shift_rows(state);
         add_round_key(state, round_keys[NUM_ROUNDS]);
-
     }
     data
 }
@@ -189,6 +189,7 @@ fn key_expansion(key: [u8; 32]) -> [[u8; 16]; NUM_ROUNDS + 1] {
 
 #[inline]
 fn add_round_key(state: &mut [u8], round_key: [u8; 16]) {
+    debug_assert_eq!(state.len(), 16);
     for i in 0..state.len() {
         state[i] ^= round_key[i];
     }
@@ -201,6 +202,7 @@ fn sub_bytes(state: &mut [u8]) {
 
 #[inline]
 fn shift_rows(state: &mut [u8]) {
+    debug_assert_eq!(state.len(), 16);
     let mut auxiliary = [0u8; 16];
     // swap rows and columns
     for col in 0..4 {
@@ -221,6 +223,7 @@ fn shift_rows(state: &mut [u8]) {
 
 #[inline]
 fn mix_columns(state: &mut [u8]) {
+    debug_assert_eq!(state.len(), 16);
     let mix_col_mat = [
         [0x01, 0x02, 0x00, 0x00],
         [0x00, 0x01, 0x02, 0x00],
