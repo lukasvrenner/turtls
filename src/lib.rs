@@ -131,6 +131,8 @@ const R_CON: [u32; 256] = [
 ];
 
 /// encrypts `input` with `key`, using AES-256 and ISO padding
+/// currently blocks are encrypted ECB-style.
+/// in the future, this must be changed to CBC or CTR
 pub fn encrypt(input: &[u8], key: &[u8; 32]) -> Vec<u8> {
     // add ISO padding
     let padding_size = 16 - input.len() % 16;
