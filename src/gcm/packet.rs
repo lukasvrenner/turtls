@@ -64,6 +64,12 @@ impl<'a> TryFrom<&'a [u8]> for Tag<'a> {
     }
 }
 
+impl<'a> Into<&'a [u8]> for Tag<'a> {
+    fn into(self) -> &'a [u8] {
+        self.0
+    }
+}
+
 /// a slice with a guaranteed length of `NONCE_SIZE`
 #[derive(PartialEq)]
 pub struct Nonce<'a>(&'a [u8]);
@@ -76,5 +82,11 @@ impl<'a> TryFrom<&'a [u8]> for Nonce<'a> {
             true => Ok(Nonce(value)),
             false => Err(TryFromSliceError),
         }
+    }
+}
+
+impl<'a> Into<&'a [u8]> for Nonce<'a> {
+    fn into(self) -> &'a [u8] {
+        self.0
     }
 }
