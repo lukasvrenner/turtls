@@ -31,7 +31,7 @@ impl GcmCipher {
         &self,
         encrypted_data: &[u8],
         additional_data: &[u8],
-    ) -> packet::Tag {
+    ) -> &[u8] {
         todo!();
     }
 
@@ -41,7 +41,8 @@ impl GcmCipher {
     }
 
     /// encrypts/decrypts the data
-    fn xor_bit_stream(&self, nonce: packet::Nonce, data: &[u8]) -> Vec<u8> {
+    fn xor_bit_stream(&self, nonce: &[u8], data: &[u8]) -> Vec<u8> {
+        assert_eq!(nonce.len(), packet::NONCE_SIZE);
         todo!();
     }
 }
