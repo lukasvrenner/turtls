@@ -44,24 +44,23 @@ impl GcmCipher {
 
     /// encrypts/decrypts the data
     fn xor_bit_stream(&self, nonce: &[u8; NONCE_SIZE], data: &mut [u8]) {
-        let mut expanded_nonce = [0u8; 16];
-        expanded_nonce[0..nonce.len()].copy_from_slice(nonce);
-        let nonce_as_int = u128::from_be_bytes(expanded_nonce);
+        let nonce_as_int = {
+            let mut expanded_nonce = [0u8; 16];
+            expanded_nonce[0..nonce.len()].copy_from_slice(nonce);
+            u128::from_be_bytes(expanded_nonce)
+        };
 
-        let mut bit_stream =
-            Vec::with_capacity(data.len() / aes::BLOCK_SIZE + 1);
-
-        for counter in 1..=data.len() / aes::BLOCK_SIZE + 1 {
-            let mut chunk = (nonce_as_int + counter as u128).to_be_bytes();
+        for counter in 0..data.len() / aes::BLOCK_SIZE {
+            let mut chunk = (nonce_as_int + 1 + counter as u128).to_be_bytes();
             aes::encrypt_inline(&mut chunk, &self.round_keys);
 
-            bit_stream.extend_from_slice(&chunk);
-        }
-
-        debug_assert_eq!(bit_stream.len(), bit_stream.capacity());
-
-        for (index, byte) in data.iter_mut().enumerate() {
-            *byte ^= bit_stream[index];
+            for (index, byte) in data
+                [aes::BLOCK_SIZE * counter..aes::BLOCK_SIZE * (counter + 1)]
+                .iter_mut()
+                .enumerate()
+            {
+                *byte ^= chunk[index];
+            }
         }
     }
 }
