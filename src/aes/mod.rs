@@ -133,20 +133,29 @@ const R_CON: [u32; 256] = [
 /// encrypts `input` with `key`, using AES-256 and ISO padding
 /// currently blocks are encrypted ECB-style.
 /// in the future, this must be changed to CBC or CTR
-pub fn encrypt(
-    state: &mut [u8; BLOCK_SIZE],
+pub fn encrypt_inline(
+    block: &mut [u8; BLOCK_SIZE],
     round_keys: &[[u8; BLOCK_SIZE]; NUM_ROUNDS + 1],
 ) {
-    add_round_key(state, round_keys[0]);
+    add_round_key(block, round_keys[0]);
     for round in round_keys.iter().take(NUM_ROUNDS).skip(1) {
-        sub_bytes(state);
-        shift_rows(state);
-        mix_columns(state);
-        add_round_key(state, *round);
+        sub_bytes(block);
+        shift_rows(block);
+        mix_columns(block);
+        add_round_key(block, *round);
     }
-    sub_bytes(state);
-    shift_rows(state);
-    add_round_key(state, round_keys[NUM_ROUNDS]);
+    sub_bytes(block);
+    shift_rows(block);
+    add_round_key(block, round_keys[NUM_ROUNDS]);
+}
+
+pub fn encrypt(
+    block: &[u8; BLOCK_SIZE],
+    round_keys: &[[u8; BLOCK_SIZE]; NUM_ROUNDS + 1],
+) -> [u8; BLOCK_SIZE] {
+    let mut buffer = *block;
+    encrypt_inline(&mut buffer, round_keys);
+    buffer
 }
 
 pub fn expand_key(key: [u8; 32]) -> [[u8; BLOCK_SIZE]; NUM_ROUNDS + 1] {
