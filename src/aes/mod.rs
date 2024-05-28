@@ -130,9 +130,6 @@ const R_CON: [u32; 256] = [
     0x74, 0xe8, 0xcb, 0x8d,
 ];
 
-/// encrypts `input` with `key`, using AES-256 and ISO padding
-/// currently blocks are encrypted ECB-style.
-/// in the future, this must be changed to CBC or CTR
 pub fn encrypt_inline(
     block: &mut [u8; BLOCK_SIZE],
     round_keys: &[[u8; BLOCK_SIZE]; NUM_ROUNDS + 1],
