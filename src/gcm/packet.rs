@@ -9,23 +9,18 @@ pub const TAG_SIZE: usize = 16;
 
 impl Packet {
     #[inline]
-    pub fn nonce(&self) -> &[u8] {
-        &self.value[0..NONCE_SIZE]
+    pub fn nonce(&self) -> &[u8; NONCE_SIZE] {
+        self.value[0..NONCE_SIZE].try_into().unwrap()
     }
 
     #[inline]
     pub fn data(&self) -> &[u8] {
-        todo!();
+        &self.value[NONCE_SIZE..self.value.len() - TAG_SIZE]
     }
 
     #[inline]
-    pub fn additional_data(&self) -> &[u8] {
-        todo!();
-    }
-
-    #[inline]
-    pub fn tag(&self) -> &[u8] {
+    pub fn tag(&self) -> &[u8; TAG_SIZE] {
         let len = self.value.len();
-        &self.value[len - TAG_SIZE..len]
+        self.value[len - TAG_SIZE..len].try_into().unwrap()
     }
 }

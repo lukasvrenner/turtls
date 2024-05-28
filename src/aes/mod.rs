@@ -133,8 +133,7 @@ const R_CON: [u32; 256] = [
 /// encrypts `input` with `key`, using AES-256 and ISO padding
 /// currently blocks are encrypted ECB-style.
 /// in the future, this must be changed to CBC or CTR
-pub fn encrypt(state: &mut [u8], key: &[u8; 32]) {
-    assert_eq!(state.len(), 16);
+pub fn encrypt(state: &mut [u8; BLOCK_SIZE], key: &[u8; 32]) {
     let round_keys = key_expansion(*key);
         add_round_key(state, round_keys[0]);
         for round in round_keys.iter().take(NUM_ROUNDS).skip(1) {
@@ -148,7 +147,7 @@ pub fn encrypt(state: &mut [u8], key: &[u8; 32]) {
         add_round_key(state, round_keys[NUM_ROUNDS]);
 }
 
-fn key_expansion(key: [u8; 32]) -> [[u8; 16]; NUM_ROUNDS + 1] {
+fn key_expansion(key: [u8; 32]) -> [[u8; BLOCK_SIZE]; NUM_ROUNDS + 1] {
     let key: [u32; 8] = {
         let mut new_key = [0u32; 8];
         for (index, bytes) in key.chunks_exact(4).enumerate() {
@@ -180,22 +179,19 @@ fn key_expansion(key: [u8; 32]) -> [[u8; 16]; NUM_ROUNDS + 1] {
 }
 
 #[inline]
-fn add_round_key(state: &mut [u8], round_key: [u8; 16]) {
-    debug_assert_eq!(state.len(), 16);
+fn add_round_key(state: &mut [u8; BLOCK_SIZE], round_key: [u8; BLOCK_SIZE]) {
     for i in 0..state.len() {
         state[i] ^= round_key[i];
     }
 }
 
 #[inline]
-fn sub_bytes(state: &mut [u8]) {
-    debug_assert_eq!(state.len(), 16);
+fn sub_bytes(state: &mut [u8; BLOCK_SIZE]) {
     state.iter_mut().for_each(|byte| *byte = s_box(*byte));
 }
 
 #[inline]
-fn shift_rows(state: &mut [u8]) {
-    debug_assert_eq!(state.len(), 16);
+fn shift_rows(state: &mut [u8; BLOCK_SIZE]) {
     let mut auxiliary = [0u8; 16];
     // swap rows and columns
     for col in 0..4 {
@@ -215,8 +211,7 @@ fn shift_rows(state: &mut [u8]) {
 }
 
 #[inline]
-fn mix_columns(state: &mut [u8]) {
-    debug_assert_eq!(state.len(), 16);
+fn mix_columns(state: &mut [u8; BLOCK_SIZE]) {
     let mix_col_mat = [
         [0x01, 0x02, 0x00, 0x00],
         [0x00, 0x01, 0x02, 0x00],
