@@ -17,18 +17,16 @@ impl GcmCipher {
         GcmCipher { round_keys, h }
     }
 
-    pub fn encrypt(&self, data: &[u8]) -> Packet {
+    pub fn encrypt(&self, data: &[u8], nonce: &[u8; NONCE_SIZE]) -> Packet {
         let mut packet_vec =
             Vec::with_capacity(NONCE_SIZE + data.len() + TAG_SIZE);
-
-        let nonce = self.generate_nonce();
 
         let mut encrypted_data = data.to_vec();
         self.xor_bit_stream(&nonce, &mut encrypted_data);
 
         let tag = self.g_hash(&encrypted_data);
 
-        packet_vec.extend_from_slice(&nonce);
+        packet_vec.extend_from_slice(nonce);
         packet_vec.extend_from_slice(&encrypted_data);
         packet_vec.extend_from_slice(&tag);
 
@@ -47,7 +45,7 @@ impl GcmCipher {
         }
     }
 
-    fn generate_nonce(&self) -> [u8; NONCE_SIZE] {
+    pub fn generate_nonce() -> [u8; NONCE_SIZE] {
         todo!();
     }
 
