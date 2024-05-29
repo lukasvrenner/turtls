@@ -156,7 +156,8 @@ pub fn encrypt(
 }
 
 pub fn expand_key(key: [u8; 32]) -> [[u8; BLOCK_SIZE]; NUM_ROUNDS + 1] {
-    // SAFETY: endianness doesn't matter so long as byte order is maintained
+    // endianness doesn't matter so long as byte order is maintained
+    // SAFETY: [u8; 32] and [u32; 8] are the same size
     let key: [u32; 8] = unsafe { std::mem::transmute(key) };
     let mut expanded_keys = [0u32; 4 * NUM_ROUNDS + 4];
 
@@ -170,7 +171,8 @@ pub fn expand_key(key: [u8; 32]) -> [[u8; BLOCK_SIZE]; NUM_ROUNDS + 1] {
         };
         expanded_keys[i] = expanded_keys[i - 8] ^ temp;
     }
-    // SAFETY: endianness doesn't matter so long as byte order is maintained
+    // endianness doesn't matter so long as byte order is maintained
+    // SAFETY: [u32; 60] and [[u8; 16]; 15] are the same size
     unsafe { std::mem::transmute(expanded_keys) }
 }
 
@@ -236,6 +238,7 @@ fn s_box(byte: u8) -> u8 {
 
 #[inline]
 fn sub_word(word: u32) -> u32 {
+    // endianness doesn't matter so long as byte order is maintained
     u32::from_ne_bytes(word.to_ne_bytes().map(s_box))
 }
 
