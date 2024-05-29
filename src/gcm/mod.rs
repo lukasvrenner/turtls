@@ -100,6 +100,5 @@ mod tests {
         let cipher = GcmCipher::new(key);
         cipher.xor_bit_stream(&initialization_vector, &mut plain_text);
         assert_eq!(plain_text, cipher_text);
-        
     }
 }

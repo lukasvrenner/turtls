@@ -135,11 +135,11 @@ pub fn encrypt_inline(
     round_keys: &[[u8; BLOCK_SIZE]; NUM_ROUNDS + 1],
 ) {
     add_round_key(block, round_keys[0]);
-    for round in round_keys.iter().take(NUM_ROUNDS).skip(1) {
+    for round_key in round_keys.iter().take(NUM_ROUNDS).skip(1) {
         sub_bytes(block);
         shift_rows(block);
         mix_columns(block);
-        add_round_key(block, *round);
+        add_round_key(block, *round_key);
     }
     sub_bytes(block);
     shift_rows(block);
