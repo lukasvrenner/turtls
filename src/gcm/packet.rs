@@ -45,3 +45,9 @@ impl TryFrom<Vec<u8>> for Packet {
         }
     }
 }
+
+impl Into<Vec<u8>> for Packet {
+    fn into(self) -> Vec<u8> {
+        self.value
+    }
+}
