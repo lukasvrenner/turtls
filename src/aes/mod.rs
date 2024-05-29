@@ -156,14 +156,8 @@ pub fn encrypt(
 }
 
 pub fn expand_key(key: [u8; 32]) -> [[u8; BLOCK_SIZE]; NUM_ROUNDS + 1] {
-    let key: [u32; 8] = {
-        let mut new_key = [0u32; 8];
-        for (index, bytes) in key.chunks_exact(4).enumerate() {
-            new_key[index] = u32::from_ne_bytes(bytes.try_into().unwrap());
-        }
-        new_key
-    };
-    // let key: [u32; 8] = unsafe { transmute(key) };
+    // SAFETY: endianness doesn't matter so long as byte order is maintained
+    let key: [u32; 8] = unsafe { std::mem::transmute(key) };
     let mut expanded_keys = [0u32; 4 * NUM_ROUNDS + 4];
 
     expanded_keys[0..key.len()].copy_from_slice(&key);
@@ -176,14 +170,8 @@ pub fn expand_key(key: [u8; 32]) -> [[u8; BLOCK_SIZE]; NUM_ROUNDS + 1] {
         };
         expanded_keys[i] = expanded_keys[i - 8] ^ temp;
     }
-    // unsafe { transmute(expanded_keys) }
-    let mut round_keys = [[0u8; 16]; NUM_ROUNDS + 1];
-    for (index, key) in expanded_keys.chunks_exact(4).enumerate() {
-        for (i, bytes) in round_keys[index].chunks_exact_mut(4).enumerate() {
-            bytes.clone_from_slice(&key[i].to_ne_bytes());
-        }
-    }
-    round_keys
+    // SAFETY: endianness doesn't matter so long as byte order is maintained
+    unsafe { std::mem::transmute(expanded_keys) }
 }
 
 #[inline]
