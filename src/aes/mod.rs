@@ -397,6 +397,13 @@ mod tests {
 
     #[test]
     fn cipher() {
-        todo!();
+        let key = [0u8; 32];
+        let mut plain_text: [u8; 16] = [0xff; 16];
+        let cipher_text: [u8; 16] = [
+            0xac, 0xda, 0xce, 0x80, 0x78, 0xa3, 0x2b, 0x1a, 0x18, 0x2b, 0xfa,
+            0x49, 0x87, 0xca, 0x13, 0x47,
+        ];
+        encrypt_inline(&mut plain_text, &expand_key(key));
+        assert_eq!(plain_text, cipher_text);
     }
 }
