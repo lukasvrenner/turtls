@@ -31,6 +31,7 @@ impl GcmCipher {
         packet_vec.extend_from_slice(&nonce);
         packet_vec.extend_from_slice(&encrypted_data);
         packet_vec.extend_from_slice(&tag);
+
         debug_assert_eq!(packet_vec.len(), packet_vec.capacity());
         packet_vec.try_into().unwrap()
     }
@@ -72,12 +73,12 @@ impl GcmCipher {
             let mut chunk = (nonce_as_int + 1 + counter as u128).to_be_bytes();
             aes::encrypt_inline(&mut chunk, &self.round_keys);
 
-            for (index, byte) in data
+            for (data_byte, stream_byte) in data
                 [aes::BLOCK_SIZE * counter..aes::BLOCK_SIZE * (counter + 1)]
                 .iter_mut()
-                .enumerate()
+                .zip(chunk)
             {
-                *byte ^= chunk[index];
+                *data_byte ^= stream_byte;
             }
         }
     }
