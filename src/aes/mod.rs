@@ -210,7 +210,7 @@ fn shift_rows(state: &mut [u8; BLOCK_SIZE]) {
 
 #[inline]
 fn mix_columns(state: &mut [u8; BLOCK_SIZE]) {
-    let mix_col_mat = [
+    let mult_matrix = [
         [0x01, 0x02, 0x00, 0x00],
         [0x00, 0x01, 0x02, 0x00],
         [0x00, 0x00, 0x01, 0x02],
@@ -218,15 +218,13 @@ fn mix_columns(state: &mut [u8; BLOCK_SIZE]) {
     ];
     for col in 0..4 {
         let mut col_word = [0u8; 4];
-        for i in 0..4 {
-            col_word[i] = state[i * 4 + col];
-        }
+        col_word.copy_from_slice(&state[col * 4..(col + 1) * 4]);
         for row in 0..4 {
-            let mut word = 0u8;
+            let mut byte = 0u8;
             for i in 0..4 {
-                word ^= MIX_SUB[mix_col_mat[row][i]][col_word[i] as usize];
+                byte ^= MIX_SUB[mult_matrix[row][i]][col_word[i] as usize];
             }
-            state[row * 4 + col] = word;
+            state[col * 4 + row] = byte;
         }
     }
 }
