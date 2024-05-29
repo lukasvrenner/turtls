@@ -18,7 +18,21 @@ impl GcmCipher {
     }
 
     pub fn encrypt(&self, data: &[u8]) -> Packet {
-        todo!();
+        let mut packet_vec =
+            Vec::with_capacity(NONCE_SIZE + data.len() + TAG_SIZE);
+
+        let nonce = self.generate_nonce();
+
+        let mut encrypted_data = data.to_vec();
+        self.xor_bit_stream(&nonce, &mut encrypted_data);
+
+        let tag = self.g_hash(&encrypted_data);
+
+        packet_vec.extend_from_slice(&nonce);
+        packet_vec.extend_from_slice(&encrypted_data);
+        packet_vec.extend_from_slice(&tag);
+        debug_assert_eq!(packet_vec.len(), packet_vec.capacity());
+        packet_vec.try_into().unwrap()
     }
 
     pub fn decrypt(&self, packet: Packet) -> Result<Vec<u8>, InvalidData> {
@@ -32,14 +46,18 @@ impl GcmCipher {
         }
     }
 
+    fn generate_nonce(&self) -> [u8; NONCE_SIZE] {
+        todo!();
+    }
+
     /// produces a tag for given data
-    pub fn g_hash(&self, encrypted_data: &[u8]) -> &[u8; TAG_SIZE] {
+    pub fn g_hash(&self, encrypted_data: &[u8]) -> [u8; TAG_SIZE] {
         todo!();
     }
 
     /// verifies that a give packet has not been tampered with
     pub fn packet_is_valid(&self, packet: &Packet) -> bool {
-        self.g_hash(packet.data()) == packet.tag()
+        self.g_hash(packet.data()) == *packet.tag()
     }
 
     /// encrypts/decrypts the data
