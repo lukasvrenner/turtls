@@ -83,3 +83,23 @@ impl GcmCipher {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ctr_mode() {
+        let key = [0u8; 32];
+        let mut plain_text = [0u8; 16];
+        let initialization_vector = [0u8; NONCE_SIZE];
+        let cipher_text: [u8; 16] = [
+            0xce, 0xa7, 0x40, 0x3d, 0x4d, 0x60, 0x6b, 0x6e, 0x07, 0x4e, 0xc5,
+            0xd3, 0xba, 0xf3, 0x9d, 0x18,
+        ];
+        let cipher = GcmCipher::new(key);
+        cipher.xor_bit_stream(&initialization_vector, &mut plain_text);
+        assert_eq!(plain_text, cipher_text);
+        
+    }
+}
