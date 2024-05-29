@@ -216,15 +216,16 @@ fn mix_columns(state: &mut [u8; BLOCK_SIZE]) {
         [0x00, 0x00, 0x01, 0x02],
         [0x02, 0x00, 0x00, 0x01],
     ];
-    for col in 0..4 {
-        let mut col_word = [0u8; 4];
-        col_word.copy_from_slice(&state[col * 4..(col + 1) * 4]);
+    for col in state.chunks_exact_mut(4) {
+        let mut column = [0u8; 4];
+        column.copy_from_slice(col);
+
         for row in 0..4 {
             let mut byte = 0u8;
             for i in 0..4 {
-                byte ^= MIX_SUB[mult_matrix[row][i]][col_word[i] as usize];
+                byte ^= MIX_SUB[mult_matrix[row][i]][column[i] as usize];
             }
-            state[col * 4 + row] = byte;
+            col[row] = byte;
         }
     }
 }
