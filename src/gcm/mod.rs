@@ -22,7 +22,7 @@ impl GcmCipher {
             Vec::with_capacity(NONCE_SIZE + data.len() + TAG_SIZE);
 
         let mut encrypted_data = data.to_vec();
-        self.xor_bit_stream(nonce, &mut encrypted_data);
+        self.xor_bit_stream(&mut encrypted_data, nonce);
 
         let tag = self.g_hash(&encrypted_data);
 
@@ -38,7 +38,7 @@ impl GcmCipher {
         match self.packet_is_valid(&packet) {
             true => {
                 let mut data = packet.data().to_vec();
-                self.xor_bit_stream(packet.nonce(), &mut data);
+                self.xor_bit_stream(&mut data, packet.nonce());
                 Ok(data)
             }
             false => Err(InvalidData),
@@ -60,7 +60,8 @@ impl GcmCipher {
     }
 
     /// encrypts/decrypts the data
-    fn xor_bit_stream(&self, nonce: &[u8; NONCE_SIZE], data: &mut [u8]) {
+    // use multi-threading in the future
+    fn xor_bit_stream(&self,  data: &mut [u8], nonce: &[u8; NONCE_SIZE]) {
         let nonce_as_int = {
             let mut expanded_nonce = [0u8; 16];
             expanded_nonce[0..nonce.len()].copy_from_slice(nonce);
@@ -96,7 +97,7 @@ mod tests {
             0xd3, 0xba, 0xf3, 0x9d, 0x18,
         ];
         let cipher = super::GcmCipher::new(key);
-        cipher.xor_bit_stream(&initialization_vector, &mut plain_text);
+        cipher.xor_bit_stream(&mut plain_text, &initialization_vector);
         assert_eq!(plain_text, cipher_text);
     }
 }
