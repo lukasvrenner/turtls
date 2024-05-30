@@ -22,7 +22,7 @@ impl GcmCipher {
             Vec::with_capacity(NONCE_SIZE + data.len() + TAG_SIZE);
 
         let mut encrypted_data = data.to_vec();
-        self.xor_bit_stream(&nonce, &mut encrypted_data);
+        self.xor_bit_stream(nonce, &mut encrypted_data);
 
         let tag = self.g_hash(&encrypted_data);
 
@@ -84,7 +84,7 @@ impl GcmCipher {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::NONCE_SIZE;
 
     #[test]
     fn ctr_mode() {
@@ -95,7 +95,7 @@ mod tests {
             0xce, 0xa7, 0x40, 0x3d, 0x4d, 0x60, 0x6b, 0x6e, 0x07, 0x4e, 0xc5,
             0xd3, 0xba, 0xf3, 0x9d, 0x18,
         ];
-        let cipher = GcmCipher::new(key);
+        let cipher = super::GcmCipher::new(key);
         cipher.xor_bit_stream(&initialization_vector, &mut plain_text);
         assert_eq!(plain_text, cipher_text);
     }
