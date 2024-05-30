@@ -68,14 +68,13 @@ impl GcmCipher {
             u128::from_be_bytes(expanded_nonce)
         };
 
-        for counter in 0..data.len() / aes::BLOCK_SIZE {
-            let mut chunk = (nonce_as_int + 1 + counter as u128).to_be_bytes();
-            aes::encrypt_inline(&mut chunk, &self.round_keys);
+        for (counter, block) in data.chunks_mut(aes::BLOCK_SIZE).enumerate() {
+            let mut stream = (nonce_as_int + 1 + counter as u128).to_be_bytes();
+            aes::encrypt_inline(&mut stream, &self.round_keys);
 
-            for (data_byte, stream_byte) in data
-                [aes::BLOCK_SIZE * counter..aes::BLOCK_SIZE * (counter + 1)]
+            for (data_byte, stream_byte) in block
                 .iter_mut()
-                .zip(chunk)
+                .zip(stream)
             {
                 *data_byte ^= stream_byte;
             }
