@@ -1,3 +1,4 @@
+An implementation of GCM AES-256, written in Rust
 ## License
 Copyright 2024 Lukas Renner
 
