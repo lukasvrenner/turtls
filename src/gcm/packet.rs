@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
 /// represents encryped GCM data
+/// `value.len()` is guaranteed to be at least `MIN_PACKET_SIZE`
 pub struct Packet {
     value: Vec<u8>,
 }
