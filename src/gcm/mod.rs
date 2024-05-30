@@ -71,7 +71,6 @@ impl GcmCipher {
         for (counter, block) in data.chunks_mut(aes::BLOCK_SIZE).enumerate() {
             let mut stream = (iv_as_int + 2 + counter as u128).to_be_bytes();
             aes::encrypt_inline(&mut stream, &self.round_keys);
-            println!("{:?}", stream);
 
             for (data_byte, stream_byte) in block.iter_mut().zip(stream) {
                 *data_byte ^= stream_byte;
