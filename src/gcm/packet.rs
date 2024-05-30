@@ -6,18 +6,18 @@ pub struct Packet {
 }
 
 pub const MIN_PACKET_SIZE: usize = 28;
-pub const NONCE_SIZE: usize = 12;
+pub const IV_SIZE: usize = 12;
 pub const TAG_SIZE: usize = 16;
 
 impl Packet {
     #[inline]
-    pub fn nonce(&self) -> &[u8; NONCE_SIZE] {
-        self.value[0..NONCE_SIZE].try_into().unwrap()
+    pub fn init_vector(&self) -> &[u8; IV_SIZE] {
+        self.value[0..IV_SIZE].try_into().unwrap()
     }
 
     #[inline]
     pub fn data(&self) -> &[u8] {
-        &self.value[NONCE_SIZE..self.value.len() - TAG_SIZE]
+        &self.value[IV_SIZE..self.value.len() - TAG_SIZE]
     }
 
     #[inline]
