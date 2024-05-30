@@ -178,14 +178,16 @@ pub fn expand_key(key: [u8; 32]) -> [[u8; BLOCK_SIZE]; NUM_ROUNDS + 1] {
 
 #[inline]
 fn add_round_key(state: &mut [u8; BLOCK_SIZE], round_key: [u8; BLOCK_SIZE]) {
-    for i in 0..state.len() {
-        state[i] ^= round_key[i];
+    for (state_byte, key_byte) in state.iter_mut().zip(round_key) {
+        *state_byte ^= key_byte;
     }
 }
 
 #[inline]
 fn sub_bytes(state: &mut [u8; BLOCK_SIZE]) {
-    state.iter_mut().for_each(|byte| *byte = s_box(*byte));
+    for byte in state {
+        *byte = s_box(*byte);
+    }
 }
 
 #[inline]
