@@ -18,20 +18,20 @@ impl GcmCipher {
     }
 
     pub fn encrypt(&self, data: &[u8], init_vector: &[u8; IV_SIZE]) -> Packet {
-        let mut packet_vec =
-            Vec::with_capacity(IV_SIZE + data.len() + TAG_SIZE);
+        let mut packet = Vec::with_capacity(IV_SIZE + data.len() + TAG_SIZE);
 
-        let mut encrypted_data = data.to_vec();
-        self.xor_bit_stream(&mut encrypted_data, init_vector);
+        packet.extend_from_slice(init_vector);
 
-        let tag = self.g_hash(&encrypted_data);
+        packet.extend_from_slice(data);
+        let len = packet.len();
+        self.xor_bit_stream(&mut packet[IV_SIZE..len], init_vector);
 
-        packet_vec.extend_from_slice(init_vector);
-        packet_vec.extend_from_slice(&encrypted_data);
-        packet_vec.extend_from_slice(&tag);
+        let tag = self.g_hash(&packet[IV_SIZE..packet.len()]);
 
-        debug_assert_eq!(packet_vec.len(), packet_vec.capacity());
-        packet_vec.try_into().unwrap()
+        packet.extend_from_slice(&tag);
+
+        debug_assert_eq!(packet.len(), packet.capacity());
+        packet.try_into().unwrap()
     }
 
     pub fn decrypt(&self, packet: Packet) -> Result<Vec<u8>, InvalidData> {
