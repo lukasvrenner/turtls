@@ -59,18 +59,20 @@ impl GcmCipher {
     pub fn g_hash(&self, encrypted_data: &[u8]) -> [u8; TAG_SIZE] {
         let mut tag = 0u128;
         for chunk in encrypted_data.chunks(aes::BLOCK_SIZE) {
-            tag ^= match TryInto::<[u8; aes::BLOCK_SIZE]>::try_into(chunk) {
-                Ok(array) => u128::from_be_bytes(array),
-                Err(_) => {
-                    let mut expanded = [0u8; aes::BLOCK_SIZE];
-                    expanded[..chunk.len()].copy_from_slice(chunk);
-                    u128::from_be_bytes(expanded)
-                }
-            };
-            tag = gf2to128_mult(tag, self.h);
+            tag ^= u128::from_be_bytes(
+                match TryInto::<[u8; aes::BLOCK_SIZE]>::try_into(chunk) {
+                    Ok(array) => array,
+                    Err(_) => {
+                        let mut expanded = [0u8; aes::BLOCK_SIZE];
+                        expanded[..chunk.len()].copy_from_slice(chunk);
+                        expanded
+                    }
+                },
+            );
+            tag = gf_2to128_mult(tag, self.h);
         }
         tag ^= encrypted_data.len() as u128;
-        tag = gf2to128_mult(tag, self.h);
+        tag = gf_2to128_mult(tag, self.h);
         tag.to_be_bytes()
     }
 
@@ -99,7 +101,7 @@ impl GcmCipher {
     }
 }
 
-fn gf2to128_mult(a: u128, b: u128) -> u128 {
+fn gf_2to128_mult(a: u128, b: u128) -> u128 {
     let mut product = 0;
     let mut temp = a;
     for i in (0..128).rev() {
@@ -179,6 +181,6 @@ mod tests {
         let a = 0x66e94bd4ef8a2c3b884cfa59ca342b2e;
         let b = 0x0388dace60b6a392f328c2b971b2fe78;
         let product = 0x5e2ec746917062882c85b0685353deb7;
-        assert_eq!(super::gf2to128_mult(a, b), product);
+        assert_eq!(super::gf_2to128_mult(a, b), product);
     }
 }
