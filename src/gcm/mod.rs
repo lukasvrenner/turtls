@@ -102,11 +102,11 @@ impl GcmCipher {
 fn gf2to128_mult(a: u128, b: u128) -> u128 {
     let mut product = 0;
     let mut temp = a;
-    for i in 0..128 {
+    for i in (0..128).rev() {
         if b & (1 << i) == 1 << i {
             product ^= temp;
         }
-        if temp & 1 << 127 == 0 {
+        if temp & 1 == 0 {
             temp >>= 1;
         } else {
             temp = (temp >> 1) ^ R;
@@ -150,6 +150,7 @@ mod tests {
         assert_eq!(plain_text, cipher_text);
     }
 
+    #[test]
     fn g_hash() {
         let key = [
             0xfe, 0xff, 0xe9, 0x92, 0x86, 0x65, 0x73, 0x1c, 0x6d, 0x6a, 0x8f,
@@ -171,5 +172,13 @@ mod tests {
             0x22, 0x70, 0xe3, 0xcc, 0x6c,
         ];
         assert_eq!(tag, cipher.g_hash(&cipher_text));
+    }
+
+    #[test]
+    fn mult() {
+        let a = 0x66e94bd4ef8a2c3b884cfa59ca342b2e;
+        let b = 0x0388dace60b6a392f328c2b971b2fe78;
+        let product = 0x5e2ec746917062882c85b0685353deb7;
+        assert_eq!(super::gf2to128_mult(a, b), product);
     }
 }
