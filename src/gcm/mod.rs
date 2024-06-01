@@ -7,6 +7,8 @@ pub struct GcmCipher {
     h: [u8; aes::BLOCK_SIZE],
 }
 
+const R: u128 = 0xe1000000000000000000000000000000;
+
 pub struct InvalidData;
 
 impl GcmCipher {
@@ -83,16 +85,16 @@ fn gf2to128_mult(a: u128, b: u128) -> u128 {
     let mut product = 0;
     let mut temp = a;
     for i in 0..128 {
-        if b & (1 << i) == 1 {
+        if b & (1 << i) == 1 << i {
             product ^= temp;
         }
-        if temp & 0x80000000000000000000000000000000u128 == 0 {
+        if temp & 1 << 127 == 0 {
             temp >>= 1;
         } else {
-            temp = (temp >> 1) ^ 0xe1000000000000000000000000000000u128;
+            temp = (temp >> 1) ^ R;
         }
     }
-    return product;
+    product
 }
 
 #[cfg(test)]
