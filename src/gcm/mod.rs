@@ -7,7 +7,7 @@ pub struct GcmCipher {
     h: [u8; aes::BLOCK_SIZE],
 }
 
-const R: u128 = 0xe1000000000000000000000000000000;
+const R: u128 = 0xe1 << 120;
 
 pub struct InvalidData;
 
