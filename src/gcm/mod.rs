@@ -1,10 +1,11 @@
 pub mod packet;
+
 use crate::aes;
 
 use self::packet::{Packet, IV_SIZE, TAG_SIZE};
 pub struct GcmCipher {
     round_keys: [[u8; aes::BLOCK_SIZE]; aes::NUM_ROUNDS + 1],
-    h: [u8; aes::BLOCK_SIZE],
+    h: u128,
 }
 
 const R: u128 = 0xe1 << 120;
@@ -16,7 +17,10 @@ impl GcmCipher {
         let mut h = [0u8; aes::BLOCK_SIZE];
         let round_keys = aes::expand_key(key);
         aes::encrypt_inline(&mut h, &round_keys);
-        GcmCipher { round_keys, h }
+        GcmCipher {
+            round_keys,
+            h: u128::from_be_bytes(h),
+        }
     }
 
     pub fn encrypt(&self, data: &[u8], init_vector: &[u8; IV_SIZE]) -> Packet {
@@ -53,7 +57,21 @@ impl GcmCipher {
 
     /// produces a tag for given data
     pub fn g_hash(&self, encrypted_data: &[u8]) -> [u8; TAG_SIZE] {
-        todo!();
+        let mut tag = 0u128;
+        for chunk in encrypted_data.chunks(aes::BLOCK_SIZE) {
+            tag ^= match TryInto::<[u8; aes::BLOCK_SIZE]>::try_into(chunk) {
+                Ok(array) => u128::from_be_bytes(array),
+                Err(_) => {
+                    let mut expanded = [0u8; aes::BLOCK_SIZE];
+                    expanded[..chunk.len()].copy_from_slice(chunk);
+                    u128::from_be_bytes(expanded)
+                }
+            };
+            tag *= self.h;
+        }
+        tag ^= encrypted_data.len() as u128;
+        tag *= self.h;
+        tag.to_be_bytes()
     }
 
     /// verifies that a give packet has not been tampered with
@@ -130,5 +148,28 @@ mod tests {
         let cipher = super::GcmCipher::new(key);
         cipher.xor_bit_stream(&mut plain_text, &initialization_vector);
         assert_eq!(plain_text, cipher_text);
+    }
+
+    fn g_hash() {
+        let key = [
+            0xfe, 0xff, 0xe9, 0x92, 0x86, 0x65, 0x73, 0x1c, 0x6d, 0x6a, 0x8f,
+            0x94, 0x67, 0x30, 0x83, 0x08, 0xfe, 0xff, 0xe9, 0x92, 0x86, 0x65,
+            0x73, 0x1c, 0x6d, 0x6a, 0x8f, 0x94, 0x67, 0x30, 0x83, 0x08,
+        ];
+        let cipher = super::GcmCipher::new(key);
+
+        let cipher_text = [
+            0x52, 0x2d, 0xc1, 0xf0, 0x99, 0x56, 0x7d, 0x07, 0xf4, 0x7f, 0x37,
+            0xa3, 0x2a, 0x84, 0x42, 0x7d, 0x64, 0x3a, 0x8c, 0xdc, 0xbf, 0xe5,
+            0xc0, 0xc9, 0x75, 0x98, 0xa2, 0xbd, 0x25, 0x55, 0xd1, 0xaa, 0x8c,
+            0xb0, 0x8e, 0x48, 0x59, 0x0d, 0xbb, 0x3d, 0xa7, 0xb0, 0x8b, 0x10,
+            0x56, 0x82, 0x88, 0x38, 0xc5, 0xf6, 0x1e, 0x63, 0x93, 0xba, 0x7a,
+            0x0a, 0xbc, 0xc9, 0xf6, 0x62, 0x89, 0x80, 0x15, 0xad,
+        ];
+        let tag = [
+            0xb0, 0x94, 0xda, 0xc5, 0xd9, 0x34, 0x71, 0xbd, 0xec, 0x1a, 0x50,
+            0x22, 0x70, 0xe3, 0xcc, 0x6c,
+        ];
+        assert_eq!(tag, cipher.g_hash(&cipher_text));
     }
 }
