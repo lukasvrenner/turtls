@@ -67,10 +67,10 @@ impl GcmCipher {
                     u128::from_be_bytes(expanded)
                 }
             };
-            tag *= self.h;
+            tag = gf2to128_mult(tag, self.h);
         }
         tag ^= encrypted_data.len() as u128;
-        tag *= self.h;
+        tag = gf2to128_mult(tag, self.h);
         tag.to_be_bytes()
     }
 
