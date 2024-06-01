@@ -192,20 +192,13 @@ fn sub_bytes(state: &mut [u8; BLOCK_SIZE]) {
 
 #[inline]
 fn shift_rows(state: &mut [u8; BLOCK_SIZE]) {
-    let mut auxiliary = [0u8; 16];
-    // swap rows and columns
-    for col in 0..4 {
-        for row in 0..4 {
-            auxiliary[col * 4 + row] = state[row * 4 + col]
+    let mut auxiliary = [0u8; 4];
+    for row in 0..4 {
+        for col in 0..4 {
+            auxiliary[col] = state[col * 4 + row];
         }
-    }
-    for (index, col) in auxiliary.chunks_exact_mut(4).enumerate() {
-        col.rotate_left(index);
-    }
-    // swap rows and columns
-    for col in 0..4 {
-        for row in 0..4 {
-            state[col * 4 + row] = auxiliary[row * 4 + col]
+        for col in 0..4 {
+            state[col * 4 + row] = auxiliary[(row + col) % 4];
         }
     }
 }
