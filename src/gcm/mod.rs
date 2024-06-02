@@ -7,7 +7,14 @@ pub struct GcmCipher {
 }
 pub const IV_SIZE: usize = 12;
 
+#[derive(Debug)]
 pub struct InvalidData;
+
+impl std::fmt::Display for InvalidData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "tag did not match data")
+    }
+}
 
 impl GcmCipher {
     pub fn new(key: [u8; 32]) -> GcmCipher {
@@ -22,7 +29,7 @@ impl GcmCipher {
 
     pub fn encrypt_inline(
         &self,
-        data: &mut [u8],
+        plain_text: &mut [u8],
         add_data: &[u8],
         init_vector: &[u8; IV_SIZE],
     ) -> [u8; aes::BLOCK_SIZE] {
@@ -31,22 +38,27 @@ impl GcmCipher {
             counter[..init_vector.len()].copy_from_slice(init_vector);
             counter
         };
-        self.xor_bit_stream(data, &counter);
+        self.xor_bit_stream(plain_text, &counter);
 
-        self.g_hash(data, add_data, &counter)
+        self.g_hash(plain_text, add_data, &counter)
     }
 
     pub fn decrypt_inline(
         &self,
-        data: &mut [u8],
+        cipher_text: &mut [u8],
         add_data: &[u8],
-        counter: &[u8; aes::BLOCK_SIZE],
+        init_vector: &[u8; IV_SIZE],
         tag: &[u8; aes::BLOCK_SIZE],
     ) -> Result<(), InvalidData> {
-        self.xor_bit_stream(data, counter);
-        if self.g_hash(data, add_data, &counter) != *tag {
+        let counter = {
+            let mut counter = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
+            counter[..init_vector.len()].copy_from_slice(init_vector);
+            counter
+        };
+        if self.g_hash(cipher_text, add_data, &counter) != *tag {
             return Err(InvalidData);
         }
+        self.xor_bit_stream(cipher_text, &counter);
         Ok(())
     }
 
@@ -57,7 +69,7 @@ impl GcmCipher {
     /// produces a tag for given data
     pub fn g_hash(
         &self,
-        data: &[u8],
+        cipher_text: &[u8],
         add_data: &[u8],
         counter: &[u8; aes::BLOCK_SIZE],
     ) -> [u8; aes::BLOCK_SIZE] {
@@ -77,20 +89,20 @@ impl GcmCipher {
 
         add_block(&mut tag, last_block, self.h);
 
-        for block in data.chunks_exact(aes::BLOCK_SIZE) {
+        for block in cipher_text.chunks_exact(aes::BLOCK_SIZE) {
             add_block(&mut tag, block.try_into().unwrap(), self.h);
         }
 
         let last_block = {
-            let end = data.len() % aes::BLOCK_SIZE;
+            let end = cipher_text.len() % aes::BLOCK_SIZE;
             let mut last_block = [0u8; aes::BLOCK_SIZE];
-            last_block[..end].copy_from_slice(&data[data.len() - end..]);
+            last_block[..end].copy_from_slice(&cipher_text[cipher_text.len() - end..]);
             last_block
         };
 
         add_block(&mut tag, last_block, self.h);
 
-        tag ^= ((add_data.len() as u128 * 8) << 64) + data.len() as u128 * 8;
+        tag ^= ((add_data.len() as u128 * 8) << 64) + cipher_text.len() as u128 * 8;
         tag = gf_2to128_mult(tag, self.h);
 
         let encrypted_iv =
@@ -262,6 +274,51 @@ mod tests {
             tag,
             cipher.encrypt_inline(&mut plain_text, &add_data, &init_vector)
         );
+        assert_eq!(plain_text, cipher_text);
+    }
+
+    #[test]
+    fn decrypt() {
+        let key = [
+            0xfe, 0xff, 0xe9, 0x92, 0x86, 0x65, 0x73, 0x1c, 0x6d, 0x6a, 0x8f,
+            0x94, 0x67, 0x30, 0x83, 0x08, 0xfe, 0xff, 0xe9, 0x92, 0x86, 0x65,
+            0x73, 0x1c, 0x6d, 0x6a, 0x8f, 0x94, 0x67, 0x30, 0x83, 0x08,
+        ];
+        let cipher = super::GcmCipher::new(key);
+
+        let init_vector = [
+            0xca, 0xfe, 0xba, 0xbe, 0xfa, 0xce, 0xdb, 0xad, 0xde, 0xca, 0xf8,
+            0x88,
+        ];
+
+        let plain_text = [
+            0xd9, 0x31, 0x32, 0x25, 0xf8, 0x84, 0x06, 0xe5, 0xa5, 0x59, 0x09,
+            0xc5, 0xaf, 0xf5, 0x26, 0x9a, 0x86, 0xa7, 0xa9, 0x53, 0x15, 0x34,
+            0xf7, 0xda, 0x2e, 0x4c, 0x30, 0x3d, 0x8a, 0x31, 0x8a, 0x72, 0x1c,
+            0x3c, 0x0c, 0x95, 0x95, 0x68, 0x09, 0x53, 0x2f, 0xcf, 0x0e, 0x24,
+            0x49, 0xa6, 0xb5, 0x25, 0xb1, 0x6a, 0xed, 0xf5, 0xaa, 0x0d, 0xe6,
+            0x57, 0xba, 0x63, 0x7b, 0x39,
+        ];
+        let tag = [
+            0x76, 0xfc, 0x6e, 0xce, 0x0f, 0x4e, 0x17, 0x68, 0xcd, 0xdf, 0x88,
+            0x53, 0xbb, 0x2d, 0x55, 0x1b,
+        ];
+
+        let add_data = [
+            0xfe, 0xed, 0xfa, 0xce, 0xde, 0xad, 0xbe, 0xef, 0xfe, 0xed, 0xfa,
+            0xce, 0xde, 0xad, 0xbe, 0xef, 0xab, 0xad, 0xda, 0xd2,
+        ];
+        let mut cipher_text = [
+            0x52, 0x2d, 0xc1, 0xf0, 0x99, 0x56, 0x7d, 0x07, 0xf4, 0x7f, 0x37,
+            0xa3, 0x2a, 0x84, 0x42, 0x7d, 0x64, 0x3a, 0x8c, 0xdc, 0xbf, 0xe5,
+            0xc0, 0xc9, 0x75, 0x98, 0xa2, 0xbd, 0x25, 0x55, 0xd1, 0xaa, 0x8c,
+            0xb0, 0x8e, 0x48, 0x59, 0x0d, 0xbb, 0x3d, 0xa7, 0xb0, 0x8b, 0x10,
+            0x56, 0x82, 0x88, 0x38, 0xc5, 0xf6, 0x1e, 0x63, 0x93, 0xba, 0x7a,
+            0x0a, 0xbc, 0xc9, 0xf6, 0x62,
+        ];
+        cipher
+            .decrypt_inline(&mut cipher_text, &add_data, &init_vector, &tag)
+            .unwrap();
         assert_eq!(plain_text, cipher_text);
     }
 }
