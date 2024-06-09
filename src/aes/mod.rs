@@ -149,6 +149,7 @@ impl Aes128 {
 pub struct Aes256 {
     round_keys: [[u8; BLOCK_SIZE]; Self::NUM_ROUNDS + 1],
 }
+
 impl Aes256 {
     pub const NUM_ROUNDS: usize = 14;
     pub const KEY_SIZE: usize = 32;

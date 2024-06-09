@@ -12,12 +12,17 @@ impl std::fmt::Display for InvalidData {
     }
 }
 
+/// A semi-cipher-agnostic structure that allows for 
+/// authenticated encryption and decryption via GCM mode.
+/// While other ciphers are technically supported,
+/// it is usually only used with an AES cipher.
 pub struct Gcm<C: aes::AesCipher> {
     cipher: C,
     h: u128,
 }
 
 impl Gcm<aes::Aes128> {
+    /// create a new `Gcm` using AES-128 as the cipher
     pub fn new(key: [u8; aes::Aes128::KEY_SIZE]) -> Gcm<aes::Aes128> {
         let cipher = aes::Aes128::new(key);
         let mut h = [0u8; aes::BLOCK_SIZE];
@@ -31,6 +36,7 @@ impl Gcm<aes::Aes128> {
 }
 
 impl Gcm<aes::Aes192> {
+    /// create a new `Gcm` using AES-192 as the cipher
     pub fn new(key: [u8; aes::Aes192::KEY_SIZE]) -> Gcm<aes::Aes192> {
         let cipher = aes::Aes192::new(key);
         let mut h = [0u8; aes::BLOCK_SIZE];
@@ -44,6 +50,7 @@ impl Gcm<aes::Aes192> {
 }
 
 impl Gcm<aes::Aes256> {
+    /// create a new `Gcm` using AES-256 as the cipher
     pub fn new(key: [u8; aes::Aes256::KEY_SIZE]) -> Gcm<aes::Aes256> {
         let cipher = aes::Aes256::new(key);
         let mut h = [0u8; aes::BLOCK_SIZE];
@@ -57,6 +64,10 @@ impl Gcm<aes::Aes256> {
 }
 
 impl<C: aes::AesCipher> Gcm<C> {
+    /// encrypts `plain_text` inline, and generates an authentication tag
+    /// for `plain_text` and `add_data`
+    /// WARNING: for security purposes, 
+    /// users MUST NOT use the same `init_vector` twice for the same key
     pub fn encrypt_inline(
         &self,
         plain_text: &mut [u8],
