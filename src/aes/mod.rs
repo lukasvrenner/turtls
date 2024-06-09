@@ -219,7 +219,7 @@ macro_rules! impl_expand_key {
                 expanded_keys[0..key.len()].copy_from_slice(&key);
                 for i in Self::NUM_KEY_WORDS..expanded_keys.len() {
                     let mut temp = expanded_keys[i - 1];
-                    temp = match i % 8 {
+                    temp = match i % Self::NUM_KEY_WORDS {
                         0 => {
                             sub_word(rotate_word(temp))
                                 ^ R_CON[i / Self::NUM_KEY_WORDS]
@@ -534,8 +534,7 @@ mod tests {
             0xa2, 0xe0, 0x37, 0x07, 0x34,
         ];
         let key = [
-            0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0x2a, 0x6a, 0xbf, 0x71, 0x58,
-            0x80, 0x9c, 0xf4, 0xf3, 0xc,
+            0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c,
         ];
         let cipher_text = [
             0x39, 0x25, 0x84, 0x1d, 0x02, 0xdc, 0x09, 0xfb, 0xdc, 0x11, 0x85,
