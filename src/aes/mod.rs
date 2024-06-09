@@ -1,7 +1,13 @@
-//! AES-256
+//! A software implementation of AES, as specified by NIST
+//!
+//! 128, 192, and 256-bit keys are supported
+//!
+//! Decryption is not supported because
+//! we only ever use AES in counter mode, which only needs encryption
 pub const BLOCK_SIZE: usize = 16;
 pub const NUM_ROUNDS: usize = 14;
 
+/// a substitution table for the SBox transformation
 const S_BOX: [u8; 256] = [
     0x63, 0x7C, 0x77, 0x7B, 0xF2, 0x6B, 0x6F, 0xC5, 0x30, 0x01, 0x67, 0x2B,
     0xFE, 0xD7, 0xAB, 0x76, 0xCA, 0x82, 0xC9, 0x7D, 0xFA, 0x59, 0x47, 0xF0,
@@ -28,9 +34,12 @@ const S_BOX: [u8; 256] = [
 ];
 
 /// GF(2^8) multiplication table
-/// note: if multipling (a * b), use a - 1 as a
-/// only includes 3 because that's all that's ever used
-const MIX_SUB: [[u8; 256]; 3] = [
+///
+/// If multipling `a * b`, use `a - 1` as `a`
+///
+/// Most values, including `a = 1`
+/// are left out because only a small subset is ever used
+const MULT_GF_2_TO_8: [[u8; 256]; 3] = [
     [
         0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b,
         0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
@@ -105,6 +114,7 @@ const MIX_SUB: [[u8; 256]; 3] = [
     ],
 ];
 
+/// a lookup table used for key key expansion
 const R_CON: [u32; 256] = [
     0x8d, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36, 0x6c,
     0xd8, 0xab, 0x4d, 0x9a, 0x2f, 0x5e, 0xbc, 0x63, 0xc6, 0x97, 0x35, 0x6a,
@@ -130,6 +140,7 @@ const R_CON: [u32; 256] = [
     0x74, 0xe8, 0xcb, 0x8d,
 ];
 
+/// AES-128 encryption
 pub struct Aes128 {
     round_keys: [[u8; BLOCK_SIZE]; Self::NUM_ROUNDS + 1],
 }
@@ -146,22 +157,7 @@ impl Aes128 {
     }
 }
 
-pub struct Aes256 {
-    round_keys: [[u8; BLOCK_SIZE]; Self::NUM_ROUNDS + 1],
-}
-
-impl Aes256 {
-    pub const NUM_ROUNDS: usize = 14;
-    pub const KEY_SIZE: usize = 32;
-    pub const NUM_KEY_WORDS: usize = Self::KEY_SIZE / 4;
-
-    pub fn new(key: [u8; Self::KEY_SIZE]) -> Self {
-        Self {
-            round_keys: Self::expand_key(key),
-        }
-    }
-}
-
+/// AES-192 encryption
 pub struct Aes192 {
     round_keys: [[u8; BLOCK_SIZE]; Self::NUM_ROUNDS + 1],
 }
@@ -178,7 +174,26 @@ impl Aes192 {
     }
 }
 
+/// AES-256 encryption
+pub struct Aes256 {
+    round_keys: [[u8; BLOCK_SIZE]; Self::NUM_ROUNDS + 1],
+}
+
+impl Aes256 {
+    pub const NUM_ROUNDS: usize = 14;
+    pub const KEY_SIZE: usize = 32;
+    pub const NUM_KEY_WORDS: usize = Self::KEY_SIZE / 4;
+
+    pub fn new(key: [u8; Self::KEY_SIZE]) -> Self {
+        Self {
+            round_keys: Self::expand_key(key),
+        }
+    }
+}
+
+
 pub trait AesCipher {
+    /// Encrypts `block` inline with AES
     fn encrypt_inline(&self, block: &mut [u8; BLOCK_SIZE]);
 
     fn encrypt(&self, block: &[u8; BLOCK_SIZE]) -> [u8; BLOCK_SIZE] {
@@ -188,6 +203,8 @@ pub trait AesCipher {
     }
 }
 
+// we can't use a trait because the input and 
+// return types are dependant on the specific implementor
 macro_rules! impl_expand_key {
     ($cipher:ty) => {
         impl $cipher {
@@ -293,7 +310,7 @@ fn mix_columns(state: &mut [u8; BLOCK_SIZE]) {
         for row in 0..4 {
             let mut byte = 0u8;
             for i in 0..4 {
-                byte ^= MIX_SUB[mult_matrix[row][i]][column[i] as usize];
+                byte ^= MULT_GF_2_TO_8[mult_matrix[row][i]][column[i] as usize];
             }
             col[row] = byte;
         }

@@ -14,6 +14,7 @@ impl std::fmt::Display for InvalidData {
 
 /// A semi-cipher-agnostic structure that allows for 
 /// authenticated encryption and decryption via GCM mode.
+///
 /// While other ciphers are technically supported,
 /// it is usually only used with an AES cipher.
 pub struct Gcm<C: aes::AesCipher> {
@@ -64,10 +65,12 @@ impl Gcm<aes::Aes256> {
 }
 
 impl<C: aes::AesCipher> Gcm<C> {
-    /// encrypts `plain_text` inline, and generates an authentication tag
-    /// for `plain_text` and `add_data`
+    /// Encrypts `plain_text` inline, and generates an authentication tag
+    /// for `plain_text` and `add_data`.
+    ///
     /// WARNING: for security purposes, 
-    /// users MUST NOT use the same `init_vector` twice for the same key
+    ///
+    /// users MUST NOT use the same `init_vector` twice for the same key.
     pub fn encrypt_inline(
         &self,
         plain_text: &mut [u8],
@@ -84,6 +87,11 @@ impl<C: aes::AesCipher> Gcm<C> {
         self.g_hash(plain_text, add_data, &counter)
     }
 
+    /// Decrypts `cipher_text` inline.
+    ///
+    /// Returns `Err(InvalidData)` if `tag` does not match the generated tag.
+    ///
+    /// `cipher_text` will not be decrypted if an `Err` is returned.
     pub fn decrypt_inline(
         &self,
         cipher_text: &mut [u8],
@@ -103,6 +111,15 @@ impl<C: aes::AesCipher> Gcm<C> {
         Ok(())
     }
 
+    /// Encrypts or decrypts `data` in counter mode.
+    ///
+    /// Because XOR is its own inverse,
+    /// the same operation can be used for encryption and decryption
+    ///
+    /// This is a linear operation.
+    ///
+    /// This process can be parallel-ized,
+    /// but that has not been implemented yet.
     fn xor_bit_stream(&self, data: &mut [u8], counter: &[u8; aes::BLOCK_SIZE]) {
         let iv_as_int = u128::from_be_bytes(*counter);
 
@@ -116,7 +133,8 @@ impl<C: aes::AesCipher> Gcm<C> {
         }
     }
 
-    /// produces a tag for given data
+    /// produce an authentication tag for given data
+    /// this tag can be used to verify the authenticity of the data
     fn g_hash(
         &self,
         cipher_text: &[u8],
