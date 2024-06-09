@@ -208,7 +208,7 @@ macro_rules! impl_expand_key {
                             sub_word(rotate_word(temp))
                                 ^ R_CON[i / Self::NUM_KEY_WORDS]
                         }
-                        4 => sub_word(temp),
+                        4 if Self::NUM_KEY_WORDS > 6 => sub_word(temp),
                         _ => temp,
                     };
                     expanded_keys[i] =
