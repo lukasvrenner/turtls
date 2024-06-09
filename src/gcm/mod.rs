@@ -12,7 +12,7 @@ impl std::fmt::Display for InvalidData {
     }
 }
 
-/// A semi-cipher-agnostic structure that allows for 
+/// A semi-cipher-agnostic structure that allows for
 /// authenticated encryption and decryption via GCM mode.
 ///
 /// While other ciphers are technically supported,
@@ -68,7 +68,7 @@ impl<C: aes::AesCipher> Gcm<C> {
     /// Encrypts `plain_text` inline, and generates an authentication tag
     /// for `plain_text` and `add_data`.
     ///
-    /// WARNING: for security purposes, 
+    /// WARNING: for security purposes,
     ///
     /// users MUST NOT use the same `init_vector` twice for the same key.
     pub fn encrypt_inline(
@@ -180,7 +180,6 @@ impl<C: aes::AesCipher> Gcm<C> {
         tag ^= encrypted_iv;
         tag.to_be_bytes()
     }
-
 }
 
 fn gf_2to128_mult(a: u128, b: u128) -> u128 {
@@ -208,7 +207,6 @@ fn add_block(tag: &mut u128, block: [u8; aes::BLOCK_SIZE], h: u128) {
 #[cfg(test)]
 mod tests {
     use crate::aes;
-
 
     #[test]
     fn ctr_mode() {
