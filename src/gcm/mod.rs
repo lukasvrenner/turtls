@@ -1,4 +1,4 @@
-use crate::aes::{self, BLOCK_SIZE};
+use crate::aes::{self, AesCipher};
 
 const R: u128 = 0xe1 << 120;
 pub const IV_SIZE: usize = 12;
@@ -12,201 +12,147 @@ impl std::fmt::Display for InvalidData {
     }
 }
 
-pub struct Gcm128 {
-    round_keys: [[u8; aes::BLOCK_SIZE]; aes::Aes128::NUM_ROUNDS + 1],
+pub struct Gcm<C: aes::AesCipher> {
+    cipher: C,
     h: u128,
 }
 
-pub struct Gcm192 {
-    round_keys: [[u8; aes::BLOCK_SIZE]; aes::Aes192::NUM_ROUNDS + 1],
-    h: u128,
-}
-pub struct Gcm256 {
-    round_keys: [[u8; aes::BLOCK_SIZE]; aes::Aes256::NUM_ROUNDS + 1],
-    h: u128,
-}
+impl Gcm<aes::Aes128> {
+    pub fn new(key: [u8; aes::Aes128::KEY_SIZE]) -> Gcm<aes::Aes128> {
+        let cipher = aes::Aes128::new(key);
+        let mut h = [0u8; aes::BLOCK_SIZE];
+        cipher.encrypt_inline(&mut h);
 
-impl Gcm256 {
-    pub fn new(key: [u8; aes::Aes256::KEY_SIZE]) -> Gcm256 {
-        let mut h = [0u8; BLOCK_SIZE];
-        let round_keys = aes::Aes256::expand_key(key);
-        aes::Aes256::encrypt_inline(&mut h, &round_keys);
-        Gcm256 {
-            round_keys,
+        Gcm {
+            cipher,
             h: u128::from_be_bytes(h),
         }
     }
 }
 
-// macro_rules! impl_constructor {
-//     ($gcm_cipher:ty, $aes_cipher:ty) => {
-//         impl $gcm_cipher {
-//             pub fn new(key: [u8; <$aes_cipher>::KEY_SIZE]) -> $gcm_cipher {
-//                 let mut h = [0u8; aes::BLOCK_SIZE];
-//                 let round_keys = <$aes_cipher>::expand_key(key);
-//                 <$aes_cipher>::encrypt_inline(&mut h, &round_keys);
-//                 $gcm_cipher {
-//                     round_keys,
-//                     h: u128::from_be_bytes(h),
-//                 }
-//             }
-//         }
-//     };
-// }
-//
-// impl_constructor!(Gcm128, aes::Aes128);
-// impl_constructor!(Gcm192, aes::Aes192);
-// impl_constructor!(Gcm256, aes::Aes256);
+impl Gcm<aes::Aes192> {
+    pub fn new(key: [u8; aes::Aes192::KEY_SIZE]) -> Gcm<aes::Aes192> {
+        let cipher = aes::Aes192::new(key);
+        let mut h = [0u8; aes::BLOCK_SIZE];
+        cipher.encrypt_inline(&mut h);
 
-macro_rules! impl_xor_bit_stream {
-    ($gcm_cipher:ty, $aes_cipher:ty) => {
-        impl $gcm_cipher {
-            /// encrypts/decrypts the data
-            // use multi-threading in the future
-            fn xor_bit_stream(
-                &self,
-                data: &mut [u8],
-                counter: &[u8; aes::BLOCK_SIZE],
-            ) {
-                let iv_as_int = u128::from_be_bytes(*counter);
-
-                for (counter, block) in
-                    data.chunks_mut(aes::BLOCK_SIZE).enumerate()
-                {
-                    let mut stream =
-                        (iv_as_int + 1 + counter as u128).to_be_bytes();
-                    <$aes_cipher>::encrypt_inline(
-                        &mut stream,
-                        &self.round_keys,
-                    );
-
-                    for (data_byte, stream_byte) in block.iter_mut().zip(stream)
-                    { *data_byte ^= stream_byte;
-                    }
-                }
-            }
+        Gcm {
+            cipher,
+            h: u128::from_be_bytes(h),
         }
-    };
+    }
 }
 
-impl_xor_bit_stream!(Gcm128, aes::Aes128);
-impl_xor_bit_stream!(Gcm192, aes::Aes192);
-impl_xor_bit_stream!(Gcm256, aes::Aes256);
+impl Gcm<aes::Aes256> {
+    pub fn new(key: [u8; aes::Aes256::KEY_SIZE]) -> Gcm<aes::Aes256> {
+        let cipher = aes::Aes256::new(key);
+        let mut h = [0u8; aes::BLOCK_SIZE];
+        cipher.encrypt_inline(&mut h);
 
-macro_rules! impl_g_hash {
-    ($gcm_cipher:ty, $aes_cipher:ty) => {
-        impl $gcm_cipher {
-            /// produces a tag for given data
-            fn g_hash(
-                &self,
-                cipher_text: &[u8],
-                add_data: &[u8],
-                counter: &[u8; aes::BLOCK_SIZE],
-            ) -> [u8; aes::BLOCK_SIZE] {
-                let mut tag = 0u128;
-
-                for block in add_data.chunks_exact(aes::BLOCK_SIZE) {
-                    add_block(&mut tag, block.try_into().unwrap(), self.h);
-                }
-
-                let last_block = {
-                    let end = add_data.len() % aes::BLOCK_SIZE;
-                    let mut last_block = [0u8; aes::BLOCK_SIZE];
-                    last_block[..end]
-                        .copy_from_slice(&add_data[add_data.len() - end..]);
-                    last_block
-                };
-
-                add_block(&mut tag, last_block, self.h);
-
-                for block in cipher_text.chunks_exact(aes::BLOCK_SIZE) {
-                    add_block(&mut tag, block.try_into().unwrap(), self.h);
-                }
-
-                let last_block = {
-                    let end = cipher_text.len() % aes::BLOCK_SIZE;
-                    let mut last_block = [0u8; aes::BLOCK_SIZE];
-                    last_block[..end]
-                        .copy_from_slice(&cipher_text[cipher_text.len() - end..]);
-                    last_block
-                };
-
-                add_block(&mut tag, last_block, self.h);
-
-                tag ^= ((add_data.len() as u128 * 8) << 64)
-                    + cipher_text.len() as u128 * 8;
-                tag = gf_2to128_mult(tag, self.h);
-
-                let encrypted_iv =
-                    u128::from_be_bytes(<$aes_cipher>::encrypt(counter, &self.round_keys));
-
-                tag ^= encrypted_iv;
-                tag.to_be_bytes()
-            }
+        Gcm {
+            cipher,
+            h: u128::from_be_bytes(h),
         }
-    };
+    }
 }
 
-impl_g_hash!(Gcm128, aes::Aes128);
-impl_g_hash!(Gcm192, aes::Aes192);
-impl_g_hash!(Gcm256, aes::Aes256);
+impl<C: aes::AesCipher> Gcm<C> {
+    pub fn encrypt_inline(
+        &self,
+        plain_text: &mut [u8],
+        add_data: &[u8],
+        init_vector: &[u8; IV_SIZE],
+    ) -> [u8; aes::BLOCK_SIZE] {
+        let counter = {
+            let mut counter = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
+            counter[..init_vector.len()].copy_from_slice(init_vector);
+            counter
+        };
+        self.xor_bit_stream(plain_text, &counter);
 
-macro_rules! impl_encrypt_inline {
-    ($gcm_cipher:ty) => {
-        impl $gcm_cipher {
-            pub fn encrypt_inline(
-                &self,
-                plain_text: &mut [u8],
-                add_data: &[u8],
-                init_vector: &[u8; IV_SIZE],
-            ) -> [u8; aes::BLOCK_SIZE] {
-                let counter = {
-                    let mut counter = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
-                    counter[..init_vector.len()].copy_from_slice(init_vector);
-                    counter
-                };
-                self.xor_bit_stream(plain_text, &counter);
+        self.g_hash(plain_text, add_data, &counter)
+    }
 
-                self.g_hash(plain_text, add_data, &counter)
+    pub fn decrypt_inline(
+        &self,
+        cipher_text: &mut [u8],
+        add_data: &[u8],
+        init_vector: &[u8; IV_SIZE],
+        tag: &[u8; aes::BLOCK_SIZE],
+    ) -> Result<(), InvalidData> {
+        let counter = {
+            let mut counter = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
+            counter[..init_vector.len()].copy_from_slice(init_vector);
+            counter
+        };
+        if self.g_hash(cipher_text, add_data, &counter) != *tag {
+            return Err(InvalidData);
+        }
+        self.xor_bit_stream(cipher_text, &counter);
+        Ok(())
+    }
+
+    fn xor_bit_stream(&self, data: &mut [u8], counter: &[u8; aes::BLOCK_SIZE]) {
+        let iv_as_int = u128::from_be_bytes(*counter);
+
+        for (counter, block) in data.chunks_mut(aes::BLOCK_SIZE).enumerate() {
+            let mut stream = (iv_as_int + 1 + counter as u128).to_be_bytes();
+            self.cipher.encrypt_inline(&mut stream);
+
+            for (data_byte, stream_byte) in block.iter_mut().zip(stream) {
+                *data_byte ^= stream_byte;
             }
         }
-    };
-}
+    }
 
-impl_encrypt_inline!(Gcm128);
-impl_encrypt_inline!(Gcm192);
-impl_encrypt_inline!(Gcm256);
+    /// produces a tag for given data
+    fn g_hash(
+        &self,
+        cipher_text: &[u8],
+        add_data: &[u8],
+        counter: &[u8; aes::BLOCK_SIZE],
+    ) -> [u8; aes::BLOCK_SIZE] {
+        let mut tag = 0u128;
 
-macro_rules! impl_decrypt_inline {
-    ($gcm_cipher:ty) => {
-        impl $gcm_cipher {
-
-            pub fn decrypt_inline(
-                &self,
-                cipher_text: &mut [u8],
-                add_data: &[u8],
-                init_vector: &[u8; IV_SIZE],
-                tag: &[u8; aes::BLOCK_SIZE],
-            ) -> Result<(), InvalidData> {
-                let counter = {
-                    let mut counter = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
-                    counter[..init_vector.len()].copy_from_slice(init_vector);
-                    counter
-                };
-                if self.g_hash(cipher_text, add_data, &counter) != *tag {
-                    return Err(InvalidData);
-                }
-                self.xor_bit_stream(cipher_text, &counter);
-                Ok(())
-            }
+        for block in add_data.chunks_exact(aes::BLOCK_SIZE) {
+            add_block(&mut tag, block.try_into().unwrap(), self.h);
         }
 
-    };
-}
+        let last_block = {
+            let end = add_data.len() % aes::BLOCK_SIZE;
+            let mut last_block = [0u8; aes::BLOCK_SIZE];
+            last_block[..end]
+                .copy_from_slice(&add_data[add_data.len() - end..]);
+            last_block
+        };
 
-impl_decrypt_inline!(Gcm128);
-impl_decrypt_inline!(Gcm192);
-impl_decrypt_inline!(Gcm256);
+        add_block(&mut tag, last_block, self.h);
+
+        for block in cipher_text.chunks_exact(aes::BLOCK_SIZE) {
+            add_block(&mut tag, block.try_into().unwrap(), self.h);
+        }
+
+        let last_block = {
+            let end = cipher_text.len() % aes::BLOCK_SIZE;
+            let mut last_block = [0u8; aes::BLOCK_SIZE];
+            last_block[..end]
+                .copy_from_slice(&cipher_text[cipher_text.len() - end..]);
+            last_block
+        };
+
+        add_block(&mut tag, last_block, self.h);
+
+        tag ^= ((add_data.len() as u128 * 8) << 64)
+            + cipher_text.len() as u128 * 8;
+        tag = gf_2to128_mult(tag, self.h);
+
+        let encrypted_iv = u128::from_be_bytes(self.cipher.encrypt(counter));
+
+        tag ^= encrypted_iv;
+        tag.to_be_bytes()
+    }
+
+}
 
 fn gf_2to128_mult(a: u128, b: u128) -> u128 {
     let mut product = 0;
@@ -232,6 +178,8 @@ fn add_block(tag: &mut u128, block: [u8; aes::BLOCK_SIZE], h: u128) {
 
 #[cfg(test)]
 mod tests {
+    use crate::aes;
+
 
     #[test]
     fn ctr_mode() {
@@ -260,7 +208,7 @@ mod tests {
             0x56, 0x82, 0x88, 0x38, 0xc5, 0xf6, 0x1e, 0x63, 0x93, 0xba, 0x7a,
             0x0a, 0xbc, 0xc9, 0xf6, 0x62, 0x89, 0x80, 0x15, 0xad,
         ];
-        let cipher = super::Gcm256::new(key);
+        let cipher = super::Gcm::<aes::Aes256>::new(key);
         cipher.xor_bit_stream(&mut plain_text, &counter);
         assert_eq!(plain_text, cipher_text);
     }
@@ -272,7 +220,7 @@ mod tests {
             0x94, 0x67, 0x30, 0x83, 0x08, 0xfe, 0xff, 0xe9, 0x92, 0x86, 0x65,
             0x73, 0x1c, 0x6d, 0x6a, 0x8f, 0x94, 0x67, 0x30, 0x83, 0x08,
         ];
-        let cipher = super::Gcm256::new(key);
+        let cipher = super::Gcm::<aes::Aes256>::new(key);
 
         let counter = [
             0xca, 0xfe, 0xba, 0xbe, 0xfa, 0xce, 0xdb, 0xad, 0xde, 0xca, 0xf8,
@@ -318,7 +266,7 @@ mod tests {
             0x94, 0x67, 0x30, 0x83, 0x08, 0xfe, 0xff, 0xe9, 0x92, 0x86, 0x65,
             0x73, 0x1c, 0x6d, 0x6a, 0x8f, 0x94, 0x67, 0x30, 0x83, 0x08,
         ];
-        let cipher = super::Gcm256::new(key);
+        let cipher = super::Gcm::<aes::Aes256>::new(key);
 
         let init_vector = [
             0xca, 0xfe, 0xba, 0xbe, 0xfa, 0xce, 0xdb, 0xad, 0xde, 0xca, 0xf8,
@@ -364,7 +312,7 @@ mod tests {
             0x94, 0x67, 0x30, 0x83, 0x08, 0xfe, 0xff, 0xe9, 0x92, 0x86, 0x65,
             0x73, 0x1c, 0x6d, 0x6a, 0x8f, 0x94, 0x67, 0x30, 0x83, 0x08,
         ];
-        let cipher = super::Gcm256::new(key);
+        let cipher = super::Gcm::<aes::Aes256>::new(key);
 
         let init_vector = [
             0xca, 0xfe, 0xba, 0xbe, 0xfa, 0xce, 0xdb, 0xad, 0xde, 0xca, 0xf8,

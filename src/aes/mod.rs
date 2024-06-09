@@ -130,25 +130,61 @@ const R_CON: [u32; 256] = [
     0x74, 0xe8, 0xcb, 0x8d,
 ];
 
-pub struct Aes128;
+pub struct Aes128 {
+    round_keys: [[u8; BLOCK_SIZE]; Self::NUM_ROUNDS + 1],
+}
+
 impl Aes128 {
     pub const NUM_ROUNDS: usize = 10;
     pub const KEY_SIZE: usize = 16;
     pub const NUM_KEY_WORDS: usize = Self::KEY_SIZE / 4;
+
+    pub fn new(key: [u8; Self::KEY_SIZE]) -> Self {
+        Self {
+            round_keys: Self::expand_key(key),
+        }
+    }
 }
 
-pub struct Aes256;
+pub struct Aes256 {
+    round_keys: [[u8; BLOCK_SIZE]; Self::NUM_ROUNDS + 1],
+}
 impl Aes256 {
     pub const NUM_ROUNDS: usize = 14;
     pub const KEY_SIZE: usize = 32;
     pub const NUM_KEY_WORDS: usize = Self::KEY_SIZE / 4;
+
+    pub fn new(key: [u8; Self::KEY_SIZE]) -> Self {
+        Self {
+            round_keys: Self::expand_key(key),
+        }
+    }
 }
 
-pub struct Aes192;
+pub struct Aes192 {
+    round_keys: [[u8; BLOCK_SIZE]; Self::NUM_ROUNDS + 1],
+}
+
 impl Aes192 {
     pub const NUM_ROUNDS: usize = 12;
     pub const KEY_SIZE: usize = 24;
     pub const NUM_KEY_WORDS: usize = Self::KEY_SIZE / 4;
+
+    pub fn new(key: [u8; Self::KEY_SIZE]) -> Self {
+        Self {
+            round_keys: Self::expand_key(key),
+        }
+    }
+}
+
+pub trait AesCipher {
+    fn encrypt_inline(&self, block: &mut [u8; BLOCK_SIZE]);
+
+    fn encrypt(&self, block: &[u8; BLOCK_SIZE]) -> [u8; BLOCK_SIZE] {
+        let mut buffer = *block;
+        self.encrypt_inline(&mut buffer);
+        buffer
+    }
 }
 
 macro_rules! impl_expand_key {
@@ -189,15 +225,14 @@ impl_expand_key!(Aes128);
 impl_expand_key!(Aes192);
 impl_expand_key!(Aes256);
 
-macro_rules! impl_encrypt_inline {
+macro_rules! impl_aes_cipher {
     ($cipher:ty) => {
-        impl $cipher {
-            pub fn encrypt_inline(
-                block: &mut [u8; BLOCK_SIZE],
-                round_keys: &[[u8; BLOCK_SIZE]; Self::NUM_ROUNDS + 1],
-            ) {
-                add_round_key(block, round_keys[0]);
-                for round_key in round_keys[1..round_keys.len() - 1].iter() {
+        impl AesCipher for $cipher {
+            fn encrypt_inline(&self, block: &mut [u8; BLOCK_SIZE]) {
+                add_round_key(block, self.round_keys[0]);
+                for round_key in
+                    self.round_keys[1..self.round_keys.len() - 1].iter()
+                {
                     sub_bytes(block);
                     shift_rows(block);
                     mix_columns(block);
@@ -205,34 +240,15 @@ macro_rules! impl_encrypt_inline {
                 }
                 sub_bytes(block);
                 shift_rows(block);
-                add_round_key(block, round_keys[Self::NUM_ROUNDS]);
+                add_round_key(block, self.round_keys[Self::NUM_ROUNDS]);
             }
         }
     };
 }
 
-impl_encrypt_inline!(Aes128);
-impl_encrypt_inline!(Aes192);
-impl_encrypt_inline!(Aes256);
-
-macro_rules! impl_encrypt {
-    ($cipher:ty) => {
-        impl $cipher {
-            pub fn encrypt(
-                block: &[u8; BLOCK_SIZE],
-                round_keys: &[[u8; BLOCK_SIZE]; Self::NUM_ROUNDS + 1],
-            ) -> [u8; BLOCK_SIZE] {
-                let mut buffer = *block;
-                Self::encrypt_inline(&mut buffer, round_keys);
-                buffer
-            }
-        }
-    };
-}
-
-impl_encrypt!(Aes128);
-impl_encrypt!(Aes192);
-impl_encrypt!(Aes256);
+impl_aes_cipher!(Aes128);
+impl_aes_cipher!(Aes192);
+impl_aes_cipher!(Aes256);
 
 #[inline]
 fn add_round_key(state: &mut [u8; BLOCK_SIZE], round_key: [u8; BLOCK_SIZE]) {
@@ -301,7 +317,7 @@ fn rotate_word(word: u32) -> u32 {
 
 #[cfg(test)]
 mod tests {
-    use super::NUM_ROUNDS;
+    use super::{AesCipher, Aes256};
 
     #[test]
     fn add_round_key() {
@@ -373,7 +389,7 @@ mod tests {
         // fn fails() -> [[u8; 16]; 15] {
         // todo!();
         // }
-        let expanded_keys: [[u8; 16]; NUM_ROUNDS + 1] = [
+        let expanded_keys: [[u8; 16]; Aes256::NUM_ROUNDS + 1] = [
             [
                 0x60, 0x3d, 0xeb, 0x10, 0x15, 0xca, 0x71, 0xbe, 0x2b, 0x73,
                 0xae, 0xf0, 0x85, 0x7d, 0x77, 0x81,
@@ -446,9 +462,9 @@ mod tests {
             0xac, 0xda, 0xce, 0x80, 0x78, 0xa3, 0x2b, 0x1a, 0x18, 0x2b, 0xfa,
             0x49, 0x87, 0xca, 0x13, 0x47,
         ];
-        super::Aes256::encrypt_inline(
+        let cipher = Aes256::new(key);
+        cipher.encrypt_inline(
             &mut plain_text,
-            &super::Aes256::expand_key(key),
         );
         assert_eq!(plain_text, cipher_text);
     }
