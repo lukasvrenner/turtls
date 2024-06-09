@@ -130,51 +130,109 @@ const R_CON: [u32; 256] = [
     0x74, 0xe8, 0xcb, 0x8d,
 ];
 
-pub fn encrypt_inline(
-    block: &mut [u8; BLOCK_SIZE],
-    round_keys: &[[u8; BLOCK_SIZE]; NUM_ROUNDS + 1],
-) {
-    add_round_key(block, round_keys[0]);
-    for round_key in round_keys.iter().take(NUM_ROUNDS).skip(1) {
-        sub_bytes(block);
-        shift_rows(block);
-        mix_columns(block);
-        add_round_key(block, *round_key);
-    }
-    sub_bytes(block);
-    shift_rows(block);
-    add_round_key(block, round_keys[NUM_ROUNDS]);
+pub struct Aes128;
+impl Aes128 {
+    pub const NUM_ROUNDS: usize = 10;
+    pub const KEY_SIZE: usize = 16;
+    pub const NUM_KEY_WORDS: usize = Self::KEY_SIZE / 4;
 }
 
-pub fn encrypt(
-    block: &[u8; BLOCK_SIZE],
-    round_keys: &[[u8; BLOCK_SIZE]; NUM_ROUNDS + 1],
-) -> [u8; BLOCK_SIZE] {
-    let mut buffer = *block;
-    encrypt_inline(&mut buffer, round_keys);
-    buffer
+pub struct Aes256;
+impl Aes256 {
+    pub const NUM_ROUNDS: usize = 14;
+    pub const KEY_SIZE: usize = 32;
+    pub const NUM_KEY_WORDS: usize = Self::KEY_SIZE / 4;
 }
 
-pub fn expand_key(key: [u8; 32]) -> [[u8; BLOCK_SIZE]; NUM_ROUNDS + 1] {
-    // endianness doesn't matter so long as byte order is maintained
-    // SAFETY: [u8; 32] and [u32; 8] are the same size
-    let key: [u32; 8] = unsafe { std::mem::transmute(key) };
-    let mut expanded_keys = [0u32; 4 * NUM_ROUNDS + 4];
-
-    expanded_keys[0..key.len()].copy_from_slice(&key);
-    for i in 8..expanded_keys.len() {
-        let mut temp = expanded_keys[i - 1];
-        temp = match i % 8 {
-            0 => sub_word(rotate_word(temp)) ^ R_CON[i / 8],
-            4 => sub_word(temp),
-            _ => temp,
-        };
-        expanded_keys[i] = expanded_keys[i - 8] ^ temp;
-    }
-    // endianness doesn't matter so long as byte order is maintained
-    // SAFETY: [u32; 60] and [[u8; 16]; 15] are the same size
-    unsafe { std::mem::transmute(expanded_keys) }
+pub struct Aes192;
+impl Aes192 {
+    pub const NUM_ROUNDS: usize = 12;
+    pub const KEY_SIZE: usize = 24;
+    pub const NUM_KEY_WORDS: usize = Self::KEY_SIZE / 4;
 }
+
+macro_rules! impl_expand_key {
+    ($cipher:ty) => {
+        impl $cipher {
+            pub fn expand_key(
+                key: [u8; Self::KEY_SIZE],
+            ) -> [[u8; BLOCK_SIZE]; Self::NUM_ROUNDS + 1] {
+                // endianness doesn't matter so long as byte order is maintained
+                // SAFETY: integer arrays can be safely cast
+                let key: [u32; Self::NUM_KEY_WORDS] =
+                    unsafe { std::mem::transmute(key) };
+                let mut expanded_keys = [0u32; 4 * (Self::NUM_ROUNDS + 1)];
+
+                expanded_keys[0..key.len()].copy_from_slice(&key);
+                for i in Self::NUM_KEY_WORDS..expanded_keys.len() {
+                    let mut temp = expanded_keys[i - 1];
+                    temp = match i % 8 {
+                        0 => {
+                            sub_word(rotate_word(temp))
+                                ^ R_CON[i / Self::NUM_KEY_WORDS]
+                        }
+                        4 => sub_word(temp),
+                        _ => temp,
+                    };
+                    expanded_keys[i] =
+                        expanded_keys[i - Self::NUM_KEY_WORDS] ^ temp;
+                }
+                // endianness doesn't matter so long as byte order is maintained
+                // SAFETY: integer arrays can be safely cast
+                unsafe { std::mem::transmute(expanded_keys) }
+            }
+        }
+    };
+}
+
+impl_expand_key!(Aes128);
+impl_expand_key!(Aes192);
+impl_expand_key!(Aes256);
+
+macro_rules! impl_encrypt_inline {
+    ($cipher:ty) => {
+        impl $cipher {
+            pub fn encrypt_inline(
+                block: &mut [u8; BLOCK_SIZE],
+                round_keys: &[[u8; BLOCK_SIZE]; Self::NUM_ROUNDS + 1],
+            ) {
+                add_round_key(block, round_keys[0]);
+                for round_key in round_keys[1..round_keys.len() - 1].iter() {
+                    sub_bytes(block);
+                    shift_rows(block);
+                    mix_columns(block);
+                    add_round_key(block, *round_key);
+                }
+                sub_bytes(block);
+                shift_rows(block);
+                add_round_key(block, round_keys[Self::NUM_ROUNDS]);
+            }
+        }
+    };
+}
+
+impl_encrypt_inline!(Aes128);
+impl_encrypt_inline!(Aes192);
+impl_encrypt_inline!(Aes256);
+
+macro_rules! impl_encrypt {
+    ($cipher:ty) => {
+        impl $cipher {
+            pub fn encrypt(
+                block: &[u8; BLOCK_SIZE],
+                round_keys: &[[u8; BLOCK_SIZE]; Self::NUM_ROUNDS + 1],
+            ) -> [u8; BLOCK_SIZE] {
+                let mut buffer = *block;
+                Self::encrypt_inline(&mut buffer, round_keys);
+                buffer
+            }
+        }
+    };
+}
+
+impl_encrypt!(Aes128);
+impl_encrypt!(Aes192);
+impl_encrypt!(Aes256);
 
 #[inline]
 fn add_round_key(state: &mut [u8; BLOCK_SIZE], round_key: [u8; BLOCK_SIZE]) {
@@ -377,18 +435,21 @@ mod tests {
                 0xf3, 0x44, 0x70, 0x6c, 0x63, 0x1e,
             ],
         ];
-        assert_eq!(super::expand_key(key), expanded_keys);
+        assert_eq!(super::Aes256::expand_key(key), expanded_keys);
     }
 
     #[test]
-    fn encrypt() {
+    fn encrypt_256() {
         let key = [0u8; 32];
         let mut plain_text: [u8; 16] = [0xff; 16];
         let cipher_text: [u8; 16] = [
             0xac, 0xda, 0xce, 0x80, 0x78, 0xa3, 0x2b, 0x1a, 0x18, 0x2b, 0xfa,
             0x49, 0x87, 0xca, 0x13, 0x47,
         ];
-        super::encrypt_inline(&mut plain_text, &super::expand_key(key));
+        super::Aes256::encrypt_inline(
+            &mut plain_text,
+            &super::Aes256::expand_key(key),
+        );
         assert_eq!(plain_text, cipher_text);
     }
 }
