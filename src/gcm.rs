@@ -1,12 +1,17 @@
 use crate::aes::{self, AesCipher};
 
 const R: u128 = 0xe1 << 120;
+/// The size of an initialization vector, in bytes
 pub const IV_SIZE: usize = 12;
 
 #[derive(Debug)]
-pub struct InvalidData;
+/// An error that is returned when an encrypted message's tag
+/// does not match its generated tag
+///
+/// If this error is found, the message cannot be considered safe
+pub struct BadData;
 
-impl std::fmt::Display for InvalidData {
+impl std::fmt::Display for BadData {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "tag did not match data")
     }
@@ -69,7 +74,6 @@ impl<C: aes::AesCipher> Gcm<C> {
     /// for `plain_text` and `add_data`.
     ///
     /// WARNING: for security purposes,
-    ///
     /// users MUST NOT use the same `init_vector` twice for the same key.
     pub fn encrypt_inline(
         &self,
@@ -98,14 +102,14 @@ impl<C: aes::AesCipher> Gcm<C> {
         add_data: &[u8],
         init_vector: &[u8; IV_SIZE],
         tag: &[u8; aes::BLOCK_SIZE],
-    ) -> Result<(), InvalidData> {
+    ) -> Result<(), BadData> {
         let counter = {
             let mut counter = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
             counter[..init_vector.len()].copy_from_slice(init_vector);
             counter
         };
         if self.g_hash(cipher_text, add_data, &counter) != *tag {
-            return Err(InvalidData);
+            return Err(BadData);
         }
         self.xor_bit_stream(cipher_text, &counter);
         Ok(())
@@ -182,6 +186,9 @@ impl<C: aes::AesCipher> Gcm<C> {
     }
 }
 
+/// Multiplication in GF(2^128)
+///
+/// Cannot overflow
 fn gf_2to128_mult(a: u128, b: u128) -> u128 {
     let mut product = 0;
     let mut temp = a;
@@ -198,7 +205,7 @@ fn gf_2to128_mult(a: u128, b: u128) -> u128 {
     product
 }
 
-// helper function for g_hash()
+/// A helper function for g_hash()
 fn add_block(tag: &mut u128, block: [u8; aes::BLOCK_SIZE], h: u128) {
     *tag ^= u128::from_be_bytes(block);
     *tag = gf_2to128_mult(*tag, h);

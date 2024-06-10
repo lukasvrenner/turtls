@@ -4,8 +4,11 @@
 //!
 //! Decryption is not supported because
 //! we only ever use AES in counter mode, which only needs encryption
+
+/// The size of a single block
+///
+/// AES operates on a fixed size
 pub const BLOCK_SIZE: usize = 16;
-pub const NUM_ROUNDS: usize = 14;
 
 /// a substitution table for the SBox transformation
 const S_BOX: [u8; 256] = [
@@ -146,10 +149,16 @@ pub struct Aes128 {
 }
 
 impl Aes128 {
+    /// The number of rounds AES will loop through
     pub const NUM_ROUNDS: usize = 10;
+
+    /// The length of the key, in bytes
     pub const KEY_SIZE: usize = 16;
+
+    /// The number of 32-bit "words" in the key
     pub const NUM_KEY_WORDS: usize = Self::KEY_SIZE / 4;
 
+    /// creates a new `Aes128` cipher, expanding the key
     pub fn new(key: [u8; Self::KEY_SIZE]) -> Self {
         Self {
             round_keys: Self::expand_key(key),
@@ -163,10 +172,16 @@ pub struct Aes192 {
 }
 
 impl Aes192 {
+    /// The number of rounds AES will loop through
     pub const NUM_ROUNDS: usize = 12;
+
+    /// The length of the key, in bytes
     pub const KEY_SIZE: usize = 24;
+
+    /// The number of 32-bit "words" in the key
     pub const NUM_KEY_WORDS: usize = Self::KEY_SIZE / 4;
 
+    /// creates a new `Aes192` cipher, expanding the key
     pub fn new(key: [u8; Self::KEY_SIZE]) -> Self {
         Self {
             round_keys: Self::expand_key(key),
@@ -180,10 +195,16 @@ pub struct Aes256 {
 }
 
 impl Aes256 {
+    /// The number of rounds AES will loop through
     pub const NUM_ROUNDS: usize = 14;
+
+    /// The length of the key, in bytes
     pub const KEY_SIZE: usize = 32;
+
+    /// The number of 32-bit "words" in the key
     pub const NUM_KEY_WORDS: usize = Self::KEY_SIZE / 4;
 
+    /// creates a new `Aes256` cipher, expanding the key
     pub fn new(key: [u8; Self::KEY_SIZE]) -> Self {
         Self {
             round_keys: Self::expand_key(key),
@@ -191,10 +212,12 @@ impl Aes256 {
     }
 }
 
+/// A common interface for AES ciphers
 pub trait AesCipher {
-    /// Encrypts `block` inline with AES
+    /// Encrypts `block` inline, mutating `block`
     fn encrypt_inline(&self, block: &mut [u8; BLOCK_SIZE]);
 
+    /// Copies `block` into a new buffer and encrypts the buffer
     fn encrypt(&self, block: &[u8; BLOCK_SIZE]) -> [u8; BLOCK_SIZE] {
         let mut buffer = *block;
         self.encrypt_inline(&mut buffer);
@@ -207,7 +230,7 @@ pub trait AesCipher {
 macro_rules! impl_expand_key {
     ($cipher:ty) => {
         impl $cipher {
-            pub fn expand_key(
+            fn expand_key(
                 key: [u8; Self::KEY_SIZE],
             ) -> [[u8; BLOCK_SIZE]; Self::NUM_ROUNDS + 1] {
                 // endianness doesn't matter so long as byte order is maintained
