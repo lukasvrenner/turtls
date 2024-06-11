@@ -4,6 +4,31 @@
 //!
 //! Decryption is not supported because
 //! we only ever use AES in counter mode, which only needs encryption
+//!
+//! Encryption works in 16-byte blocks.
+//! This module only provides one-block encryption.
+//!
+//! Generally, this module will not be used on its own.
+//! It is paired with a "mode of operation," such as GCM or CBC.
+//!
+//! # Examples
+//!
+//! ```
+//! use aes::aes::{AesCipher, Aes128};
+//!
+//! let mut plain_text = *b"Hello, world!!!!";
+//! let key = [
+//!     0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15,
+//!     0x88, 0x09, 0xcf, 0x4f, 0x3c,
+//! ];
+//! let cipher = Aes128::new(key);
+//! cipher.encrypt_inline(&mut plain_text);
+//! let cipher_text = [
+//!     0x44, 0x9e, 0xdd, 0xbb, 0xce, 0x73, 0x45, 0x88, 0xd6, 0x7e, 0x1d,
+//!     0x8c, 0x54, 0x62, 0x38, 0x14,
+//! ];
+//! assert_eq!(plain_text, cipher_text);
+//! ```
 
 /// The size of a single block
 ///
@@ -177,15 +202,6 @@ pub struct Aes256 {
 }
 
 impl Aes256 {
-    // /// The number of rounds AES will loop through
-    // pub const NUM_ROUNDS: usize = 14;
-    //
-    // /// The length of the key, in bytes
-    // pub const KEY_SIZE: usize = 32;
-    //
-    // /// The number of 32-bit "words" in the key
-    // pub const NUM_KEY_WORDS: usize = Self::KEY_SIZE / 4;
-
     /// creates a new `Aes256` cipher, expanding the key
     pub fn new(key: [u8; Self::KEY_SIZE]) -> Self {
         Self {
@@ -197,9 +213,17 @@ impl Aes256 {
 /// A common interface for AES ciphers
 pub trait AesCipher {
     /// The length of the key, in bytes
+    ///
+    /// For AES-128, this is 16.
+    /// For AES-192, this is 24.
+    /// For AES-256, this is 32.
     const KEY_SIZE: usize;
 
     /// The number of rounds AES will loop through
+    ///
+    /// For AES-128, this is 10.
+    /// For AES-192, this is 12.
+    /// For AES-256, this is 16.
     const NUM_ROUNDS: usize;
 
     /// The number of 32-bit "words" in the key
@@ -291,6 +315,9 @@ fn add_round_key(state: &mut [u8; BLOCK_SIZE], round_key: [u8; BLOCK_SIZE]) {
 }
 
 #[inline]
+/// Perform a nonlinear substitution
+///
+/// This provides confusion
 fn sub_bytes(state: &mut [u8; BLOCK_SIZE]) {
     for byte in state {
         *byte = s_box(*byte);
@@ -298,6 +325,7 @@ fn sub_bytes(state: &mut [u8; BLOCK_SIZE]) {
 }
 
 #[inline]
+/// Rotate each "row" of the state by its row index.
 fn shift_rows(state: &mut [u8; BLOCK_SIZE]) {
     let mut auxiliary = [0u8; 4];
     for row in 0..4 {

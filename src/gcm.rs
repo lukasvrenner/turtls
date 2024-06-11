@@ -1,4 +1,44 @@
 //! Gallois/counter mode for AES
+//!
+//! This module implements Gallois/counter mode for AES.
+//! It provides efficient encryption/decryption and authentication
+//! for data of arbitrary length.
+//!
+//! # Examples
+//!
+//! ```
+//! use aes::gcm::Gcm;
+//! use aes::aes::Aes128;
+//!
+//! let mut plain_text = *b"Top secret message";
+//! let additional_data = b"Public information";
+//!
+//! let key = [
+//!     0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15,
+//!     0x88, 0x09, 0xcf, 0x4f, 0x3c,
+//! ];
+//! let init_vector = [
+//!     0xca, 0xfe, 0xba, 0xbe, 0xfa, 0xce, 0xdb, 0xad, 0xde, 0xca, 0xf8,
+//!     0x88,
+//! ];
+
+//! let cipher = Gcm::<Aes128>::new(key);
+//!
+//! let tag = cipher.encrypt_inline(&mut plain_text, additional_data, &init_vector);
+//!
+//! let cipher_text = [
+//!     0x55, 0x69, 0x17, 0x35, 0x27, 0x39, 0x76, 0xa7, 0x23, 0x12, 0xb8,
+//!     0x4b, 0x2d, 0x7f, 0x1, 0x29, 0x48, 0xe5,
+//! ];
+//!
+//! assert_eq!(plain_text, cipher_text);
+//!
+//! cipher.decrypt_inline(
+//!     &mut plain_text, additional_data, &init_vector, &tag
+//!     ).expect("Someone tampered with the message!");
+//!
+//! assert_eq!(plain_text, *b"Top secret message");
+//! ```
 use crate::aes::{self, AesCipher};
 
 const R: u128 = 0xe1 << 120;
