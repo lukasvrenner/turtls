@@ -1,3 +1,5 @@
+//! A software implementation of SHA256
+
 const BLOCK_SIZE: usize = 64;
 const HASH_SIZE: usize = 32;
 
@@ -50,7 +52,13 @@ fn std_dv_1_256(x: u32) -> u32 {
 
 /// Add padding to `msg`, to ensure `msg.len()` is a multiple of 512
 fn pad_message(msg: &[u8]) -> Vec<u8> {
-    todo!();
+    let padding_size = (BLOCK_SIZE - BLOCK_SIZE % (msg.len() + 10)) % BLOCK_SIZE;
+    let mut padded_msg = msg.to_vec();
+    padded_msg.push(0x80);
+    padded_msg.resize(padded_msg.len() + padding_size, 0);
+    padded_msg.extend_from_slice(&(msg.len() as u64 * 8).to_be_bytes());
+    debug_assert_eq!(padded_msg.len() % BLOCK_SIZE, 0);
+    padded_msg
 }
 
 /// Calculates a 256-bit hash of `msg`
@@ -98,11 +106,11 @@ fn update_hash(
         h = g;
         g = f;
         f = e;
-        e = d + temp1;
+        e = d.wrapping_add(temp1);
         d = c;
         c = b;
         b = a;
-        a = temp1 + temp2;
+        a = temp1.wrapping_add(temp2);
     }
     hash[0] = hash[0].wrapping_add(a);
     hash[1] = hash[1].wrapping_add(b);
@@ -128,4 +136,43 @@ fn to_be_bytes_from_hash(array: [u32; HASH_SIZE / 4]) -> [u8; HASH_SIZE] {
         as_bytes[index * 4..][..4].copy_from_slice(&int.to_be_bytes());
     }
     as_bytes
+}
+
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    fn padding() {
+        let msg = b"abc";
+        let block: [u8; super::BLOCK_SIZE] = [
+            0x61, 0x62, 0x63, 0x80,
+            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x18,
+        ];
+        assert_eq!(super::pad_message(msg), block);
+    }
+
+    #[test]
+    fn sha256() {
+        let msg = b"abc";
+        let digest: [u8; super::HASH_SIZE] = [
+            0xBA, 0x78, 0x16, 0xBF, 0x8F, 0x01, 0xCF, 0xEA, 0x41, 0x41, 0x40,
+            0xDE, 0x5D, 0xAE, 0x22, 0x23, 0xB0, 0x03, 0x61, 0xA3, 0x96, 0x17,
+            0x7A, 0x9C, 0xB4, 0x10, 0xFF, 0x61, 0xF2, 0x00, 0x15, 0xAD,
+        ];
+        assert_eq!(super::hash(msg), digest);
+    }
 }
