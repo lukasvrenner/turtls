@@ -1,3 +1,4 @@
+//! Gallois/counter mode for AES
 use crate::aes::{self, AesCipher};
 
 const R: u128 = 0xe1 << 120;

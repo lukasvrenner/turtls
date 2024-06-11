@@ -31,28 +31,29 @@ fn maj(x: u32, y: u32, z: u32) -> u32 {
 }
 
 // TODO: name this something useful
-fn sum_0_256(x: u32) -> u32 {
+fn sigma_0(x: u32) -> u32 {
     x.rotate_right(2) ^ x.rotate_right(13) ^ x.rotate_right(22)
 }
 
 // TODO: name this something useful
-fn sum_1_256(x: u32) -> u32 {
+fn sigma_1(x: u32) -> u32 {
     x.rotate_right(6) ^ x.rotate_right(11) ^ x.rotate_right(25)
 }
 
 // TODO: name this something useful
-fn std_dv_0_256(x: u32) -> u32 {
+fn little_sigma_0(x: u32) -> u32 {
     x.rotate_right(7) ^ x.rotate_right(18) ^ x >> 3
 }
 
 // TODO: name this something useful
-fn std_dv_1_256(x: u32) -> u32 {
+fn little_sigma_1(x: u32) -> u32 {
     x.rotate_right(17) ^ x.rotate_right(19) ^ x >> 10
 }
 
 /// Add padding to `msg`, to ensure `msg.len()` is a multiple of 512
 fn pad_message(msg: &[u8]) -> Vec<u8> {
-    let padding_size = (BLOCK_SIZE - BLOCK_SIZE % (msg.len() + 10)) % BLOCK_SIZE;
+    let padding_size =
+        (BLOCK_SIZE - BLOCK_SIZE % (msg.len() + 10)) % BLOCK_SIZE;
     let mut padded_msg = msg.to_vec();
     padded_msg.push(0x80);
     padded_msg.resize(padded_msg.len() + padding_size, 0);
@@ -88,9 +89,9 @@ fn update_hash(
     message_schedule[..next_block.len()].copy_from_slice(next_block);
 
     for i in 16..message_schedule.len() {
-        message_schedule[i] = std_dv_1_256(message_schedule[i - 2])
+        message_schedule[i] = little_sigma_1(message_schedule[i - 2])
             .wrapping_add(message_schedule[i - 7])
-            .wrapping_add(std_dv_0_256(message_schedule[i - 15]))
+            .wrapping_add(little_sigma_0(message_schedule[i - 15]))
             .wrapping_add(message_schedule[i - 16]);
     }
 
@@ -98,11 +99,11 @@ fn update_hash(
 
     for i in 0..64 {
         let temp1 = h
-            .wrapping_add(sum_1_256(e))
+            .wrapping_add(sigma_1(e))
             .wrapping_add(ch(e, f, g))
             .wrapping_add(K[i])
             .wrapping_add(message_schedule[i]);
-        let temp2 = sum_0_256(a).wrapping_add(maj(a, b, c));
+        let temp2 = sigma_0(a).wrapping_add(maj(a, b, c));
         h = g;
         g = f;
         f = e;
@@ -111,6 +112,7 @@ fn update_hash(
         c = b;
         b = a;
         a = temp1.wrapping_add(temp2);
+        println!("{:#x}", d);
     }
     hash[0] = hash[0].wrapping_add(a);
     hash[1] = hash[1].wrapping_add(b);
@@ -125,7 +127,7 @@ fn update_hash(
 fn be_bytes_to_u32_array(bytes: &[u8; BLOCK_SIZE]) -> [u32; BLOCK_SIZE / 4] {
     let mut as_u32 = [0u32; BLOCK_SIZE / 4];
     for (index, int) in as_u32.iter_mut().enumerate() {
-        *int = u32::from_be_bytes(bytes[index..][..4].try_into().unwrap());
+        *int = u32::from_be_bytes(bytes[index * 4..][..4].try_into().unwrap());
     }
     as_u32
 }
@@ -145,22 +147,12 @@ mod tests {
     fn padding() {
         let msg = b"abc";
         let block: [u8; super::BLOCK_SIZE] = [
-            0x61, 0x62, 0x63, 0x80,
-            0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x18,
+            0x61, 0x62, 0x63, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x18,
         ];
         assert_eq!(super::pad_message(msg), block);
     }
