@@ -1,5 +1,6 @@
 [workspace]
 members = ["libcrypto"]
+default-members = ["libcrypto"]
 [package]
 name = "turtls"
 version = "0.1.0"
