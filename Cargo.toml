@@ -8,6 +8,7 @@ edition = "2021"
 readme = "./README.md"
 keywords = ["tls", "crypto", "ssl"]
 license = "Apache-2.0"
+descriptionn = "a TLS library written in rust"
 
 [dependencies]
 libcrypto = { path = "./libcrypto/", version = "0.1.0" }
