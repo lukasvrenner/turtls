@@ -1,6 +1,5 @@
 //! A software implementation of SHA256
 
-
 const BLOCK_SIZE: usize = 64;
 const HASH_SIZE: usize = 32;
 
@@ -53,7 +52,7 @@ fn little_sigma_1(x: u32) -> u32 {
 
 /// Add padding to `msg`, to ensure `msg.len()` is a multiple of 512
 fn pad_message(msg: &[u8]) -> Vec<u8> {
-    let padding_size = (BLOCK_SIZE - (msg.len() + 9) % BLOCK_SIZE ) % BLOCK_SIZE;
+    let padding_size = (BLOCK_SIZE - (msg.len() + 9) % BLOCK_SIZE) % BLOCK_SIZE;
     let mut padded_msg = msg.to_vec();
     padded_msg.push(0x80);
     padded_msg.resize(padded_msg.len() + padding_size, 0);

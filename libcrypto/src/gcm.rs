@@ -7,8 +7,8 @@
 //! # Examples
 //!
 //! ```
-//! use aes::gcm::Gcm;
-//! use aes::aes::Aes128;
+//! use libcrypto::gcm::Gcm;
+//! use libcrypto::aes::Aes128;
 //!
 //! let mut plain_text = *b"Top secret message";
 //! let additional_data = b"Public information";

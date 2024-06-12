@@ -3,5 +3,12 @@
 version = 3
 
 [[package]]
-name = "aes"
+name = "libcrypto"
 version = "0.1.0"
+
+[[package]]
+name = "turtls"
+version = "0.1.0"
+dependencies = [
+ "libcrypto",
+]

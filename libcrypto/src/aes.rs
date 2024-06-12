@@ -14,7 +14,7 @@
 //! # Examples
 //!
 //! ```
-//! use aes::aes::{AesCipher, Aes128};
+//! use libcrypto::aes::{AesCipher, Aes128};
 //!
 //! let mut plain_text = *b"Hello, world!!!!";
 //! let key = [
