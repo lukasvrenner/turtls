@@ -20,39 +20,66 @@ const K: [u32; 64] = [
     0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
 ];
 
+/// A one-time helper function used by `update_hash()`
 // TODO: name this something useful
+#[inline]
 fn ch(x: u32, y: u32, z: u32) -> u32 {
     (x & y) ^ (!x & z)
 }
 
+/// A one-time helper function used by `update_hash()`
 // TODO: name this something useful
+#[inline]
 fn maj(x: u32, y: u32, z: u32) -> u32 {
     (x & y) ^ (x & z) ^ (y & z)
 }
 
+/// A one-time helper function used by `update_hash()`
 // TODO: name this something useful
+#[inline]
 fn sigma_0(x: u32) -> u32 {
     x.rotate_right(2) ^ x.rotate_right(13) ^ x.rotate_right(22)
 }
 
+/// A one-time helper function used by `update_hash()`
 // TODO: name this something useful
+#[inline]
 fn sigma_1(x: u32) -> u32 {
     x.rotate_right(6) ^ x.rotate_right(11) ^ x.rotate_right(25)
 }
 
+/// A one-time helper function used by `update_hash()`
 // TODO: name this something useful
+#[inline]
 fn little_sigma_0(x: u32) -> u32 {
     x.rotate_right(7) ^ x.rotate_right(18) ^ x >> 3
 }
 
+/// A one-time helper function used by `update_hash()`
 // TODO: name this something useful
+#[inline]
 fn little_sigma_1(x: u32) -> u32 {
     x.rotate_right(17) ^ x.rotate_right(19) ^ x >> 10
 }
 
-/// Add padding to `msg`, to ensure `msg.len()` is a multiple of 512
+/// Add padding to `msg` to ensure
+/// the length of the message is a multiple of 512 bits.
+///
+/// Padding is broken down into three parts:
+/// * Padding-start block: add one byte with value 0x80.
+///
+/// * Zeros: add whatever amount of zeros is needed to
+/// make the length of the message a multiple of 512 bits,
+/// leaving room for 64 extra bits.
+///
+/// * Message-length: add a 64-bit big-endian 
+/// representation of the original message length.
+///
+/// A heap allocation is necessary because 
 fn pad_message(msg: &[u8]) -> Vec<u8> {
     let padding_size = (BLOCK_SIZE - (msg.len() + 9) % BLOCK_SIZE) % BLOCK_SIZE;
+    // A heap allocation is necessary because we can't 
+    // know the length of the padded message at compile-time
     let mut padded_msg = msg.to_vec();
     padded_msg.push(0x80);
     padded_msg.resize(padded_msg.len() + padding_size, 0);
@@ -61,11 +88,21 @@ fn pad_message(msg: &[u8]) -> Vec<u8> {
     padded_msg
 }
 
-/// Calculates a 256-bit hash of `msg`
+/// Calculates a 256-bit hash of `msg` using the SHA-256 algorithm.
 ///
-/// # Panics
+/// # Examples
 ///
-/// This function will panic if `msg.len()` is not a multiple of 64
+/// ```
+/// use libcrypto::sha256;
+///
+/// let message = b"abc";
+/// let hash = [
+///     0xba, 0x78, 0x16, 0xbf, 0x8f, 0x01, 0xcf, 0xea, 0x41, 0x41, 0x40,
+///     0xde, 0x5d, 0xae, 0x22, 0x23, 0xb0, 0x03, 0x61, 0xa3, 0x96, 0x17,
+///     0x7a, 0x9c, 0xb4, 0x10, 0xff, 0x61, 0xf2, 0x00, 0x15, 0xad, 
+/// ];
+/// assert_eq!(sha256::hash(message), hash);
+/// ```
 pub fn hash(msg: &[u8]) -> [u8; HASH_SIZE] {
     let padded_msg = pad_message(msg);
     let mut hash: [u32; HASH_SIZE / 4] = [
@@ -76,10 +113,13 @@ pub fn hash(msg: &[u8]) -> [u8; HASH_SIZE] {
         .chunks_exact(BLOCK_SIZE)
         .map(|block| be_bytes_to_u32_array(block.try_into().unwrap()))
         .for_each(|block| update_hash(&mut hash, &block));
+
     to_be_bytes_from_hash(hash)
 }
 
-/// Updates `hash` with the next block (`next_block`)
+/// Updates `hash` with the next block (`next_block`).
+///
+/// Numbers are represented big-endian.
 fn update_hash(
     hash: &mut [u32; HASH_SIZE / 4],
     next_block: &[u32; BLOCK_SIZE / 4],
