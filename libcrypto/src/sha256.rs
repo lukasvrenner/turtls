@@ -72,11 +72,11 @@ fn little_sigma_1(x: u32) -> u32 {
 /// make the length of the message a multiple of 512 bits,
 /// leaving room for 64 extra bits.
 ///
-/// * Message-length: add a 64-bit big-endian 
+/// * Message-length: add a 64-bit big-endian
 /// representation of the original message length.
 fn pad_message(msg: &[u8]) -> Vec<u8> {
     let padding_size = (BLOCK_SIZE - (msg.len() + 9) % BLOCK_SIZE) % BLOCK_SIZE;
-    // A heap allocation is necessary because we can't 
+    // A heap allocation is necessary because we can't
     // know the length of the padded message at compile-time
     let mut padded_msg = msg.to_vec();
     padded_msg.push(0x80);
@@ -97,7 +97,7 @@ fn pad_message(msg: &[u8]) -> Vec<u8> {
 /// let hash = [
 ///     0xba, 0x78, 0x16, 0xbf, 0x8f, 0x01, 0xcf, 0xea, 0x41, 0x41, 0x40,
 ///     0xde, 0x5d, 0xae, 0x22, 0x23, 0xb0, 0x03, 0x61, 0xa3, 0x96, 0x17,
-///     0x7a, 0x9c, 0xb4, 0x10, 0xff, 0x61, 0xf2, 0x00, 0x15, 0xad, 
+///     0x7a, 0x9c, 0xb4, 0x10, 0xff, 0x61, 0xf2, 0x00, 0x15, 0xad,
 /// ];
 /// assert_eq!(sha256::hash(message), hash);
 /// ```

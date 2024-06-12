@@ -39,7 +39,7 @@
 //!
 //! assert_eq!(plain_text, *b"Top secret message");
 //! ```
-use crate::aes::{self, AesCipher, Aes128, Aes192, Aes256};
+use crate::aes::{self, Aes128, Aes192, Aes256, AesCipher};
 
 const R: u128 = 0xe1 << 120;
 /// The size of an initialization vector, in bytes
@@ -254,8 +254,8 @@ fn add_block(tag: &mut u128, block: [u8; aes::BLOCK_SIZE], h: u128) {
 
 #[cfg(test)]
 mod tests {
-    use crate::aes::Aes128;
     use super::Gcm;
+    use crate::aes::Aes128;
 
     #[test]
     fn ctr_mode() {
