@@ -21,7 +21,7 @@
 //!     0xca, 0xfe, 0xba, 0xbe, 0xfa, 0xce, 0xdb, 0xad, 0xde, 0xca, 0xf8,
 //!     0x88,
 //! ];
-
+//!
 //! let cipher = Gcm::<Aes128>::new(key);
 //!
 //! let tag = cipher.encrypt_inline(&mut plain_text, additional_data, &init_vector);
@@ -39,7 +39,7 @@
 //!
 //! assert_eq!(plain_text, *b"Top secret message");
 //! ```
-use crate::aes::{self, AesCipher};
+use crate::aes::{self, AesCipher, Aes128, Aes192, Aes256};
 
 const R: u128 = 0xe1 << 120;
 /// The size of an initialization vector, in bytes
@@ -70,8 +70,8 @@ pub struct Gcm<C: aes::AesCipher> {
 
 impl Gcm<aes::Aes128> {
     /// create a new `Gcm` using AES-128 as the cipher
-    pub fn new(key: [u8; aes::Aes128::KEY_SIZE]) -> Gcm<aes::Aes128> {
-        let cipher = aes::Aes128::new(key);
+    pub fn new(key: [u8; Aes128::KEY_SIZE]) -> Gcm<aes::Aes128> {
+        let cipher = Aes128::new(key);
         let mut h = [0u8; aes::BLOCK_SIZE];
         cipher.encrypt_inline(&mut h);
 
@@ -84,7 +84,7 @@ impl Gcm<aes::Aes128> {
 
 impl Gcm<aes::Aes192> {
     /// create a new `Gcm` using AES-192 as the cipher
-    pub fn new(key: [u8; aes::Aes192::KEY_SIZE]) -> Gcm<aes::Aes192> {
+    pub fn new(key: [u8; Aes192::KEY_SIZE]) -> Gcm<aes::Aes192> {
         let cipher = aes::Aes192::new(key);
         let mut h = [0u8; aes::BLOCK_SIZE];
         cipher.encrypt_inline(&mut h);
@@ -98,8 +98,8 @@ impl Gcm<aes::Aes192> {
 
 impl Gcm<aes::Aes256> {
     /// create a new `Gcm` using AES-256 as the cipher
-    pub fn new(key: [u8; aes::Aes256::KEY_SIZE]) -> Gcm<aes::Aes256> {
-        let cipher = aes::Aes256::new(key);
+    pub fn new(key: [u8; Aes256::KEY_SIZE]) -> Gcm<aes::Aes256> {
+        let cipher = Aes256::new(key);
         let mut h = [0u8; aes::BLOCK_SIZE];
         cipher.encrypt_inline(&mut h);
 
@@ -254,7 +254,8 @@ fn add_block(tag: &mut u128, block: [u8; aes::BLOCK_SIZE], h: u128) {
 
 #[cfg(test)]
 mod tests {
-    use crate::aes;
+    use crate::aes::Aes128;
+    use super::Gcm;
 
     #[test]
     fn ctr_mode() {
@@ -282,7 +283,7 @@ mod tests {
             0xac, 0x84, 0xaa, 0x05, 0x1b, 0xa3, 0x0b, 0x39, 0x6a, 0x0a, 0xac,
             0x97, 0x3d, 0x58, 0xe0, 0x91,
         ];
-        let cipher = super::Gcm::<aes::Aes128>::new(key);
+        let cipher = Gcm::<Aes128>::new(key);
         cipher.xor_bit_stream(&mut plain_text, &counter);
         assert_eq!(plain_text, cipher_text);
     }
@@ -293,7 +294,7 @@ mod tests {
             0xfe, 0xff, 0xe9, 0x92, 0x86, 0x65, 0x73, 0x1c, 0x6d, 0x6a, 0x8f,
             0x94, 0x67, 0x30, 0x83, 0x08,
         ];
-        let cipher = super::Gcm::<aes::Aes128>::new(key);
+        let cipher = Gcm::<Aes128>::new(key);
 
         let counter = [
             0xca, 0xfe, 0xba, 0xbe, 0xfa, 0xce, 0xdb, 0xad, 0xde, 0xca, 0xf8,
@@ -338,7 +339,7 @@ mod tests {
             0xfe, 0xff, 0xe9, 0x92, 0x86, 0x65, 0x73, 0x1c, 0x6d, 0x6a, 0x8f,
             0x94, 0x67, 0x30, 0x83, 0x08,
         ];
-        let cipher = super::Gcm::<aes::Aes128>::new(key);
+        let cipher = Gcm::<Aes128>::new(key);
 
         let init_vector = [
             0xca, 0xfe, 0xba, 0xbe, 0xfa, 0xce, 0xdb, 0xad, 0xde, 0xca, 0xf8,
@@ -383,7 +384,7 @@ mod tests {
             0xfe, 0xff, 0xe9, 0x92, 0x86, 0x65, 0x73, 0x1c, 0x6d, 0x6a, 0x8f,
             0x94, 0x67, 0x30, 0x83, 0x08,
         ];
-        let cipher = super::Gcm::<aes::Aes128>::new(key);
+        let cipher = Gcm::<Aes128>::new(key);
 
         let init_vector = [
             0xca, 0xfe, 0xba, 0xbe, 0xfa, 0xce, 0xdb, 0xad, 0xde, 0xca, 0xf8,
