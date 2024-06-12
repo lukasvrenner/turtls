@@ -1,4 +1,4 @@
-//! A software implementation of SHA256
+//! A software implementation of SHA-256
 
 const BLOCK_SIZE: usize = 64;
 const HASH_SIZE: usize = 32;
@@ -74,8 +74,6 @@ fn little_sigma_1(x: u32) -> u32 {
 ///
 /// * Message-length: add a 64-bit big-endian 
 /// representation of the original message length.
-///
-/// A heap allocation is necessary because 
 fn pad_message(msg: &[u8]) -> Vec<u8> {
     let padding_size = (BLOCK_SIZE - (msg.len() + 9) % BLOCK_SIZE) % BLOCK_SIZE;
     // A heap allocation is necessary because we can't 
@@ -164,16 +162,16 @@ fn update_hash(
 
 fn be_bytes_to_u32_array(bytes: &[u8; BLOCK_SIZE]) -> [u32; BLOCK_SIZE / 4] {
     let mut as_u32 = [0u32; BLOCK_SIZE / 4];
-    for (index, int) in as_u32.iter_mut().enumerate() {
-        *int = u32::from_be_bytes(bytes[index * 4..][..4].try_into().unwrap());
+    for (int, chunk) in as_u32.iter_mut().zip(bytes.chunks_exact(4)) {
+        *int = u32::from_be_bytes(chunk.try_into().unwrap());
     }
     as_u32
 }
 
 fn to_be_bytes_from_hash(array: [u32; HASH_SIZE / 4]) -> [u8; HASH_SIZE] {
     let mut as_bytes = [0u8; HASH_SIZE];
-    for (index, int) in array.iter().enumerate() {
-        as_bytes[index * 4..][..4].copy_from_slice(&int.to_be_bytes());
+    for (chunk, int) in as_bytes.chunks_exact_mut(4).zip(array) {
+        chunk.copy_from_slice(&int.to_be_bytes())
     }
     as_bytes
 }
