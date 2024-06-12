@@ -261,7 +261,7 @@ macro_rules! impl_expand_key {
                         0 => {
                             sub_word(rotate_word(temp))
                                 ^ R_CON[i / Self::NUM_KEY_WORDS]
-                        }
+                        },
                         4 if Self::NUM_KEY_WORDS > 6 => sub_word(temp),
                         _ => temp,
                     };
