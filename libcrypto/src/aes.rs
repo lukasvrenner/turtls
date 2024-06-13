@@ -262,7 +262,7 @@ macro_rules! impl_expand_key {
                             sub_word(rotate_word(temp))
                                 ^ R_CON[i / Self::NUM_KEY_WORDS]
                         },
-                        4 if Self::NUM_KEY_WORDS > 6 => sub_word(temp),
+                        4 if const { Self::NUM_KEY_WORDS > 6 } => sub_word(temp),
                         _ => temp,
                     };
                     expanded_keys[i] =
@@ -361,7 +361,7 @@ fn mix_columns(state: &mut [u8; BLOCK_SIZE]) {
 }
 
 #[inline]
-fn s_box(byte: u8) -> u8 {
+const fn s_box(byte: u8) -> u8 {
     S_BOX[byte as usize]
 }
 
@@ -372,7 +372,7 @@ fn sub_word(word: u32) -> u32 {
 }
 
 #[inline]
-fn rotate_word(word: u32) -> u32 {
+const fn rotate_word(word: u32) -> u32 {
     word.rotate_right(8)
 }
 
