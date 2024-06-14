@@ -347,13 +347,12 @@ fn mix_columns(state: &mut [u8; BLOCK_SIZE]) {
         [0x02, 0x00, 0x00, 0x01],
     ];
     for col in state.chunks_exact_mut(4) {
-        let mut column = [0u8; 4];
-        column.copy_from_slice(col);
+        let auxiliary: [u8; 4] = col.try_into().unwrap();
 
         for row in 0..4 {
             let mut byte = 0u8;
             for i in 0..4 {
-                byte ^= MULT_GF_2_TO_8[mult_matrix[row][i]][column[i] as usize];
+                byte ^= MULT_GF_2_TO_8[mult_matrix[row][i]][auxiliary[i] as usize];
             }
             col[row] = byte;
         }
