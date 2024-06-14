@@ -1,6 +1,7 @@
 [workspace]
 members = ["libcrypto"]
 default-members = ["libcrypto"]
+
 [package]
 name = "turtls"
 version = "0.1.0"
@@ -10,6 +11,10 @@ readme = "./README.md"
 keywords = ["tls", "crypto", "ssl"]
 license = "Apache-2.0"
 description = "a TLS library written in rust"
+repository = "https://github.com/lukasvrenner/turtls"
 
 [dependencies]
 libcrypto = { path = "./libcrypto/", version = "0.1.0" }
+
+[lib]
+crate-type = ["cdylib"]
