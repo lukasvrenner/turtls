@@ -82,6 +82,7 @@ fn pad_message(msg: &[u8]) -> Vec<u8> {
     padded_msg.push(0x80);
     padded_msg.resize(padded_msg.len() + padding_size, 0);
     padded_msg.extend_from_slice(&(msg.len() as u64 * 8).to_be_bytes());
+
     debug_assert_eq!(padded_msg.len() % BLOCK_SIZE, 0);
     padded_msg
 }

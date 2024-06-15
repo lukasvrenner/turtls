@@ -221,8 +221,8 @@ pub trait AesCipher {
 
     /// The number of rounds AES will loop through
     ///
-    /// For AES-128, this is 10.
-    /// For AES-192, this is 12.
+    /// For AES-128, this is 10. \
+    /// For AES-192, this is 12. \
     /// For AES-256, this is 16.
     const NUM_ROUNDS: usize;
 
@@ -317,9 +317,6 @@ fn add_round_key(state: &mut [u8; BLOCK_SIZE], round_key: [u8; BLOCK_SIZE]) {
 }
 
 #[inline]
-/// Perform a nonlinear substitution
-///
-/// This provides confusion
 fn sub_bytes(state: &mut [u8; BLOCK_SIZE]) {
     for byte in state {
         *byte = s_box(*byte);
@@ -327,7 +324,6 @@ fn sub_bytes(state: &mut [u8; BLOCK_SIZE]) {
 }
 
 #[inline]
-/// Rotate each "row" of the state by its row index.
 fn shift_rows(state: &mut [u8; BLOCK_SIZE]) {
     let mut auxiliary = [0u8; 4];
     for row in 0..4 {
