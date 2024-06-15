@@ -12,6 +12,7 @@ keywords = ["tls", "crypto", "ssl"]
 license = "Apache-2.0"
 description = "a TLS library written in rust"
 repository = "https://github.com/lukasvrenner/turtls"
+documentation = "https://docs.rs/turtls/latest/turtls"
 
 [dependencies]
 libcrypto = { path = "./libcrypto/", version = "0.1.0" }
