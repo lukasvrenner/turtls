@@ -11,3 +11,4 @@
 pub mod aes;
 pub mod gcm;
 pub mod sha256;
+pub mod sha512;
