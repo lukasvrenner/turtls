@@ -262,7 +262,9 @@ macro_rules! impl_expand_key {
                             sub_word(rotate_word(temp))
                                 ^ R_CON[i / Self::NUM_KEY_WORDS]
                         },
-                        4 if const { Self::NUM_KEY_WORDS > 6 } => sub_word(temp),
+                        4 if const { Self::NUM_KEY_WORDS > 6 } => {
+                            sub_word(temp)
+                        },
                         _ => temp,
                     };
                     expanded_keys[i] =
@@ -352,7 +354,8 @@ fn mix_columns(state: &mut [u8; BLOCK_SIZE]) {
         for row in 0..4 {
             let mut byte = 0u8;
             for i in 0..4 {
-                byte ^= MULT_GF_2_TO_8[mult_matrix[row][i]][auxiliary[i] as usize];
+                byte ^=
+                    MULT_GF_2_TO_8[mult_matrix[row][i]][auxiliary[i] as usize];
             }
             col[row] = byte;
         }

@@ -47,7 +47,7 @@
 //!
 //! assert_eq!(plain_text, "Top secret message".as_bytes());
 //! ```
-use crate::aes::{self, Aes128, Aes192, Aes256, AesCipher,};
+use crate::aes::{self, Aes128, Aes192, Aes256, AesCipher};
 
 const R: u128 = 0xe1 << 120;
 /// The size of an initialization vector, in bytes
@@ -142,7 +142,15 @@ impl<C: aes::AesCipher> Gcm<C> {
     }
 
     /// Encrypts data, returning encrypted data and an authentication tag
-    pub fn encrypt(&self, plain_text: &[u8], add_data: &[u8], init_vector: &[u8; IV_SIZE]) -> (Vec<u8>, [u8; aes::BLOCK_SIZE]) {
+    ///
+    /// WARNING: for security purposes,
+    /// users MUST NOT use the same `init_vector` twice for the same key.
+    pub fn encrypt(
+        &self,
+        plain_text: &[u8],
+        add_data: &[u8],
+        init_vector: &[u8; IV_SIZE],
+    ) -> (Vec<u8>, [u8; aes::BLOCK_SIZE]) {
         let mut buffer = plain_text.to_vec();
         let tag = self.encrypt_inline(&mut buffer, add_data, init_vector);
         (buffer, tag)
@@ -196,20 +204,20 @@ impl<C: aes::AesCipher> Gcm<C> {
     /// ```
     /// use libcrypto::aes::Aes128;
     /// use libcrypto::gcm::Gcm;
-    /// 
+    ///
     /// // our key has to be the same key used to encrypt the message
     /// let key = [
     ///     0xfe, 0xff, 0xe9, 0x92, 0x86, 0x65, 0x73, 0x1c, 0x6d, 0x6a, 0x8f,
     ///     0x94, 0x67, 0x30, 0x83, 0x08,
     /// ];
-    /// 
+    ///
     /// let init_vector = [
     ///     0xca, 0xfe, 0xba, 0xbe, 0xfa, 0xce, 0xdb, 0xad, 0xde, 0xca, 0xf8,
     ///     0x88,
     /// ];
-    /// 
+    ///
     /// let cipher = Gcm::<Aes128>::new(key);
-    /// 
+    ///
     /// # // our message:
     /// # let cipher_text = [
     /// #    0xcf, 0xdd, 0x5c, 0xc7, 0xaa, 0x96, 0x11, 0xb3, 0x8b, 0x5f, 0x8,
@@ -231,7 +239,7 @@ impl<C: aes::AesCipher> Gcm<C> {
     /// ```
     ///
     /// If we modifiy the message before decryption, we get an error:
-    /// 
+    ///
     /// ```should_panic
     /// # use libcrypto::aes::Aes128;
     /// # use libcrypto::gcm::Gcm;
@@ -275,7 +283,7 @@ impl<C: aes::AesCipher> Gcm<C> {
         cipher_text: &[u8],
         add_data: &[u8],
         init_vector: &[u8; IV_SIZE],
-        tag: &[u8; aes::BLOCK_SIZE]
+        tag: &[u8; aes::BLOCK_SIZE],
     ) -> Result<Vec<u8>, BadData> {
         let mut buffer = cipher_text.to_vec();
         self.decrypt_inline(&mut buffer, add_data, init_vector, tag)?;
