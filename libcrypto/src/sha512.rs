@@ -219,7 +219,7 @@ fn update_hash(
 }
 
 fn be_bytes_to_u64_array(bytes: &[u8; BLOCK_SIZE]) -> [u64; BLOCK_SIZE / 8] {
-    let mut as_u64 = [064; BLOCK_SIZE / 8];
+    let mut as_u64 = [64; BLOCK_SIZE / 8];
     for (int, chunk) in as_u64.iter_mut().zip(bytes.chunks_exact(8)) {
         *int = u64::from_be_bytes(chunk.try_into().unwrap());
     }
