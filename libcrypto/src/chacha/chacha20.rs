@@ -101,10 +101,6 @@ pub fn encrypt_inline(
 ) {
     for (index, chunk) in msg.chunks_mut(64).enumerate() {
         let key_stream = block(key, nonce, counter + index as u32);
-        for i in key_stream {
-            print!("{i:#x}, ");
-        }
-        println!("\n");
         for (chunk_byte, key_stream_byte) in
             chunk.iter_mut().zip(key_stream.iter())
         {
