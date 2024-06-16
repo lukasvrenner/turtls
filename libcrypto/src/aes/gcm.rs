@@ -47,9 +47,7 @@
 //!
 //! assert_eq!(plain_text, "Top secret message".as_bytes());
 //! ```
-use std::u128;
-
-use super::aes::{self, Aes128, Aes192, Aes256, AesCipher};
+use super::aes;
 
 const R: u128 = 0xe1 << 120;
 /// The size of an initialization vector, in bytes
@@ -359,8 +357,8 @@ fn add_block(tag: &mut u128, block: [u8; aes::BLOCK_SIZE], h: u128) {
 
 #[cfg(test)]
 mod tests {
-    use super::Gcm;
     use super::aes::Aes128;
+    use super::Gcm;
 
     #[test]
     fn ctr_mode() {
