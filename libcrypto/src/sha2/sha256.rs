@@ -92,7 +92,7 @@ fn pad_message(msg: &[u8]) -> Vec<u8> {
 /// # Examples
 ///
 /// ```
-/// use libcrypto::sha256;
+/// use libcrypto::sha2;
 ///
 /// let message = b"abc";
 /// let hash = [
@@ -100,9 +100,9 @@ fn pad_message(msg: &[u8]) -> Vec<u8> {
 ///     0xde, 0x5d, 0xae, 0x22, 0x23, 0xb0, 0x03, 0x61, 0xa3, 0x96, 0x17,
 ///     0x7a, 0x9c, 0xb4, 0x10, 0xff, 0x61, 0xf2, 0x00, 0x15, 0xad,
 /// ];
-/// assert_eq!(sha256::hash(message), hash);
+/// assert_eq!(sha2::sha256(message), hash);
 /// ```
-pub fn hash(msg: &[u8]) -> [u8; HASH_SIZE] {
+pub fn sha256(msg: &[u8]) -> [u8; HASH_SIZE] {
     let padded_msg = pad_message(msg);
     let mut hash: [u32; HASH_SIZE / 4] = [
         0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c,
@@ -220,6 +220,6 @@ mod tests {
             0x93, 0x0C, 0x3E, 0x60, 0x39, 0xA3, 0x3C, 0xE4, 0x59, 0x64, 0xFF,
             0x21, 0x67, 0xF6, 0xEC, 0xED, 0xD4, 0x19, 0xDB, 0x06, 0xC1,
         ];
-        assert_eq!(super::hash(msg), digest);
+        assert_eq!(super::sha256(msg), digest);
     }
 }

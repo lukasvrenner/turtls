@@ -7,7 +7,7 @@
 //! # Examples
 //!
 //! ```
-//! use libcrypto::gcm::Gcm;
+//! use libcrypto::aes::gcm::Gcm;
 //! use libcrypto::aes::Aes128;
 //!
 //! let plain_text = "Top secret message".as_bytes();
@@ -47,7 +47,9 @@
 //!
 //! assert_eq!(plain_text, "Top secret message".as_bytes());
 //! ```
-use crate::aes::{self, Aes128, Aes192, Aes256, AesCipher};
+use std::u128;
+
+use super::aes::{self, Aes128, Aes192, Aes256, AesCipher};
 
 const R: u128 = 0xe1 << 120;
 /// The size of an initialization vector, in bytes
@@ -77,49 +79,18 @@ pub struct Gcm<C: aes::AesCipher> {
     h: u128,
 }
 
-impl Gcm<aes::Aes128> {
-    /// create a new `Gcm` using AES-128 as the cipher
-    pub fn new(key: [u8; Aes128::KEY_SIZE]) -> Gcm<aes::Aes128> {
-        let cipher = Aes128::new(key);
-        let mut h = [0u8; aes::BLOCK_SIZE];
-        cipher.encrypt_inline(&mut h);
-
-        Gcm {
-            cipher,
-            h: u128::from_be_bytes(h),
-        }
-    }
-}
-
-impl Gcm<aes::Aes192> {
-    /// create a new `Gcm` using AES-192 as the cipher
-    pub fn new(key: [u8; Aes192::KEY_SIZE]) -> Gcm<aes::Aes192> {
-        let cipher = aes::Aes192::new(key);
-        let mut h = [0u8; aes::BLOCK_SIZE];
-        cipher.encrypt_inline(&mut h);
-
-        Gcm {
-            cipher,
-            h: u128::from_be_bytes(h),
-        }
-    }
-}
-
-impl Gcm<aes::Aes256> {
-    /// create a new `Gcm` using AES-256 as the cipher
-    pub fn new(key: [u8; Aes256::KEY_SIZE]) -> Gcm<aes::Aes256> {
-        let cipher = Aes256::new(key);
-        let mut h = [0u8; aes::BLOCK_SIZE];
-        cipher.encrypt_inline(&mut h);
-
-        Gcm {
-            cipher,
-            h: u128::from_be_bytes(h),
-        }
-    }
-}
-
 impl<C: aes::AesCipher> Gcm<C> {
+    /// Construct a new `Gcm` cipher.
+    pub fn new(key: C::Key) -> Gcm<C> {
+        let cipher = C::new(key);
+        let mut h = [0u8; aes::BLOCK_SIZE];
+        cipher.encrypt_inline(&mut h);
+
+        Gcm {
+            cipher,
+            h: u128::from_be_bytes(h),
+        }
+    }
     /// Encrypts `plain_text` inline, and generates an authentication tag
     /// for `plain_text` and `add_data`.
     ///
@@ -203,7 +174,7 @@ impl<C: aes::AesCipher> Gcm<C> {
     /// Decrypt our message:
     /// ```
     /// use libcrypto::aes::Aes128;
-    /// use libcrypto::gcm::Gcm;
+    /// use libcrypto::aes::gcm::Gcm;
     ///
     /// // our key has to be the same key used to encrypt the message
     /// let key = [
@@ -242,7 +213,7 @@ impl<C: aes::AesCipher> Gcm<C> {
     ///
     /// ```should_panic
     /// # use libcrypto::aes::Aes128;
-    /// # use libcrypto::gcm::Gcm;
+    /// # use libcrypto::aes::gcm::Gcm;
     /// #
     /// # let key = [
     /// #   0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15,
@@ -389,7 +360,7 @@ fn add_block(tag: &mut u128, block: [u8; aes::BLOCK_SIZE], h: u128) {
 #[cfg(test)]
 mod tests {
     use super::Gcm;
-    use crate::aes::Aes128;
+    use super::aes::Aes128;
 
     #[test]
     fn ctr_mode() {

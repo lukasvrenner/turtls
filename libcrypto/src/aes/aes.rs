@@ -173,41 +173,14 @@ pub struct Aes128 {
     round_keys: [[u8; BLOCK_SIZE]; Self::NUM_ROUNDS + 1],
 }
 
-impl Aes128 {
-    /// creates a new `Aes128` cipher, expanding the key
-    pub fn new(key: [u8; Self::KEY_SIZE]) -> Self {
-        Self {
-            round_keys: Self::expand_key(key),
-        }
-    }
-}
-
 /// AES-192 encryption
 pub struct Aes192 {
     round_keys: [[u8; BLOCK_SIZE]; Self::NUM_ROUNDS + 1],
 }
 
-impl Aes192 {
-    /// creates a new `Aes192` cipher, expanding the key
-    pub fn new(key: [u8; Self::KEY_SIZE]) -> Self {
-        Self {
-            round_keys: Self::expand_key(key),
-        }
-    }
-}
-
 /// AES-256 encryption
 pub struct Aes256 {
     round_keys: [[u8; BLOCK_SIZE]; Self::NUM_ROUNDS + 1],
-}
-
-impl Aes256 {
-    /// creates a new `Aes256` cipher, expanding the key
-    pub fn new(key: [u8; Self::KEY_SIZE]) -> Self {
-        Self {
-            round_keys: Self::expand_key(key),
-        }
-    }
 }
 
 /// A common interface for AES ciphers
@@ -228,6 +201,11 @@ pub trait AesCipher {
 
     /// The number of 32-bit "words" in the key
     const NUM_KEY_WORDS: usize = Self::KEY_SIZE / 4;
+    /// The type used to represent a key.
+    ///
+    /// Note: this will be auto-implemented
+    /// once trait type defaults are stabilized.
+    type Key;
 
     /// Encrypts `block` inline, mutating `block`
     fn encrypt_inline(&self, block: &mut [u8; BLOCK_SIZE]);
@@ -238,6 +216,9 @@ pub trait AesCipher {
         self.encrypt_inline(&mut buffer);
         buffer
     }
+
+    /// Create a new cipher using `key`
+    fn new(key: Self::Key) -> Self;
 }
 
 // we can't use a trait because the input and
@@ -282,11 +263,16 @@ impl_expand_key!(Aes128);
 impl_expand_key!(Aes192);
 impl_expand_key!(Aes256);
 
+// we can add this as an auto-implemented trait function for AesCipher
+// once trait type defaults is stabilized
 macro_rules! impl_aes_cipher {
     ($cipher:ty, $key_size:literal, $num_rounds:literal) => {
         impl AesCipher for $cipher {
             const KEY_SIZE: usize = $key_size;
             const NUM_ROUNDS: usize = $num_rounds;
+
+            type Key = [u8; Self::KEY_SIZE];
+
             fn encrypt_inline(&self, block: &mut [u8; BLOCK_SIZE]) {
                 add_round_key(block, self.round_keys[0]);
                 for round_key in
@@ -300,6 +286,12 @@ macro_rules! impl_aes_cipher {
                 sub_bytes(block);
                 shift_rows(block);
                 add_round_key(block, self.round_keys[Self::NUM_ROUNDS]);
+            }
+
+            fn new(key: Self::Key) -> Self {
+                Self {
+                    round_keys: Self::expand_key(key),
+                }
             }
         }
     };

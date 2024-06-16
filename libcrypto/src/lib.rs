@@ -9,6 +9,6 @@
 //! </div>
 #![warn(missing_docs)]
 pub mod aes;
-pub mod gcm;
-pub mod sha256;
-pub mod sha512;
+pub mod dsa;
+pub mod sha2;
+pub mod chacha;
