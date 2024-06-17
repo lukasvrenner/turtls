@@ -292,6 +292,7 @@ impl<C: aes::AesCipher> Gcm<C> {
     ) -> [u8; aes::BLOCK_SIZE] {
         let mut tag = 0u128;
 
+        // TODO: use `array_chunks` once stabilized
         for block in add_data.chunks_exact(aes::BLOCK_SIZE) {
             add_block(&mut tag, block.try_into().unwrap(), self.h);
         }
@@ -307,6 +308,7 @@ impl<C: aes::AesCipher> Gcm<C> {
 
         add_block(&mut tag, last_block, self.h);
 
+        // TODO: use `array_chunks` once stabilized
         for block in cipher_text.chunks_exact(aes::BLOCK_SIZE) {
             add_block(&mut tag, block.try_into().unwrap(), self.h);
         }

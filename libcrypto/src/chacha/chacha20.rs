@@ -61,6 +61,7 @@ fn block(key: [u8; 32], nonce: [u8; 12], counter: u32) -> [u8; 64] {
     }
     let mut output = [0u8; 64];
     for (output_chunk, state_chunk) in
+        // TODO: use `array_chunks` once stabilized
         output.chunks_exact_mut(4).zip(state.iter())
     {
         output_chunk.copy_from_slice(&state_chunk.to_le_bytes());
@@ -75,12 +76,14 @@ fn config_state(key: [u8; 32], nonce: [u8; 12], counter: u32) -> [u32; 16] {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     ];
     for (key_chunk, state_chunk) in
+        // TODO: use `array_chunks` once stabilized
         key.chunks_exact(4).zip(state[4..12].iter_mut())
     {
         *state_chunk = u32::from_le_bytes(key_chunk.try_into().unwrap());
     }
     state[12] = counter;
     for (nonce_chunk, state_chunk) in
+        // TODO: use `array_chunks` once stabilized
         nonce.chunks_exact(4).zip(state[13..].iter_mut())
     {
         *state_chunk = u32::from_le_bytes(nonce_chunk.try_into().unwrap());

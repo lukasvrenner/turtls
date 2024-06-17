@@ -109,6 +109,7 @@ pub fn sha256(msg: &[u8]) -> [u8; HASH_SIZE] {
         0x1f83d9ab, 0x5be0cd19,
     ];
     padded_msg
+        // TODO: use `array_chunks` once stabilized
         .chunks_exact(BLOCK_SIZE)
         .map(|block| be_bytes_to_u32_array(block.try_into().unwrap()))
         .for_each(|block| update_hash(&mut hash, &block));
@@ -164,6 +165,7 @@ fn update_hash(
 fn be_bytes_to_u32_array(bytes: &[u8; BLOCK_SIZE]) -> [u32; BLOCK_SIZE / 4] {
     // TODO: use uninitialized memory if necessary
     let mut as_u32 = [0u32; BLOCK_SIZE / 4];
+    // TODO: use `array_chunks` once stabilized
     for (int, chunk) in as_u32.iter_mut().zip(bytes.chunks_exact(4)) {
         *int = u32::from_be_bytes(chunk.try_into().unwrap());
     }
@@ -171,7 +173,9 @@ fn be_bytes_to_u32_array(bytes: &[u8; BLOCK_SIZE]) -> [u32; BLOCK_SIZE / 4] {
 }
 
 fn to_be_bytes_from_hash(array: [u32; HASH_SIZE / 4]) -> [u8; HASH_SIZE] {
+    // TODO: use uninitialized memory if necessary
     let mut as_bytes = [0u8; HASH_SIZE];
+    // TODO: use `array_chunks` once stabilized
     for (chunk, int) in as_bytes.chunks_exact_mut(4).zip(array) {
         chunk.copy_from_slice(&int.to_be_bytes())
     }
