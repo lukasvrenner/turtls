@@ -135,6 +135,7 @@ impl<C: aes::AesCipher> Gcm<C> {
         tag: &[u8; aes::BLOCK_SIZE],
     ) -> Result<(), BadData> {
         let counter = {
+            // TODO: use uninitialized memory if necessary
             let mut counter = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
             counter[..init_vector.len()].copy_from_slice(init_vector);
             counter
@@ -297,6 +298,7 @@ impl<C: aes::AesCipher> Gcm<C> {
 
         let last_block = {
             let end = add_data.len() % aes::BLOCK_SIZE;
+            // TODO: use uninitialized memory if necessary
             let mut last_block = [0u8; aes::BLOCK_SIZE];
             last_block[..end]
                 .copy_from_slice(&add_data[add_data.len() - end..]);
@@ -311,6 +313,7 @@ impl<C: aes::AesCipher> Gcm<C> {
 
         let last_block = {
             let end = cipher_text.len() % aes::BLOCK_SIZE;
+            // TODO: use uninitialized memory if necessary
             let mut last_block = [0u8; aes::BLOCK_SIZE];
             last_block[..end]
                 .copy_from_slice(&cipher_text[cipher_text.len() - end..]);

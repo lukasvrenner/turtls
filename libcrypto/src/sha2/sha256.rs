@@ -162,6 +162,7 @@ fn update_hash(
 }
 
 fn be_bytes_to_u32_array(bytes: &[u8; BLOCK_SIZE]) -> [u32; BLOCK_SIZE / 4] {
+    // TODO: use uninitialized memory if necessary
     let mut as_u32 = [0u32; BLOCK_SIZE / 4];
     for (int, chunk) in as_u32.iter_mut().zip(bytes.chunks_exact(4)) {
         *int = u32::from_be_bytes(chunk.try_into().unwrap());

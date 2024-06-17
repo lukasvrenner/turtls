@@ -69,6 +69,7 @@ fn block(key: [u8; 32], nonce: [u8; 12], counter: u32) -> [u8; 64] {
 }
 
 fn config_state(key: [u8; 32], nonce: [u8; 12], counter: u32) -> [u32; 16] {
+    // TODO: use uninitialized memory if necessary
     let mut state = [
         0x61707865, 0x3320646e, 0x79622d32, 0x6b206574, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
