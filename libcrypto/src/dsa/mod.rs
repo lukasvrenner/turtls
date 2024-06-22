@@ -1,1 +1,1 @@
-pub mod eddsa25519;
+pub mod ecdsa;
