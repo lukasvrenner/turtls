@@ -8,8 +8,11 @@
 //! WARNING: This code has not been audited. Use at your own risk.
 //! </div>
 #![warn(missing_docs)]
+#![warn(clippy::cargo)]
+#![warn(clippy::nursery)]
 pub mod aes;
+pub mod big_int;
 pub mod chacha;
 pub mod dsa;
+pub mod elliptic_curve;
 pub mod sha2;
-pub mod big_int;

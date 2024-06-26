@@ -1,10 +1,17 @@
-use std::ops::{Add, Deref, DerefMut, Mul, Sub};
+//! This module provides integers that are larger than what can fit into a regular integer type.
+//! This is useful for many algorithms, such as those used in public key cryptography, whose
+//! security depends on very large numbers.
+use std::ops::{Add, Deref, DerefMut, Sub};
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
+/// This structure provides arbitrarily sized unsigned integers.
+///
+/// Internally, it is a big-endian array of 64-bit unsigned integers ([`u64`])
 pub struct BigInt<const N: usize>([u64; N]);
 
 impl<const N: usize> BigInt<N> {
-    const fn new(value: [u64; N]) -> Self {
-        BigInt(value)
+    /// Constructs a new `BigInt` of length `N` from a big-endian [`u64`] array
+    pub const fn new(value: [u64; N]) -> Self {
+        Self(value)
     }
 }
 
@@ -37,7 +44,7 @@ impl<const N: usize> Add for BigInt<N> {
     type Output = Self;
     /// Overflowing addition
     fn add(self, rhs: Self) -> Self::Output {
-        let mut sum = [064; N];
+        let mut sum = [0u64; N];
         let mut carry = false;
         for i in (0..N).rev() {
             // TODO: use libstd implementation once stabilized

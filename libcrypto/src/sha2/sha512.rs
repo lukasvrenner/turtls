@@ -86,27 +86,27 @@ const HASH_SIZE: usize = 64;
 
 const BLOCK_SIZE: usize = 128;
 
-fn ch(x: u64, y: u64, z: u64) -> u64 {
+const fn ch(x: u64, y: u64, z: u64) -> u64 {
     (x & y) ^ (!x & z)
 }
 
-fn maj(x: u64, y: u64, z: u64) -> u64 {
+const fn maj(x: u64, y: u64, z: u64) -> u64 {
     (x & y) ^ (x & z) ^ (y & z)
 }
 
-fn sigma_0(x: u64) -> u64 {
+const fn sigma_0(x: u64) -> u64 {
     x.rotate_right(28) ^ x.rotate_right(34) ^ x.rotate_right(39)
 }
 
-fn sigma_1(x: u64) -> u64 {
+const fn sigma_1(x: u64) -> u64 {
     x.rotate_right(14) ^ x.rotate_right(18) ^ x.rotate_right(41)
 }
 
-fn little_sigma_0(x: u64) -> u64 {
+const fn little_sigma_0(x: u64) -> u64 {
     x.rotate_right(1) ^ x.rotate_right(8) ^ x >> 7
 }
 
-fn little_sigma_1(x: u64) -> u64 {
+const fn little_sigma_1(x: u64) -> u64 {
     x.rotate_right(19) ^ x.rotate_right(61) ^ x >> 6
 }
 
