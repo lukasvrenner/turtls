@@ -9,3 +9,4 @@ license = "Apache-2.0"
 description = "a collection of cryptographic functions"
 repository = "https://github.com/lukasvrenner/turtls"
 documentation = "https://docs.rs/libcrypto/latest/libcrypto"
+categories = ["no-std", "cryptography"]
