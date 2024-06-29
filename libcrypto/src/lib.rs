@@ -10,6 +10,9 @@
 #![warn(missing_docs)]
 #![warn(clippy::cargo)]
 #![warn(clippy::nursery)]
+
+#![no_std]
+
 pub mod aes;
 pub mod big_int;
 pub mod chacha;

@@ -14,35 +14,35 @@
 //! let additional_data = "Public information".as_bytes();
 //!
 //! let key = [
-//!     0xfe, 0xff, 0xe9, 0x92, 0x86, 0x65, 0x73, 0x1c, 0x6d, 0x6a, 0x8f,
-//!     0x94, 0x67, 0x30, 0x83, 0x08,
+//!     0xfe, 0xff, 0xe9, 0x92, 0x86, 0x65, 0x73, 0x1c, 0x6d, 0x6a, 0x8f, 0x94, 0x67, 0x30, 0x83,
+//!     0x08,
 //! ];
 //!
-//! let init_vector = [
-//!     0xca, 0xfe, 0xba, 0xbe, 0xfa, 0xce, 0xdb, 0xad, 0xde, 0xca, 0xf8,
-//!     0x88,
-//! ];
+//! let init_vector = [ 0xca, 0xfe, 0xba, 0xbe, 0xfa, 0xce, 0xdb, 0xad, 0xde, 0xca, 0xf8, 0x88,];
 //!
 //! let cipher = Gcm::<Aes128>::new(key);
 //!
-//! let (encrypted_message, generated_tag) =
-//!     cipher.encrypt(&plain_text, &additional_data, &init_vector);
+//! let mut encrypted_message = vec![0u8; plain_text.len()];
+//! let generated_tag =
+//!     cipher.encrypt(&plain_text, &additional_data, &init_vector, &mut encrypted_message);
 //!
 //! let tag = [
-//!     0x4, 0xca, 0x8f, 0xa2, 0x89, 0xa6, 0xac, 0x83, 0x84, 0x68, 0x71,
-//!     0x46, 0x2a, 0xda, 0x12, 0x67,
+//!     0x4, 0xca, 0x8f, 0xa2, 0x89, 0xa6, 0xac, 0x83, 0x84, 0x68, 0x71, 0x46, 0x2a, 0xda, 0x12,
+//!     0x67,
 //! ];
 //!
 //! let cipher_text = [
-//!     0xcf, 0xdd, 0x5c, 0xc7, 0xaa, 0x96, 0x11, 0xb3, 0x8b, 0x5f, 0x8,
-//!     0x1f, 0x4e, 0x56, 0x81, 0x67, 0x2, 0x68,
+//!     0xcf, 0xdd, 0x5c, 0xc7, 0xaa, 0x96, 0x11, 0xb3, 0x8b, 0x5f, 0x8, 0x1f, 0x4e, 0x56, 0x81,
+//!     0x67, 0x2, 0x68,
 //! ];
 //!
 //! assert_eq!(encrypted_message, cipher_text);
 //! assert_eq!(generated_tag, tag);
 //!
+//! let mut unencrypted_message = vec![0u8; encrypted_message.len()];
 //! let unencrypted_message = cipher.decrypt(
-//!     &encrypted_message, additional_data, &init_vector, &generated_tag
+//!     &encrypted_message, additional_data, &init_vector, &generated_tag, &mut
+//!     unencrypted_message,
 //!     ).expect("Our message has been modified!");
 //!
 //! assert_eq!(plain_text, "Top secret message".as_bytes());
@@ -60,13 +60,14 @@ pub const IV_SIZE: usize = 12;
 #[derive(Debug)]
 pub struct BadData;
 
-impl std::fmt::Display for BadData {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for BadData {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "tag did not match data")
     }
 }
 
-impl std::error::Error for BadData {}
+// TODO: impl `Error` trait once stabilized in core
+// impl core::error::Error for BadData {}
 
 /// A type that allows for authenticated
 /// encryption and decryption in GCM via AES.
@@ -110,19 +111,25 @@ impl<C: aes_core::AesCipher> Gcm<C> {
         self.g_hash(plain_text, add_data, &counter)
     }
 
-    /// Encrypts data, returning encrypted data and an authentication tag
+    /// Encrypts `msg`, writing the encrypted msg to `buf` and returning an authentication tag
+    ///
+    /// # Panics
+    ///
+    /// The function will panic if `msg.len()` > `buf.len()`
+    ///
     ///
     /// WARNING: for security purposes,
     /// users MUST NOT use the same `init_vector` twice for the same key.
     pub fn encrypt(
         &self,
-        plain_text: &[u8],
+        msg: &[u8],
         add_data: &[u8],
         init_vector: &[u8; IV_SIZE],
-    ) -> (Vec<u8>, [u8; aes_core::BLOCK_SIZE]) {
-        let mut buffer = plain_text.to_vec();
-        let tag = self.encrypt_inline(&mut buffer, add_data, init_vector);
-        (buffer, tag)
+        buf: &mut [u8]
+    ) -> [u8; aes_core::BLOCK_SIZE] {
+        buf[..msg.len()].copy_from_slice(msg);
+        let tag = self.encrypt_inline(buf, add_data, init_vector);
+        tag
     }
 
     /// Decrypts `cipher_text` inline.
@@ -149,6 +156,10 @@ impl<C: aes_core::AesCipher> Gcm<C> {
 
     /// Retuns an `Err(BadData)` if the message has been modified
     ///
+    /// # Panics
+    ///
+    /// The function will panic if `msg.len()` > `buf.len()`
+    ///
     /// # Examples
     ///
     /// We've just recieved a message. Let's decrypt it!
@@ -157,17 +168,16 @@ impl<C: aes_core::AesCipher> Gcm<C> {
     /// ```
     /// // our message:
     /// let cipher_text = [
-    ///     0xcf, 0xdd, 0x5c, 0xc7, 0xaa, 0x96, 0x11, 0xb3, 0x8b, 0x5f, 0x8,
-    ///     0x1f, 0x4e, 0x56, 0x81, 0x67, 0x2, 0x68,
+    ///     0xcf, 0xdd, 0x5c, 0xc7, 0xaa, 0x96, 0x11, 0xb3, 0x8b, 0x5f, 0x8, 0x1f, 0x4e, 0x56,
+    ///     0x81, 0x67, 0x2, 0x68,
     /// ];
     /// let tag = [
-    ///     0x4, 0xca, 0x8f, 0xa2, 0x89, 0xa6, 0xac, 0x83, 0x84, 0x68, 0x71,
-    ///     0x46, 0x2a, 0xda, 0x12, 0x67,
+    ///     0x4, 0xca, 0x8f, 0xa2, 0x89, 0xa6, 0xac, 0x83, 0x84, 0x68, 0x71, 0x46, 0x2a, 0xda,
+    ///     0x12, 0x67,
     /// ];
     /// let add_data = "Public information".as_bytes();
     /// let init_vector = [
-    ///     0xca, 0xfe, 0xba, 0xbe, 0xfa, 0xce, 0xdb, 0xad, 0xde, 0xca, 0xf8,
-    ///     0x88,
+    ///     0xca, 0xfe, 0xba, 0xbe, 0xfa, 0xce, 0xdb, 0xad, 0xde, 0xca, 0xf8, 0x88,
     /// ];
     /// ```
     /// Decrypt our message:
@@ -177,35 +187,31 @@ impl<C: aes_core::AesCipher> Gcm<C> {
     ///
     /// // our key has to be the same key used to encrypt the message
     /// let key = [
-    ///     0xfe, 0xff, 0xe9, 0x92, 0x86, 0x65, 0x73, 0x1c, 0x6d, 0x6a, 0x8f,
-    ///     0x94, 0x67, 0x30, 0x83, 0x08,
+    ///     0xfe, 0xff, 0xe9, 0x92, 0x86, 0x65, 0x73, 0x1c, 0x6d, 0x6a, 0x8f, 0x94, 0x67, 0x30,
+    ///     0x83, 0x08,
     /// ];
     ///
     /// let init_vector = [
-    ///     0xca, 0xfe, 0xba, 0xbe, 0xfa, 0xce, 0xdb, 0xad, 0xde, 0xca, 0xf8,
-    ///     0x88,
+    ///     0xca, 0xfe, 0xba, 0xbe, 0xfa, 0xce, 0xdb, 0xad, 0xde, 0xca, 0xf8, 0x88,
     /// ];
     ///
     /// let cipher = Gcm::<Aes128>::new(key);
     ///
     /// # // our message:
     /// # let cipher_text = [
-    /// #    0xcf, 0xdd, 0x5c, 0xc7, 0xaa, 0x96, 0x11, 0xb3, 0x8b, 0x5f, 0x8,
-    /// #    0x1f, 0x4e, 0x56, 0x81, 0x67, 0x2, 0x68,
+    /// #    0xcf, 0xdd, 0x5c, 0xc7, 0xaa, 0x96, 0x11, 0xb3, 0x8b, 0x5f, 0x8, 0x1f, 0x4e, 0x56,
+    /// #    0x81, 0x67, 0x2, 0x68,
     /// # ];
     /// # let tag = [
-    /// #     0x4, 0xca, 0x8f, 0xa2, 0x89, 0xa6, 0xac, 0x83, 0x84, 0x68, 0x71,
-    /// #     0x46, 0x2a, 0xda, 0x12, 0x67,
+    /// #     0x4, 0xca, 0x8f, 0xa2, 0x89, 0xa6, 0xac, 0x83, 0x84, 0x68, 0x71, 0x46, 0x2a, 0xda,
+    /// #     0x12, 0x67,
     /// # ];
     /// # let add_data = "Public information".as_bytes();
     /// #
     /// // decrypt the message
-    /// let plain_text = match cipher.decrypt(
-    ///     &cipher_text, &add_data, &init_vector, &tag
-    ///     ) {
-    ///     Ok(plain_text) => plain_text, // success! Our data is intact
-    ///     Err(e) => panic!("{}", e),
-    ///     };
+    /// let mut plain_text = vec![0u8; cipher_text.len()];
+    /// cipher.decrypt(&cipher_text, &add_data, &init_vector, &tag, &mut plain_text)
+    ///     .expect("tag doesn't match!");
     /// ```
     ///
     /// If we modifiy the message before decryption, we get an error:
@@ -215,49 +221,46 @@ impl<C: aes_core::AesCipher> Gcm<C> {
     /// # use libcrypto::aes::gcm::Gcm;
     /// #
     /// # let key = [
-    /// #   0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15,
-    /// #   0x88, 0x09, 0xcf, 0x4f, 0x3c,
+    /// #     0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf,
+    /// #     0x4f, 0x3c,
     /// # ];
     /// #
     /// # let cipher = Gcm::<Aes128>::new(key);
     /// #
     /// # // our message:
     /// # let mut cipher_text = [
-    /// #     0xcf, 0xdd, 0x5c, 0xc7, 0xaa, 0x96, 0x11, 0xb3, 0x8b, 0x5f, 0x8,
-    /// #     0x1f, 0x4e, 0x56, 0x81, 0x67, 0x2, 0x68,
+    /// #     0xcf, 0xdd, 0x5c, 0xc7, 0xaa, 0x96, 0x11, 0xb3, 0x8b, 0x5f, 0x8, 0x1f, 0x4e, 0x56,
+    /// #     0x81, 0x67, 0x2, 0x68,
     /// # ];
     /// # let tag = [
-    /// #     0x4, 0xca, 0x8f, 0xa2, 0x89, 0xa6, 0xac, 0x83, 0x84, 0x68, 0x71,
-    /// #     0x46, 0x2a, 0xda, 0x12, 0x67,
+    /// #     0x4, 0xca, 0x8f, 0xa2, 0x89, 0xa6, 0xac, 0x83, 0x84, 0x68, 0x71, 0x46, 0x2a, 0xda,
+    /// #     0x12, 0x67,
     /// # ];
     /// # let add_data = "Public information".as_bytes();
     /// # let init_vector = [
-    /// #     0xca, 0xfe, 0xba, 0xbe, 0xfa, 0xce, 0xdb, 0xad, 0xde, 0xca, 0xf8,
-    /// #     0x88,
+    /// #     0xca, 0xfe, 0xba, 0xbe, 0xfa, 0xce, 0xdb, 0xad, 0xde, 0xca, 0xf8, 0x88,
     /// # ];
     /// #
     /// // flip a bit
     /// cipher_text[10] ^= 1 << 4;
     ///
     /// // decrypt the message
-    /// let plain_text = match cipher.decrypt(
-    ///     &cipher_text, &add_data, &init_vector, &tag
-    ///     ) {
-    ///     Ok(plain_text) => plain_text,
-    ///     Err(e) => panic!("{}", e), // uh oh, our data has been modified!
-    ///     };
+    /// let mut plain_text = vec![0u8; cipher_text.len()];
+    /// cipher.decrypt(&cipher_text, &add_data, &init_vector, &tag, &mut plain_text)
+    ///     .expect("tag doesn't match!");
     /// ```
     ///
     pub fn decrypt(
         &self,
-        cipher_text: &[u8],
+        msg: &[u8],
         add_data: &[u8],
         init_vector: &[u8; IV_SIZE],
         tag: &[u8; aes_core::BLOCK_SIZE],
-    ) -> Result<Vec<u8>, BadData> {
-        let mut buffer = cipher_text.to_vec();
-        self.decrypt_inline(&mut buffer, add_data, init_vector, tag)?;
-        Ok(buffer)
+        buf: &mut [u8],
+    ) -> Result<(), BadData> {
+        buf[..msg.len()].copy_from_slice(msg);
+        self.decrypt_inline(buf, add_data, init_vector, tag)?;
+        Ok(())
     }
 
     /// Encrypts or decrypts `data` in counter mode.

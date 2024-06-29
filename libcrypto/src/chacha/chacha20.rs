@@ -100,16 +100,21 @@ pub fn encrypt_inline(msg: &mut [u8], key: [u8; 32], nonce: [u8; 12], counter: u
     }
 }
 
-/// Encrypts `msg`, returning the encrypted message
+/// Encrypts `msg`, writing the encrypted msg to `buf`
+///
+/// # Panics
+///
+/// The function will panic if `msg.len()` > `buf.len()`
+///
+/// # Usage notes
 ///
 /// `counter` can be any number, often `0` or `1`
 ///
 /// WARNING: users MUST NOT use the same `nonce`
 /// more than once with the same key
-pub fn encrypt(msg: &[u8], key: [u8; 32], nonce: [u8; 12], counter: u32) -> Vec<u8> {
-    let mut buffer = msg.to_vec();
-    encrypt_inline(&mut buffer, key, nonce, counter);
-    buffer
+pub fn encrypt(msg: &[u8], key: [u8; 32], nonce: [u8; 12], counter: u32, buf: &mut [u8]) {
+    buf[..msg.len()].copy_from_slice(msg);
+    encrypt_inline(buf, key, nonce, counter);
 }
 
 #[cfg(test)]

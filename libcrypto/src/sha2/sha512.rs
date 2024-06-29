@@ -1,4 +1,5 @@
 //! A software implementation of SHA-512
+
 const K: [u64; 80] = [
     0x428a2f98d728ae22,
     0x7137449123ef65cd,
@@ -110,31 +111,6 @@ const fn little_sigma_1(x: u64) -> u64 {
     x.rotate_right(19) ^ x.rotate_right(61) ^ x >> 6
 }
 
-/// Add padding to `msg` to ensure
-/// the length of the message is a multiple of 1024 bits.
-///
-/// Padding is broken down into three parts:
-/// * Padding-start block: add one byte with value 0x80.
-///
-/// * Zeros: add whatever amount of zeros is needed to
-/// make the length of the message a multiple of 1024 bits,
-/// leaving room for 128 extra bits.
-///
-/// * Message-length: add a 128-bit big-endian
-/// representation of the original message length.
-fn pad_message(msg: &[u8]) -> Vec<u8> {
-    let padding_size = (BLOCK_SIZE - (msg.len() + 17) % BLOCK_SIZE) % BLOCK_SIZE;
-    // A heap allocation is necessary because we can't
-    // know the length of the padded message at compile-time
-    let mut padded_msg = msg.to_vec();
-    padded_msg.push(0x80);
-    padded_msg.resize(padded_msg.len() + padding_size, 0);
-    padded_msg.extend_from_slice(&(msg.len() as u128 * 8).to_be_bytes());
-
-    debug_assert_eq!(padded_msg.len() % BLOCK_SIZE, 0);
-    padded_msg
-}
-
 /// Calculates a 512-bit hash of `msg` using the SHA-256 algorithm.
 ///
 /// # Examples
@@ -154,7 +130,6 @@ fn pad_message(msg: &[u8]) -> Vec<u8> {
 /// assert_eq!(sha2::sha512(message), hash);
 /// ```
 pub fn sha512(msg: &[u8]) -> [u8; HASH_SIZE] {
-    let padded_msg = pad_message(msg);
     let mut hash: [u64; HASH_SIZE / 8] = [
         0x6a09e667f3bcc908,
         0xbb67ae8584caa73b,
@@ -165,11 +140,28 @@ pub fn sha512(msg: &[u8]) -> [u8; HASH_SIZE] {
         0x1f83d9abfb41bd6b,
         0x5be0cd19137e2179,
     ];
-    padded_msg
+    msg
         // TODO: use `array_chunks` once stabilized
         .chunks_exact(BLOCK_SIZE)
         .map(|block| be_bytes_to_u64_array(block.try_into().unwrap()))
         .for_each(|block| update_hash(&mut hash, &block));
+
+    // let padding_size = BLOCK_SIZE - (msg.len() % BLOCK_SIZE);
+    let msg_excess = &msg[msg.len() - (msg.len() % BLOCK_SIZE)..];
+    let mut last_block = [0u8; BLOCK_SIZE];
+    last_block[..msg_excess.len()].copy_from_slice(msg_excess);
+
+    // we can write here unconditionally because the excess must be less than `BLOCK_SIZE`
+    last_block[msg_excess.len()] = 0x80;
+    if msg_excess.len() < BLOCK_SIZE - 17 {
+        last_block[BLOCK_SIZE - 16..].copy_from_slice(&(msg.len() as u128 * 8).to_be_bytes());
+        update_hash(&mut hash, &be_bytes_to_u64_array(&last_block));
+    } else {
+        update_hash(&mut hash, &be_bytes_to_u64_array(&last_block));
+        let mut extra_block = [0u8; BLOCK_SIZE];
+        extra_block[BLOCK_SIZE - 16..].copy_from_slice(&(msg.len() as u128 * 8).to_be_bytes());
+        update_hash(&mut hash, &be_bytes_to_u64_array(&extra_block));
+    }
 
     to_be_bytes_from_hash(hash)
 }
@@ -203,7 +195,6 @@ fn update_hash(hash: &mut [u64; HASH_SIZE / 8], next_block: &[u64; BLOCK_SIZE / 
         c = b;
         b = a;
         a = temp1.wrapping_add(temp2);
-        println!("{a:#x}");
     }
     hash[0] = hash[0].wrapping_add(a);
     hash[1] = hash[1].wrapping_add(b);
@@ -238,23 +229,23 @@ fn to_be_bytes_from_hash(array: [u64; HASH_SIZE / 8]) -> [u8; HASH_SIZE] {
 #[cfg(test)]
 mod tests {
 
-    #[test]
-    fn pad_message() {
-        let msg = b"abc";
-        let padded_msg = [
-            0x61, 0x62, 0x63, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x18,
-        ];
-        assert_eq!(padded_msg, super::pad_message(msg).as_slice());
-    }
+    // #[test]
+    // fn pad_message() {
+    //     let msg = b"abc";
+    //     let padded_msg = [
+    //         0x61, 0x62, 0x63, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    //         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    //         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    //         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    //         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    //         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    //         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    //         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    //         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    //         0x00, 0x18,
+    //     ];
+    //     assert_eq!(padded_msg, super::pad_last_block(msg).as_slice());
+    // }
 
     #[test]
     fn sha512() {

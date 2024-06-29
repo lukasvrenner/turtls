@@ -1,7 +1,7 @@
 //! This module provides integers that are larger than what can fit into a regular integer type.
 //! This is useful for many algorithms, such as those used in public key cryptography, whose
 //! security depends on very large numbers.
-use std::ops::{Add, Deref, DerefMut, Sub};
+use core::ops::{Add, Deref, DerefMut, Sub};
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 /// This structure provides arbitrarily sized unsigned integers.
 ///
@@ -47,7 +47,7 @@ impl<const N: usize> Add for BigInt<N> {
         let mut sum = [0u64; N];
         let mut carry = false;
         for i in (0..N).rev() {
-            // TODO: use libstd implementation once stabilized
+            // TODO: use core implementation once stabilized
             (sum[i], carry) = carry_add(self[i], rhs[i], carry);
         }
         sum.into()
@@ -61,7 +61,7 @@ impl<const N: usize> Sub for BigInt<N> {
         let mut diff = [0u64; N];
         let mut carry = false;
         for i in (0..N).rev() {
-            // TODO: use libstd implementation once stabilized
+            // TODO: use libcore implementation once stabilized
             (diff[i], carry) = carry_sub(self[i], rhs[i], carry);
         }
         diff.into()

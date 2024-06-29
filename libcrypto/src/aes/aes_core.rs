@@ -205,7 +205,7 @@ macro_rules! impl_expand_key {
             fn expand_key(key: [u8; Self::KEY_SIZE]) -> [[u8; BLOCK_SIZE]; Self::NUM_ROUNDS + 1] {
                 // endianness doesn't matter so long as byte order is maintained
                 // SAFETY: integer arrays can be safely cast
-                let key: [u32; Self::NUM_KEY_WORDS] = unsafe { std::mem::transmute(key) };
+                let key: [u32; Self::NUM_KEY_WORDS] = unsafe { core::mem::transmute(key) };
                 let mut expanded_keys = [0u32; 4 * (Self::NUM_ROUNDS + 1)];
 
                 expanded_keys[0..key.len()].copy_from_slice(&key);
@@ -220,7 +220,7 @@ macro_rules! impl_expand_key {
                 }
                 // endianness doesn't matter so long as byte order is maintained
                 // SAFETY: integer arrays can be safely cast
-                unsafe { std::mem::transmute(expanded_keys) }
+                unsafe { core::mem::transmute(expanded_keys) }
             }
         }
     };
