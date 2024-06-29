@@ -2,10 +2,23 @@
 //! This is useful for many algorithms, such as those used in public key cryptography, whose
 //! security depends on very large numbers.
 use core::ops::{Add, Deref, DerefMut, Div, Mul, Sub};
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
+
+#[derive(Debug)]
+pub struct InputTooLargeError;
+
+impl core::fmt::Display for InputTooLargeError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "input is too large for output type")
+    }
+}
+
+// TODO: uncomment the following line once stabilized
+// impl core::error::Error for InputTooLargeError {};
+
 /// This structure provides arbitrarily sized unsigned integers.
 ///
 /// Internally, it is a big-endian array of 64-bit unsigned integers ([`u64`])
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct BigInt<const N: usize>([u64; N]);
 
 impl<const N: usize> BigInt<N> {
@@ -13,6 +26,9 @@ impl<const N: usize> BigInt<N> {
     pub const fn new(value: [u64; N]) -> Self {
         Self(value)
     }
+
+    pub const MAX: Self = Self::new([0xffffffffff; N]);
+    pub const MIN: Self = Self::new([0x0000000000; N]);
 }
 
 impl<const N: usize> Deref for BigInt<N> {
@@ -37,6 +53,31 @@ impl<const N: usize> From<[u64; N]> for BigInt<N> {
 impl<const N: usize> From<BigInt<N>> for [u64; N] {
     fn from(value: BigInt<N>) -> Self {
         value.0
+    }
+}
+
+impl<const N: usize> From<u64> for BigInt<N> {
+    fn from(value: u64) -> Self {
+        let mut big_int = [0u64; N];
+        big_int[big_int.len() - 1] = value;
+        big_int.into()
+    }
+}
+
+impl TryFrom<BigInt<8>> for BigInt<4> {
+    type Error = InputTooLargeError;
+    fn try_from(value: BigInt<8>) -> Result<Self, Self::Error> {
+        if <&[u64] as TryInto<&[u64; 4]>>::try_into(&value[..4]).unwrap() > &[0u64; 4] {
+            return Err(InputTooLargeError);
+        }
+        Ok(value[4..].try_into().unwrap())
+    }
+}
+
+impl<const N: usize> TryFrom<&[u64]> for BigInt<N> {
+    type Error = core::array::TryFromSliceError;
+    fn try_from(value: &[u64]) -> Result<Self, Self::Error> {
+        Ok(<&[u64] as TryInto<[u64; N]>>::try_into(value)?.into())
     }
 }
 
@@ -89,8 +130,15 @@ impl Mul for BigInt<4> {
 impl Div for BigInt<8> {
     type Output = (BigInt<4>, BigInt<4>);
     /// Returns the quotient and the remainder of the division, in that order
-    fn div(self, rhs: Self) -> Self::Output {
-        todo!()
+    fn div(mut self, rhs: Self) -> Self::Output {
+        debug_assert!(self > rhs);
+        let mut quotient = BigInt::<4>::new([0u64; 4]);
+        while self > rhs {
+            quotient = quotient + 1u64.into();
+            self = self - rhs;
+        }
+        // we can safely unwrap because self is now guaranteed to be less than BigInt<4>::MAX
+        (quotient, self.try_into().unwrap())
     }
 }
 
