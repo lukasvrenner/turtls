@@ -1,7 +1,7 @@
 //! This module provides integers that are larger than what can fit into a regular integer type.
 //! This is useful for many algorithms, such as those used in public key cryptography, whose
 //! security depends on very large numbers.
-use core::ops::{Add, Deref, DerefMut, Sub};
+use core::ops::{Add, Deref, DerefMut, Div, Mul, Sub};
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 /// This structure provides arbitrarily sized unsigned integers.
 ///
@@ -65,6 +65,32 @@ impl<const N: usize> Sub for BigInt<N> {
             (diff[i], carry) = carry_sub(self[i], rhs[i], carry);
         }
         diff.into()
+    }
+}
+
+impl Mul for BigInt<4> {
+    type Output = BigInt<8>;
+    /// Performs an expanding multiplication, meaning the output length will be double the input
+    /// length
+    #[allow(clippy::suspicious_arithmetic_impl)]
+    fn mul(self, rhs: Self) -> Self::Output {
+        let mut product = [0u64; 8];
+        for i in 0..self.len() {
+            let mut carry = 0;
+            for j in 0..rhs.len() {
+                (product[i + j], carry) = carry_mul(self[i], rhs[j], carry);
+            }
+            product[i] = carry;
+        }
+        product.into()
+    }
+}
+
+impl Div for BigInt<8> {
+    type Output = (BigInt<4>, BigInt<4>);
+    /// Returns the quotient and the remainder of the division, in that order
+    fn div(self, rhs: Self) -> Self::Output {
+        todo!()
     }
 }
 
