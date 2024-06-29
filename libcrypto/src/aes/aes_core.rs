@@ -524,7 +524,7 @@ mod tests {
                 0x63, 0x1e,
             ],
         ];
-        assert_eq!(aes_core::Aes256::expand_key(key), expanded_keys);
+        assert_eq!(Aes256::expand_key(key), expanded_keys);
     }
 
     #[test]
