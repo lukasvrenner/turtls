@@ -72,14 +72,14 @@ impl core::fmt::Display for BadData {
 /// A type that allows for authenticated
 /// encryption and decryption in GCM via AES.
 ///
-/// See `Gcm`'s implementations for examples.
+/// See [`Gcm`]'s implementations for examples.
 pub struct Gcm<C: aes_core::AesCipher> {
     cipher: C,
     h: u128,
 }
 
 impl<C: aes_core::AesCipher> Gcm<C> {
-    /// Construct a new `Gcm` cipher.
+    /// Construct a new [`Gcm`] cipher.
     pub fn new(key: C::Key) -> Self {
         let cipher = C::new(key);
         let mut h = [0u8; aes_core::BLOCK_SIZE];
@@ -125,11 +125,10 @@ impl<C: aes_core::AesCipher> Gcm<C> {
         msg: &[u8],
         add_data: &[u8],
         init_vector: &[u8; IV_SIZE],
-        buf: &mut [u8]
+        buf: &mut [u8],
     ) -> [u8; aes_core::BLOCK_SIZE] {
         buf[..msg.len()].copy_from_slice(msg);
-        let tag = self.encrypt_inline(buf, add_data, init_vector);
-        tag
+        self.encrypt_inline(buf, add_data, init_vector)
     }
 
     /// Decrypts `cipher_text` inline.

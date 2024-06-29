@@ -10,7 +10,6 @@
 #![warn(missing_docs)]
 #![warn(clippy::cargo)]
 #![warn(clippy::nursery)]
-
 #![no_std]
 
 pub mod aes;
