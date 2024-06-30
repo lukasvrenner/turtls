@@ -27,8 +27,30 @@ impl<const N: usize> BigInt<N> {
         Self(value)
     }
 
+    /// The zero value of [`BigInt<N>`]
+    ///
+    /// note: this has the same value as [`BigInt<N>::MIN`]
+    pub const ZERO: Self = Self::new([0x0000000000; N]);
+
+    /// The maximum value representable by [`BigInt<N>`]
     pub const MAX: Self = Self::new([0xffffffffff; N]);
-    pub const MIN: Self = Self::new([0x0000000000; N]);
+
+    /// The minimum value representable by [`BigInt<N>`]
+    ///
+    /// note: this has the same value as [`BigInt<N>::ZERO`]
+    pub const MIN: Self = Self::ZERO;
+
+    /// wrapping-subtracts `rhs` from `self`, returning the result and whether the operation
+    /// overflowed
+    pub fn overflowing_sub(self, rhs: Self) -> (Self, bool) {
+        let mut diff = [0u64; N];
+        let mut carry = false;
+        for i in (0..N).rev() {
+            // TODO: use libcore implementation once stabilized
+            (diff[i], carry) = carry_sub(self[i], rhs[i], carry);
+        }
+        (diff.into(), carry)
+    }
 }
 
 impl<const N: usize> Deref for BigInt<N> {
@@ -64,6 +86,16 @@ impl<const N: usize> From<u64> for BigInt<N> {
     }
 }
 
+// TODO: make this generic over any size N and O once const generic where clauses are stabilized
+impl From<BigInt<4>> for BigInt<8> {
+    fn from(value: BigInt<4>) -> Self {
+        let mut expanded = [0u64; 8];
+        expanded[4..].copy_from_slice(&value.0);
+        Self(expanded)
+    }
+}
+
+// TODO: make this generic over any size N and O once const generic where clauses are stabilized
 impl TryFrom<BigInt<8>> for BigInt<4> {
     type Error = InputTooLargeError;
     fn try_from(value: BigInt<8>) -> Result<Self, Self::Error> {
@@ -95,17 +127,21 @@ impl<const N: usize> Add for BigInt<N> {
     }
 }
 
+impl<const N: usize> Mul<bool> for BigInt<N> {
+    type Output = Self;
+    fn mul(self, rhs: bool) -> Self::Output {
+        match rhs {
+            true => self,
+            false => Self::ZERO,
+        }
+    }
+}
+
 impl<const N: usize> Sub for BigInt<N> {
     type Output = Self;
     /// Overflowing subtraction
     fn sub(self, rhs: Self) -> Self::Output {
-        let mut diff = [0u64; N];
-        let mut carry = false;
-        for i in (0..N).rev() {
-            // TODO: use libcore implementation once stabilized
-            (diff[i], carry) = carry_sub(self[i], rhs[i], carry);
-        }
-        diff.into()
+        self.overflowing_sub(rhs).0
     }
 }
 
@@ -130,6 +166,9 @@ impl Mul for BigInt<4> {
 impl Div for BigInt<8> {
     type Output = (BigInt<4>, BigInt<4>);
     /// Returns the quotient and the remainder of the division, in that order
+    ///
+    /// Warning: this operation is NOT yet constant-time
+    // TODO: make this constant-time
     fn div(mut self, rhs: Self) -> Self::Output {
         debug_assert!(self > rhs);
         let mut quotient = BigInt::<4>::new([0u64; 4]);
