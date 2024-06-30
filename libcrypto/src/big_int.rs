@@ -99,9 +99,11 @@ impl From<BigInt<4>> for BigInt<8> {
 impl TryFrom<BigInt<8>> for BigInt<4> {
     type Error = InputTooLargeError;
     fn try_from(value: BigInt<8>) -> Result<Self, Self::Error> {
+        // we can safely unwrap because the slice is guaranteed to have a length of 4
         if <&[u64] as TryInto<&[u64; 4]>>::try_into(&value[..4]).unwrap() > &[0u64; 4] {
             return Err(InputTooLargeError);
         }
+        // we can safely unwrap because the slice is guaranteed to have a length of 4
         Ok(value[4..].try_into().unwrap())
     }
 }
@@ -172,7 +174,7 @@ impl Div for BigInt<8> {
     fn div(mut self, rhs: Self) -> Self::Output {
         debug_assert!(self > rhs);
         let mut quotient = BigInt::<4>::new([0u64; 4]);
-        while self > rhs {
+        while self >= rhs {
             quotient = quotient + 1u64.into();
             self = self - rhs;
         }

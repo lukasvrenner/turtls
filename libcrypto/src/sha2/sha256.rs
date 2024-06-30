@@ -82,6 +82,7 @@ pub fn sha256(msg: &[u8]) -> [u8; HASH_SIZE] {
     msg
         // TODO: use `array_chunks` once stabilized
         .chunks_exact(BLOCK_SIZE)
+        // we can safely unwrap because `key_chunk` is guaranteed to have a length of `BLOCK_SIZE`
         .map(|block| be_bytes_to_u32_array(block.try_into().unwrap()))
         .for_each(|block| update_hash(&mut hash, &block));
 

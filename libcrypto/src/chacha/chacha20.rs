@@ -73,6 +73,7 @@ fn config_state(key: [u8; 32], nonce: [u8; 12], counter: u32) -> [u32; 16] {
         // TODO: use `array_chunks` once stabilized
         key.chunks_exact(4).zip(state[4..12].iter_mut())
     {
+        // we can safely unwrap because `key_chunk` is guaranteed to have a length of 4
         *state_chunk = u32::from_le_bytes(key_chunk.try_into().unwrap());
     }
     state[12] = counter;
@@ -80,6 +81,7 @@ fn config_state(key: [u8; 32], nonce: [u8; 12], counter: u32) -> [u32; 16] {
         // TODO: use `array_chunks` once stabilized
         nonce.chunks_exact(4).zip(state[13..].iter_mut())
     {
+        // we can safely unwrap because `key_chunk` is guaranteed to have a length of 4
         *state_chunk = u32::from_le_bytes(nonce_chunk.try_into().unwrap());
     }
     state

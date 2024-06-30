@@ -143,6 +143,8 @@ pub fn sha512(msg: &[u8]) -> [u8; HASH_SIZE] {
     msg
         // TODO: use `array_chunks` once stabilized
         .chunks_exact(BLOCK_SIZE)
+        // we can safely unwrap because `block` is guaranteed to have a length of
+        // `BLOCK_SIZE`
         .map(|block| be_bytes_to_u64_array(block.try_into().unwrap()))
         .for_each(|block| update_hash(&mut hash, &block));
 
@@ -211,6 +213,7 @@ fn be_bytes_to_u64_array(bytes: &[u8; BLOCK_SIZE]) -> [u64; BLOCK_SIZE / 8] {
     let mut as_u64 = [64; BLOCK_SIZE / 8];
     // TODO: use `array_chunks` once stabilized
     for (int, chunk) in as_u64.iter_mut().zip(bytes.chunks_exact(8)) {
+        // we can safely unwrap because `chunk` is guaranteed to have a length of `8`
         *int = u64::from_be_bytes(chunk.try_into().unwrap());
     }
     as_u64

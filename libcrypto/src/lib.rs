@@ -7,9 +7,7 @@
 //! <div class="warning">
 //! WARNING: This code has not been audited. Use at your own risk.
 //! </div>
-#![warn(missing_docs)]
-#![warn(clippy::cargo)]
-#![warn(clippy::nursery)]
+#![warn(missing_docs, clippy::cargo)]
 #![no_std]
 
 pub mod aes;
