@@ -313,6 +313,8 @@ impl<C: aes_core::AesCipher> Gcm<C> {
 
         // TODO: use `array_chunks` once stabilized
         for block in cipher_text.chunks_exact(aes_core::BLOCK_SIZE) {
+            // we can safely unwrap because `block` is guaranteed to have a length of
+            // `aes_core::BLOCK_SIZE`
             add_block(&mut tag, block.try_into().unwrap(), self.h);
         }
 
