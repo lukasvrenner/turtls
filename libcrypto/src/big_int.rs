@@ -30,10 +30,10 @@ impl<const N: usize> BigInt<N> {
     /// The zero value of [`BigInt<N>`]
     ///
     /// note: this has the same value as [`BigInt<N>::MIN`]
-    pub const ZERO: Self = Self::new([0x0000000000; N]);
+    pub const ZERO: Self = Self::new([u64::MIN; N]);
 
     /// The maximum value representable by [`BigInt<N>`]
-    pub const MAX: Self = Self::new([0xffffffffff; N]);
+    pub const MAX: Self = Self::new([u64::MAX; N]);
 
     /// The minimum value representable by [`BigInt<N>`]
     ///
@@ -198,4 +198,64 @@ const fn carry_sub(x: u64, y: u64, carry: bool) -> (u64, bool) {
     let (diff1, overflowed1) = x.overflowing_sub(y);
     let (diff2, overflowed2) = diff1.overflowing_sub(carry as u64);
     (diff2, overflowed1 || overflowed2)
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::BigInt;
+
+    #[test]
+    fn carry_add() {
+        let a = 0x0123456789abcdef;
+        let b = 0xfedcba9876543210;
+        assert_eq!(super::carry_add(a, b, true), (0, true));
+    }
+
+    #[test]
+    fn add() {
+        let x = BigInt::from([
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0xfedcba9876543210,
+        ]);
+        let y = BigInt::from([
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0123456789abcdef,
+        ]);
+        assert_eq!(
+            x + y,
+            BigInt::from([
+                0x0000000000000000,
+                0x0000000000000000,
+                0x0000000000000000,
+                0xffffffffffffffff,
+            ])
+        );
+
+        let x = BigInt::from([
+            0x0123456789abcdef,
+            0xfedcba9876543210,
+            0x0123456789abcdef,
+            0xfedcba9876543210,
+        ]);
+        let y = BigInt::from([
+            0xfedcba9876543210,
+            0x0123456789abcdef,
+            0xfedcba9876543210,
+            0x0123456789abcdef,
+        ]);
+        assert_eq!(x + y, BigInt::MAX);
+
+        let x = BigInt::from([
+            0x0123456789abcdef,
+            0xfedcba9876543210,
+            0x0123456789abcdef,
+            0xfedcba9876543211,
+        ]);
+        assert_eq!(x + y, BigInt::MIN);
+    }
 }
