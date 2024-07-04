@@ -66,7 +66,7 @@ impl core::fmt::Display for BadData {
     }
 }
 
-// TODO: impl `Error` trait once stabilized in core
+// TODO: uncomment the following line once stabilized
 // impl core::error::Error for BadData {}
 
 /// A type that allows for authenticated
@@ -141,7 +141,7 @@ impl<C: aes_core::AesCipher> Gcm<C> {
         tag: &[u8; aes_core::BLOCK_SIZE],
     ) -> Result<(), BadData> {
         let counter = {
-            // TODO: use uninitialized memory if necessary
+            // TODO: consider using uninitialized array
             let mut counter = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
             counter[..init_vector.len()].copy_from_slice(init_vector);
             counter
@@ -303,7 +303,7 @@ impl<C: aes_core::AesCipher> Gcm<C> {
 
         let last_block = {
             let end = add_data.len() % aes_core::BLOCK_SIZE;
-            // TODO: use uninitialized memory if necessary
+            // TODO: consider using uninitialized array
             let mut last_block = [0u8; aes_core::BLOCK_SIZE];
             last_block[..end].copy_from_slice(&add_data[add_data.len() - end..]);
             last_block
@@ -320,7 +320,7 @@ impl<C: aes_core::AesCipher> Gcm<C> {
 
         let last_block = {
             let end = cipher_text.len() % aes_core::BLOCK_SIZE;
-            // TODO: use uninitialized memory if necessary
+            // TODO: consider using uninitialized array
             let mut last_block = [0u8; aes_core::BLOCK_SIZE];
             last_block[..end].copy_from_slice(&cipher_text[cipher_text.len() - end..]);
             last_block

@@ -209,7 +209,7 @@ fn update_hash(hash: &mut [u64; HASH_SIZE / 8], next_block: &[u64; BLOCK_SIZE / 
 }
 
 fn be_bytes_to_u64_array(bytes: &[u8; BLOCK_SIZE]) -> [u64; BLOCK_SIZE / 8] {
-    // TODO: use uninitialized memory if necessary
+    // TODO: consider using uninitialized array
     let mut as_u64 = [64; BLOCK_SIZE / 8];
     // TODO: use `array_chunks` once stabilized
     for (int, chunk) in as_u64.iter_mut().zip(bytes.chunks_exact(8)) {
@@ -220,7 +220,7 @@ fn be_bytes_to_u64_array(bytes: &[u8; BLOCK_SIZE]) -> [u64; BLOCK_SIZE / 8] {
 }
 
 fn to_be_bytes_from_hash(array: [u64; HASH_SIZE / 8]) -> [u8; HASH_SIZE] {
-    // TODO: use uninitialized memory if necessary
+    // TODO: consider using uninitialized array
     let mut as_bytes = [0u8; HASH_SIZE];
     // TODO: use `array_chunks` once stabilized
     for (chunk, int) in as_bytes.chunks_exact_mut(8).zip(array) {

@@ -282,7 +282,7 @@ fn sub_bytes(state: &mut [u8; BLOCK_SIZE]) {
 
 #[inline]
 fn shift_rows(state: &mut [u8; BLOCK_SIZE]) {
-    // TODO: use uninitialized memory if necessary
+    // TODO: consider using uninitialized array
     let mut auxiliary = [0u8; 4];
     for row in 0..4 {
         for col in 0..4 {
