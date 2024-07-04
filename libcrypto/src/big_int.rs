@@ -53,6 +53,19 @@ impl<const N: usize> BigInt<N> {
     }
 }
 
+impl BigInt<4> {
+    // TODO: implement this for all values of `N` once const_generic operations are stabilized
+    pub fn from_be_bytes(bytes: [u8; 32]) -> Self {
+        // TODO: consider using uninitialized array
+        let mut output = [0u64; 4];
+        // TODO: use array_chunks once stabilized
+        for (chunk, digit) in bytes.chunks_exact(8).zip(output.iter_mut()) {
+            *digit = u64::from_be_bytes(chunk.try_into().unwrap())
+        }
+        output.into()
+    }
+}
+
 impl<const N: usize> Deref for BigInt<N> {
     type Target = [u64; N];
     fn deref(&self) -> &Self::Target {
