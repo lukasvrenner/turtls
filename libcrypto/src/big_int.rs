@@ -1,7 +1,7 @@
 //! This module provides integers that are larger than what can fit into a regular integer type.
 //! This is useful for many algorithms, such as those used in public key cryptography, whose
 //! security depends on very large numbers.
-use core::ops::{Add, AddAssign, Deref, DerefMut, Div, Mul, MulAssign, Sub, SubAssign};
+use core::ops::{Add, AddAssign, Deref, DerefMut, Div, Mul, Sub, SubAssign};
 
 #[derive(Debug)]
 pub struct InputTooLargeError;
@@ -201,9 +201,29 @@ impl Div for BigInt<8> {
     /// Returns the quotient and the remainder of the division, in that order
     ///
     /// Warning: this operation is NOT yet constant-time
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if `self < rhs` or if `rhs == BigInt::ZERO`
     // TODO: make this constant-time
     fn div(mut self, rhs: Self) -> Self::Output {
-        debug_assert!(self > rhs);
+        assert!(self >= rhs);
+        assert_ne!(rhs, BigInt::ZERO);
+        let mut quotient = BigInt::<4>::new([0u64; 4]);
+        while self >= rhs {
+            quotient = quotient + 1u64.into();
+            self -= rhs;
+        }
+        // we can safely unwrap because self is now guaranteed to be less than BigInt<4>::MAX
+        (quotient, self.try_into().unwrap())
+    }
+}
+
+impl Div for BigInt<4> {
+    type Output = (Self, Self);
+    fn div(mut self, rhs: Self) -> Self::Output {
+        assert!(self >= rhs);
+        assert_ne!(rhs, BigInt::ZERO);
         let mut quotient = BigInt::<4>::new([0u64; 4]);
         while self >= rhs {
             quotient = quotient + 1u64.into();
