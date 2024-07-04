@@ -1,7 +1,7 @@
 //! This module provides integers that are larger than what can fit into a regular integer type.
 //! This is useful for many algorithms, such as those used in public key cryptography, whose
 //! security depends on very large numbers.
-use core::ops::{Add, Deref, DerefMut, Div, Mul, Sub};
+use core::ops::{Add, AddAssign, Deref, DerefMut, Div, Mul, MulAssign, Sub, SubAssign};
 
 #[derive(Debug)]
 pub struct InputTooLargeError;
@@ -129,6 +129,12 @@ impl<const N: usize> Add for BigInt<N> {
     }
 }
 
+impl<const N: usize> AddAssign for BigInt<N> {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = *self + rhs;
+    }
+}
+
 impl<const N: usize> Mul<bool> for BigInt<N> {
     type Output = Self;
     fn mul(self, rhs: bool) -> Self::Output {
@@ -143,7 +149,19 @@ impl<const N: usize> Sub for BigInt<N> {
     type Output = Self;
     /// Overflowing subtraction
     fn sub(self, rhs: Self) -> Self::Output {
-        self.overflowing_sub(rhs).0
+        let mut diff = [0u64; N];
+        let mut carry = false;
+        for i in (0..N).rev() {
+            // TODO: use libcore implementation once stabilized
+            (diff[i], carry) = carry_sub(self[i], rhs[i], carry);
+        }
+        diff.into()
+    }
+}
+
+impl<const N: usize> SubAssign for BigInt<N> {
+    fn sub_assign(&mut self, rhs: Self) {
+        *self = *self - rhs;
     }
 }
 
@@ -176,7 +194,7 @@ impl Div for BigInt<8> {
         let mut quotient = BigInt::<4>::new([0u64; 4]);
         while self >= rhs {
             quotient = quotient + 1u64.into();
-            self = self - rhs;
+            self -= rhs;
         }
         // we can safely unwrap because self is now guaranteed to be less than BigInt<4>::MAX
         (quotient, self.try_into().unwrap())
