@@ -1,5 +1,5 @@
 use crate::big_int::BigInt;
-use core::ops::{Add, Mul, Sub};
+use core::ops::{Add, Div, Mul, Sub};
 
 #[derive(Debug)]
 pub struct GreaterThanMod;
@@ -25,11 +25,34 @@ impl FieldElement {
         0xf3b9cac2fc632551,
     ]));
 
+    pub const ZERO: Self = Self(BigInt::ZERO);
+
+    pub const MIN: Self = Self(BigInt::MIN);
+
+    pub const MAX: Self = Self::MODULUS;
+
     /// Returns the multiplicative inverse of `self`.
     ///
     /// This value has the property that `self.inverse() * self == 1`
-    pub fn inverse(&self) -> Self {
-        todo!();
+    pub fn inverse(self) -> Self {
+        let mut y1 = Self(BigInt::from([
+                0x0000000000000000,
+                0x0000000000000000,
+                0x0000000000000000,
+                0x0000000000000001,
+        ]));
+        let mut y2 = Self::ZERO;
+        let mut i = Self::MODULUS;
+        let mut j = self;
+        while j > Self::ZERO {
+            let (quotient, remainder) = i / j;
+            let y = y2 - (y1 * quotient);
+            i = j;
+            j = remainder;
+            y2 = y1;
+            y1 = y;
+        }
+        y2
     }
 }
 
@@ -62,6 +85,15 @@ impl Mul for FieldElement {
     }
 }
 
+impl Div for FieldElement {
+    type Output = (Self, Self);
+    fn div(self, rhs: Self) -> Self::Output {
+        let (quotient, remainder) = self.0 / rhs.0;
+        // guaranteed to be less than `Self::MODULUS`
+        (Self(quotient), Self(remainder))
+    }
+}
+
 impl From<BigInt<4>> for FieldElement {
     fn from(value: BigInt<4>) -> Self {
         Self((value / Self::MODULUS.0).1)
@@ -87,5 +119,26 @@ impl Point {
     );
     pub fn mul_scalar(&self, scalar: FieldElement) -> Self {
         todo!();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::big_int::BigInt;
+
+    use super::FieldElement;
+
+
+    #[test]
+    fn inverse() {
+        let a = FieldElement(BigInt::from([0x0123456789abcdef, 0xfedcba9876543210, 0x0123456789abcdef, 0xfedcba9876543210,]));
+        let inverse = a.inverse();
+        let one = FieldElement(BigInt::from([
+                0x0000000000000000,
+                0x0000000000000000,
+                0x0000000000000000,
+                0x0000000000000001,
+        ]));
+        assert_eq!(a * inverse, one);
     }
 }

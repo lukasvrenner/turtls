@@ -204,33 +204,34 @@ impl Div for BigInt<8> {
     ///
     /// # Panics
     ///
-    /// This function will panic if `self < rhs` or if `rhs == BigInt::ZERO`
+    /// This function will panic if `rhs == BigInt::ZERO`
     // TODO: make this constant-time
-    fn div(mut self, rhs: Self) -> Self::Output {
-        assert!(self >= rhs);
+    fn div(self, rhs: Self) -> Self::Output {
         assert_ne!(rhs, BigInt::ZERO);
-        let mut quotient = BigInt::<4>::new([0u64; 4]);
-        while self >= rhs {
-            quotient = quotient + 1u64.into();
-            self -= rhs;
-        }
-        // we can safely unwrap because self is now guaranteed to be less than BigInt<4>::MAX
-        (quotient, self.try_into().unwrap())
+        // let mut quotient = BigInt::<4>::new([0u64; 4]);
+        // while self >= rhs {
+        //     quotient = quotient + 1u64.into();
+        //     self -= rhs;
+        // }
+        // // we can safely unwrap because self is now guaranteed to be less than BigInt<4>::MAX
+        // (quotient, self.try_into().unwrap())
+        todo!();
     }
 }
 
 impl Div for BigInt<4> {
     type Output = (Self, Self);
-    fn div(mut self, rhs: Self) -> Self::Output {
-        assert!(self >= rhs);
+    fn div(self, rhs: Self) -> Self::Output {
         assert_ne!(rhs, BigInt::ZERO);
-        let mut quotient = BigInt::<4>::new([0u64; 4]);
-        while self >= rhs {
-            quotient = quotient + 1u64.into();
-            self -= rhs;
-        }
-        // we can safely unwrap because self is now guaranteed to be less than BigInt<4>::MAX
-        (quotient, self.try_into().unwrap())
+        // let mut quotient = BigInt::<4>::new([0u64; 4]);
+        // while self >= rhs {
+        //     quotient = quotient + 1u64.into();
+        //     self -= rhs;
+        // }
+        // // we can safely unwrap because self is now guaranteed to be less than BigInt<4>::MAX
+        // (quotient, self.try_into().unwrap())
+        todo!();
+
     }
 }
 
@@ -337,5 +338,12 @@ mod tests {
                 0x0000000000000000,
             ])
         );
+    }
+
+    #[test]
+    fn div() {
+        let x = BigInt::from([0, 0, 0, 1]);
+        let y = BigInt::from([0x0123456789abcdef, 0xfedcba9876543211, 0x0123456789abcdef, 0xfedcba9876543211]);
+        assert_eq!(y / x, (y, BigInt::ZERO));
     }
 }
