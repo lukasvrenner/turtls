@@ -6,4 +6,4 @@ insert_final_newline = true
 charset = utf-8
 indent-style = space
 indent-size = 4
-
+trim_trailing_whitespace = true
