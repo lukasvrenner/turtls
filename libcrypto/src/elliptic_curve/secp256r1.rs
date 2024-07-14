@@ -54,6 +54,10 @@ impl FieldElement {
         }
         y2
     }
+
+    pub fn count_digits(&self) -> usize {
+        self.0.count_digits()
+    }
 }
 
 impl Add for FieldElement {
