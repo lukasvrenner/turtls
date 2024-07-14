@@ -2,6 +2,7 @@
 //! This is useful for many algorithms, such as those used in public key cryptography, whose
 //! security depends on very large numbers.
 use core::ops::{Add, AddAssign, Deref, DerefMut, Div, Mul, Sub, SubAssign};
+use core::cmp::{PartialOrd, PartialEq, Ord, Eq, Ordering};
 
 #[derive(Debug)]
 pub struct InputTooLargeError;
@@ -17,12 +18,12 @@ impl core::fmt::Display for InputTooLargeError {
 
 /// This structure provides arbitrarily sized unsigned integers.
 ///
-/// Internally, it is a big-endian array of 64-bit unsigned integers ([`u64`])
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
+/// Internally, it is a little-endian array of 64-bit unsigned integers ([`u64`])
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct BigInt<const N: usize>([u64; N]);
 
 impl<const N: usize> BigInt<N> {
-    /// Constructs a new `BigInt` of length `N` from a big-endian [`u64`] array
+    /// Constructs a new `BigInt` of length `N` from a little-endian [`[u64; N`]
     pub const fn new(value: [u64; N]) -> Self {
         Self(value)
     }
@@ -45,21 +46,55 @@ impl<const N: usize> BigInt<N> {
     pub fn overflowing_sub(self, rhs: Self) -> (Self, bool) {
         let mut diff = [0u64; N];
         let mut carry = false;
-        for i in (0..N).rev() {
+        for i in 0..N {
             // TODO: use libcore implementation once stabilized
             (diff[i], carry) = carry_sub(self[i], rhs[i], carry);
         }
         (diff.into(), carry)
     }
+
+
+    /// Returns the number of digits in `self`
+    pub fn count_digits(&self) -> usize {
+        for (count, digit) in self.iter().rev().enumerate() {
+            if *digit != 0 { return N - count };
+        }
+        N
+    }
+
+}
+
+impl<const N: usize> Ord for BigInt<N> {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        for i in (0..N).rev() {
+            match self.0[i].cmp(&other.0[i]) {
+                Ordering::Equal => continue,
+                non_eq => return non_eq,
+            }
+        }
+        return Ordering::Equal;
+    }
+}
+
+impl <const N: usize> PartialOrd for BigInt<N> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+fn bad_div<const N: usize>(numerat: &[u64], denom: &[u64], out: &mut [u64]) -> [u64; N] {
+    let mut quotient = [0u64; N];
+    todo!();
 }
 
 impl BigInt<4> {
+    /// converts a big-endian byte array to a `BigInt`
     // TODO: implement this for all values of `N` once const_generic operations are stabilized
     pub fn from_be_bytes(bytes: [u8; 32]) -> Self {
         // TODO: consider using uninitialized array
         let mut output = [0u64; 4];
         // TODO: use array_chunks once stabilized
-        for (chunk, digit) in bytes.chunks_exact(8).zip(output.iter_mut()) {
+        for (chunk, digit) in bytes.rchunks_exact(8).zip(output.iter_mut()) {
             *digit = u64::from_be_bytes(chunk.try_into().unwrap())
         }
         output.into()
@@ -134,7 +169,7 @@ impl<const N: usize> Add for BigInt<N> {
     fn add(self, rhs: Self) -> Self::Output {
         let mut sum = [0u64; N];
         let mut carry = false;
-        for i in (0..N).rev() {
+        for i in 0..N {
             // TODO: use core implementation once stabilized
             (sum[i], carry) = carry_add(self[i], rhs[i], carry);
         }
@@ -164,7 +199,7 @@ impl<const N: usize> Sub for BigInt<N> {
     fn sub(self, rhs: Self) -> Self::Output {
         let mut diff = [0u64; N];
         let mut carry = false;
-        for i in (0..N).rev() {
+        for i in 0..N {
             // TODO: use libcore implementation once stabilized
             (diff[i], carry) = carry_sub(self[i], rhs[i], carry);
         }
@@ -267,48 +302,48 @@ mod tests {
     #[test]
     fn add() {
         let x = BigInt::from([
-            0x0000000000000000,
-            0x0000000000000000,
-            0x0000000000000000,
             0xfedcba9876543210,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
         ]);
         let y = BigInt::from([
-            0x0000000000000000,
-            0x0000000000000000,
-            0x0000000000000000,
             0x0123456789abcdef,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
         ]);
         assert_eq!(
             x + y,
             BigInt::from([
-                0x0000000000000000,
-                0x0000000000000000,
-                0x0000000000000000,
                 0xffffffffffffffff,
+                0x0000000000000000,
+                0x0000000000000000,
+                0x0000000000000000,
             ])
         );
 
         let x = BigInt::from([
-            0x0123456789abcdef,
             0xfedcba9876543210,
             0x0123456789abcdef,
             0xfedcba9876543210,
+            0x0123456789abcdef,
         ]);
         let y = BigInt::from([
-            0xfedcba9876543210,
             0x0123456789abcdef,
             0xfedcba9876543210,
             0x0123456789abcdef,
+            0xfedcba9876543210,
         ]);
         assert_eq!(x + y, BigInt::MAX);
 
         let x = BigInt::from([
+            0xfedcba9876543211,
             0x0123456789abcdef,
             0xfedcba9876543210,
             0x0123456789abcdef,
-            0xfedcba9876543211,
         ]);
-        assert_eq!(x + y, BigInt::MIN);
+        assert_eq!(x + y, BigInt::ZERO);
     }
 
     #[test]
