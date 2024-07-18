@@ -1,8 +1,8 @@
 //! This module provides integers that are larger than what can fit into a regular integer type.
 //! This is useful for many algorithms, such as those used in public key cryptography, whose
 //! security depends on very large numbers.
+use core::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
 use core::ops::{Add, AddAssign, Deref, DerefMut, Div, Mul, Sub, SubAssign};
-use core::cmp::{PartialOrd, PartialEq, Ord, Eq, Ordering};
 
 #[derive(Debug)]
 pub struct InputTooLargeError;
@@ -53,15 +53,25 @@ impl<const N: usize> BigInt<N> {
         (diff.into(), carry)
     }
 
-
     /// Returns the number of digits in `self`
     pub fn count_digits(&self) -> usize {
         for (count, digit) in self.iter().rev().enumerate() {
-            if *digit != 0 { return N - count };
+            if *digit != 0 {
+                return N - count;
+            };
         }
-        N
+        0
     }
 
+    fn bad_div(mut self, rhs: Self) -> (Self, Self) {
+        assert_ne!(rhs, Self::ZERO);
+        let mut quotient = BigInt::from([0; N]);
+        while self >= rhs {
+            self -= rhs;
+            quotient += 1u64.into();
+        }
+        (quotient, self)
+    }
 }
 
 impl<const N: usize> Ord for BigInt<N> {
@@ -72,19 +82,14 @@ impl<const N: usize> Ord for BigInt<N> {
                 non_eq => return non_eq,
             }
         }
-        return Ordering::Equal;
+        Ordering::Equal
     }
 }
 
-impl <const N: usize> PartialOrd for BigInt<N> {
+impl<const N: usize> PartialOrd for BigInt<N> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
-}
-
-fn bad_div<const N: usize>(numerat: &[u64], denom: &[u64], out: &mut [u64]) -> [u64; N] {
-    let mut quotient = [0u64; N];
-    todo!();
 }
 
 impl BigInt<4> {
@@ -129,7 +134,7 @@ impl<const N: usize> From<BigInt<N>> for [u64; N] {
 impl<const N: usize> From<u64> for BigInt<N> {
     fn from(value: u64) -> Self {
         let mut big_int = [0u64; N];
-        big_int[big_int.len() - 1] = value;
+        big_int[0] = value;
         big_int.into()
     }
 }
@@ -138,7 +143,7 @@ impl<const N: usize> From<u64> for BigInt<N> {
 impl From<BigInt<4>> for BigInt<8> {
     fn from(value: BigInt<4>) -> Self {
         let mut expanded = [0u64; 8];
-        expanded[4..].copy_from_slice(&value.0);
+        expanded[..4].copy_from_slice(&value.0);
         Self(expanded)
     }
 }
@@ -231,42 +236,38 @@ impl Mul for BigInt<4> {
     }
 }
 
-impl Div for BigInt<8> {
-    type Output = (BigInt<4>, BigInt<4>);
-    /// Returns the quotient and the remainder of the division, in that order
-    ///
-    /// Warning: this operation is NOT yet constant-time
-    ///
-    /// # Panics
-    ///
-    /// This function will panic if `rhs == BigInt::ZERO`
-    // TODO: make this constant-time
-    fn div(self, rhs: Self) -> Self::Output {
-        assert_ne!(rhs, BigInt::ZERO);
-        // let mut quotient = BigInt::<4>::new([0u64; 4]);
-        // while self >= rhs {
-        //     quotient = quotient + 1u64.into();
-        //     self -= rhs;
-        // }
-        // // we can safely unwrap because self is now guaranteed to be less than BigInt<4>::MAX
-        // (quotient, self.try_into().unwrap())
-        todo!();
-    }
-}
-
-impl Div for BigInt<4> {
+impl<const N: usize> Div for BigInt<N> {
     type Output = (Self, Self);
     fn div(self, rhs: Self) -> Self::Output {
-        assert_ne!(rhs, BigInt::ZERO);
-        // let mut quotient = BigInt::<4>::new([0u64; 4]);
-        // while self >= rhs {
-        //     quotient = quotient + 1u64.into();
-        //     self -= rhs;
-        // }
-        // // we can safely unwrap because self is now guaranteed to be less than BigInt<4>::MAX
-        // (quotient, self.try_into().unwrap())
-        todo!();
+        assert_ne!(rhs, Self::ZERO);
+        if rhs > self { return (Self::ZERO, rhs); }
 
+        let mut quotient = Self::ZERO;
+
+        let dividend_digits = self.count_digits();
+        let divisor_digits = rhs.count_digits();
+        let mut partial_remainder = Self::ZERO;
+        for i in (1..=dividend_digits).rev().step_by(divisor_digits) {
+
+            let partial_dividend: Self = {
+                let mut partial_dividend = Self::ZERO;
+                let remainder_size = partial_remainder.count_digits();
+                partial_dividend[..divisor_digits - remainder_size].copy_from_slice(&self[i + remainder_size - divisor_digits..i]);
+                partial_dividend[divisor_digits - remainder_size..][..remainder_size].copy_from_slice(&partial_remainder[..remainder_size]);
+                if partial_dividend < rhs {
+                    partial_dividend[..divisor_digits + 1 - remainder_size].copy_from_slice(&self[i + remainder_size - divisor_digits - 1..i]);
+                    partial_dividend[divisor_digits + 1 - remainder_size..][..remainder_size].copy_from_slice(&partial_remainder[..remainder_size]);
+                }
+                partial_dividend
+            };
+
+            let results = partial_dividend.bad_div(rhs);
+            partial_remainder = results.1;
+
+            // quotient will always be one digit
+            quotient[dividend_digits - partial_dividend.count_digits()] = results.0[0];
+        }
+        (quotient, partial_remainder)
     }
 }
 
@@ -290,6 +291,8 @@ const fn carry_sub(x: u64, y: u64, carry: bool) -> (u64, bool) {
 #[cfg(test)]
 mod tests {
 
+    extern crate std;
+    use std::{dbg, prelude::*};
     use super::BigInt;
 
     #[test]
@@ -377,8 +380,12 @@ mod tests {
 
     #[test]
     fn div() {
-        let x = BigInt::from([0, 0, 0, 1]);
-        let y = BigInt::from([0x0123456789abcdef, 0xfedcba9876543211, 0x0123456789abcdef, 0xfedcba9876543211]);
-        assert_eq!(y / x, (y, BigInt::ZERO));
+        let y = BigInt::from([
+            0x0123456789abcdef,
+            0xfedcba9876543211,
+            0x0123456789abcdef,
+            0xfedcba9876543211,
+        ]);
+        assert_eq!(y / y, (BigInt::from([1, 0, 0, 0]), BigInt::ZERO));
     }
 }
