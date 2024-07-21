@@ -65,10 +65,29 @@ impl<const N: usize> BigInt<N> {
 
     fn bad_div(mut self, rhs: Self) -> (Self, Self) {
         assert_ne!(rhs, Self::ZERO);
-        let mut quotient = BigInt::from([0; N]);
+        let mut quotient = BigInt::ZERO;
         while self >= rhs {
-            self -= rhs;
-            quotient += 1u64.into();
+            if self.count_digits() > 2 {
+                self -= rhs;
+                quotient += 1u64.into();
+                continue;
+            }
+            let mut dividend = self[0] as u128;
+            dividend += (self[1] as u128) << 64;
+
+            let mut divisor = rhs[0] as u128;
+            divisor += (rhs[1] as u128) << 64;
+
+            let int_quotient = dividend / divisor;
+            let int_remainder = dividend % divisor;
+
+            quotient[0] += int_quotient as u64;
+            quotient[1] += (int_quotient >> 64) as u64;
+
+            self = Self::ZERO;
+            self[0] = int_remainder as u64;
+            self[1] = (int_remainder >> 64) as u64;
+            break;
         }
         (quotient, self)
     }
@@ -240,32 +259,47 @@ impl<const N: usize> Div for BigInt<N> {
     type Output = (Self, Self);
     fn div(self, rhs: Self) -> Self::Output {
         assert_ne!(rhs, Self::ZERO);
-        if rhs > self { return (Self::ZERO, rhs); }
+        if rhs > self {
+            return (Self::ZERO, rhs);
+        }
 
         let mut quotient = Self::ZERO;
 
-        let dividend_digits = self.count_digits();
-        let divisor_digits = rhs.count_digits();
+        let dividend_size = self.count_digits();
+        let divisor_size = rhs.count_digits();
         let mut partial_remainder = Self::ZERO;
-        for i in (1..=dividend_digits).rev().step_by(divisor_digits) {
 
+        let mut current_pos = dividend_size;
+        while current_pos > 0 {
             let partial_dividend: Self = {
                 let mut partial_dividend = Self::ZERO;
                 let remainder_size = partial_remainder.count_digits();
-                partial_dividend[..divisor_digits - remainder_size].copy_from_slice(&self[i + remainder_size - divisor_digits..i]);
-                partial_dividend[divisor_digits - remainder_size..][..remainder_size].copy_from_slice(&partial_remainder[..remainder_size]);
+
+                partial_dividend[..divisor_size - remainder_size].copy_from_slice(
+                    &self[current_pos + remainder_size - divisor_size..current_pos],
+                );
+
+                partial_dividend[divisor_size - remainder_size..][..remainder_size]
+                    .copy_from_slice(&partial_remainder[..remainder_size]);
+
+                // grab an extra digit if needed
                 if partial_dividend < rhs {
-                    partial_dividend[..divisor_digits + 1 - remainder_size].copy_from_slice(&self[i + remainder_size - divisor_digits - 1..i]);
-                    partial_dividend[divisor_digits + 1 - remainder_size..][..remainder_size].copy_from_slice(&partial_remainder[..remainder_size]);
+                    partial_dividend[..divisor_size + 1 - remainder_size].copy_from_slice(
+                        &self[current_pos + remainder_size - divisor_size - 1..current_pos],
+                    );
+                    partial_dividend[divisor_size + 1 - remainder_size..][..remainder_size]
+                        .copy_from_slice(&partial_remainder[..remainder_size]);
+                    current_pos -= 1;
                 }
                 partial_dividend
             };
 
+            current_pos += partial_remainder.count_digits();
             let results = partial_dividend.bad_div(rhs);
             partial_remainder = results.1;
-
-            // quotient will always be one digit
-            quotient[dividend_digits - partial_dividend.count_digits()] = results.0[0];
+            // partial_quotient will always be one digit
+            quotient[current_pos - partial_dividend.count_digits()] = results.0[0];
+            current_pos -= divisor_size;
         }
         (quotient, partial_remainder)
     }
@@ -291,8 +325,6 @@ const fn carry_sub(x: u64, y: u64, carry: bool) -> (u64, bool) {
 #[cfg(test)]
 mod tests {
 
-    extern crate std;
-    use std::{dbg, prelude::*};
     use super::BigInt;
 
     #[test]
@@ -382,10 +414,29 @@ mod tests {
     fn div() {
         let y = BigInt::from([
             0x0123456789abcdef,
-            0xfedcba9876543211,
+            0xfedcba9876543210,
             0x0123456789abcdef,
-            0xfedcba9876543211,
+            0xfedcba9876543210,
         ]);
+        let x = BigInt::from([0, 1, 0, 0]);
         assert_eq!(y / y, (BigInt::from([1, 0, 0, 0]), BigInt::ZERO));
+        assert_eq!(
+            y / x,
+            (
+                BigInt::from([
+                    0xfedcba9876543210,
+                    0x0123456789abcdef,
+                    0xfedcba9876543210,
+                    0,
+                ]),
+                BigInt::from([0x0123456789abcdef, 0, 0, 0,])
+            )
+        );
+        let a = BigInt::from([0, 0x0123456789abcdef, 0, 0]);
+        assert_eq!(
+            a / x,
+            (BigInt::from([0x0123456789abcdef, 0, 0, 0]), BigInt::ZERO)
+        );
+        // TODO: make test more exaustive
     }
 }
