@@ -30,19 +30,19 @@ impl<const N: usize> BigInt<N> {
 
     /// The zero value of [`BigInt<N>`]
     ///
-    /// note: this has the same value as [`BigInt<N>::MIN`]
+    /// Note: this has the same value as [`BigInt<N>::MIN`].
     pub const ZERO: Self = Self::new([u64::MIN; N]);
 
-    /// The maximum value representable by [`BigInt<N>`]
+    /// The maximum value representable by [`BigInt<N>`].
     pub const MAX: Self = Self::new([u64::MAX; N]);
 
-    /// The minimum value representable by [`BigInt<N>`]
+    /// The minimum value representable by [`BigInt<N>`].
     ///
-    /// note: this has the same value as [`BigInt<N>::ZERO`]
+    /// Note: this has the same value as [`BigInt<N>::ZERO`].
     pub const MIN: Self = Self::ZERO;
 
-    /// wrapping-subtracts `rhs` from `self`, returning the result and whether the operation
-    /// overflowed
+    /// Wrapping-subtracts `rhs` from `self`, returning the result and whether the operation
+    /// overflowed.
     pub fn overflowing_sub(self, rhs: Self) -> (Self, bool) {
         let mut diff = [0u64; N];
         let mut carry = false;
@@ -53,7 +53,7 @@ impl<const N: usize> BigInt<N> {
         (diff.into(), carry)
     }
 
-    /// Returns the number of digits in `self`
+    /// Returns the number of digits in `self`.
     pub fn count_digits(&self) -> usize {
         for (count, digit) in self.iter().rev().enumerate() {
             if *digit != 0 {
@@ -264,16 +264,17 @@ impl<const N: usize> Div for BigInt<N> {
         }
 
         let mut quotient = Self::ZERO;
+        let mut partial_remainder = Self::ZERO;
 
         let dividend_size = self.count_digits();
         let divisor_size = rhs.count_digits();
-        let mut partial_remainder = Self::ZERO;
+        let mut remainder_size = 0;
+
 
         let mut current_pos = dividend_size;
         while current_pos > 0 {
             let partial_dividend: Self = {
                 let mut partial_dividend = Self::ZERO;
-                let remainder_size = partial_remainder.count_digits();
 
                 partial_dividend[..divisor_size - remainder_size].copy_from_slice(
                     &self[current_pos + remainder_size - divisor_size..current_pos],
@@ -289,16 +290,18 @@ impl<const N: usize> Div for BigInt<N> {
                     );
                     partial_dividend[divisor_size + 1 - remainder_size..][..remainder_size]
                         .copy_from_slice(&partial_remainder[..remainder_size]);
-                    current_pos -= 1;
                 }
                 partial_dividend
             };
 
-            current_pos += partial_remainder.count_digits();
+            current_pos += remainder_size;
             let results = partial_dividend.bad_div(rhs);
-            partial_remainder = results.1;
+
             // partial_quotient will always be one digit
             quotient[current_pos - partial_dividend.count_digits()] = results.0[0];
+
+            partial_remainder = results.1;
+            remainder_size = partial_remainder.count_digits();
             current_pos -= divisor_size;
         }
         (quotient, partial_remainder)
