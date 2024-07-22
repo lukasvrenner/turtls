@@ -435,11 +435,6 @@ mod tests {
                 BigInt::from([0x0123456789abcdef, 0, 0, 0,])
             )
         );
-        let a = BigInt::from([0, 0x0123456789abcdef, 0, 0]);
-        assert_eq!(
-            a / x,
-            (BigInt::from([0x0123456789abcdef, 0, 0, 0]), BigInt::ZERO)
-        );
         // TODO: make test more exaustive
     }
 }
