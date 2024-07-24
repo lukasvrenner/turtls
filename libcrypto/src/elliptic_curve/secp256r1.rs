@@ -1,5 +1,4 @@
 use crate::big_int::BigInt;
-use core::ops::{Add, Div, Mul, Sub};
 
 #[derive(Debug)]
 pub struct GreaterThanMod;
@@ -45,8 +44,8 @@ impl FieldElement {
         let mut i = Self::MODULUS;
         let mut j = self;
         while j > Self::ZERO {
-            let (quotient, remainder) = i / j;
-            let y = y2 - (y1 * quotient);
+            let (quotient, remainder) = i.div(&j);
+            let y = y2.sub(&(y1.mul(&quotient)));
             i = j;
             j = remainder;
             y2 = y1;
@@ -58,45 +57,28 @@ impl FieldElement {
     pub fn count_digits(&self) -> usize {
         self.0.count_digits()
     }
-}
 
-impl Add for FieldElement {
-    type Output = Self;
     /// Performs constant-time addition modulo [`MODULUS`](Self::MODULUS)
-    fn add(self, rhs: Self) -> Self::Output {
-        Self(self.0 + rhs.0) - Self::MODULUS
+    pub fn add(&self, rhs: &Self) -> Self {
+        Self(self.0.add(&rhs.0)).sub(&Self::MODULUS)
     }
-}
 
-impl Sub for FieldElement {
-    type Output = Self;
     /// Performs constant-time subtraction modulo [`MODULUS`](Self::MODULUS)
-    fn sub(self, rhs: Self) -> Self::Output {
-        let (difference, carry) = self.0.overflowing_sub(rhs.0);
-        Self(difference + Self::MODULUS.0 * carry)
+    pub fn sub(&self, rhs: &Self) -> Self {
+        let (difference, carry) = self.0.overflowing_sub(&rhs.0);
+        Self(difference.add(&(Self::MODULUS.0.and_bool(carry))))
     }
-}
 
-// TODO: use montgomery field for more efficient modular multiplication
-impl Mul for FieldElement {
-    type Output = Self;
-    /// Performs subtraction modulo [`MODULUS`](Self::MODULUS)
-    ///
-    // TODO: fix this doc link
-    /// WARNING: because [`BigInt::div`](crate::big_int::BigInt::div) is not yet constant-time, neither is this operation
-    fn mul(self, rhs: Self) -> Self::Output {
+    pub fn mul(&self, rhs: &Self) -> Self {
         Self(
-            (((self.0 * rhs.0) / Self::MODULUS.0.into()).1)[..4]
+            (((self.0.expanding_mul(&rhs.0)).div(&Self::MODULUS.0.into())).1)[..4]
                 .try_into()
                 .unwrap(),
         )
     }
-}
 
-impl Div for FieldElement {
-    type Output = (Self, Self);
-    fn div(self, rhs: Self) -> Self::Output {
-        let (quotient, remainder) = self.0 / rhs.0;
+    pub fn div(&self, rhs: &Self) -> (Self, Self) {
+        let (quotient, remainder) = self.0.div(&rhs.0);
         // guaranteed to be less than `Self::MODULUS`
         (Self(quotient), Self(remainder))
     }
@@ -104,7 +86,7 @@ impl Div for FieldElement {
 
 impl From<BigInt<4>> for FieldElement {
     fn from(value: BigInt<4>) -> Self {
-        Self((value / Self::MODULUS.0).1)
+        Self((value.div(&Self::MODULUS.0)).1)
     }
 }
 
@@ -138,19 +120,19 @@ mod tests {
 
     #[test]
     fn inverse() {
-        //let a = FieldElement(BigInt::from([
-        //    0x0123456789abcdef,
-        //    0xfedcba9876543210,
-        //    0x0123456789abcdef,
-        //    0xfedcba9876543210,
-        //]));
-        //let inverse = a.inverse();
-        //let one = FieldElement(BigInt::from([
-        //    0x0000000000000001,
-        //    0x0000000000000000,
-        //    0x0000000000000000,
-        //    0x0000000000000000,
-        //]));
-        //assert_eq!(a * inverse, one);
+        let a = FieldElement(BigInt::from([
+            0x0123456789abcdef,
+            0xfedcba9876543210,
+            0x0123456789abcdef,
+            0xfedcba9876543210,
+        ]));
+        let inverse = a.inverse();
+        let one = FieldElement(BigInt::from([
+            0x0000000000000001,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+        ]));
+        assert_eq!(a.mul(&inverse), one);
     }
 }

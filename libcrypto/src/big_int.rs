@@ -2,8 +2,10 @@
 //! This is useful for many algorithms, such as those used in public key cryptography, whose
 //! security depends on very large numbers.
 use core::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
-use core::ops::{Add, AddAssign, Deref, DerefMut, Div, Mul, Sub, SubAssign};
+use core::ops::{Deref, DerefMut};
 
+/// The error that is returned when conversion from a larger [`BigInt`] to a smaller ['BigInt']
+/// fails
 #[derive(Debug)]
 pub struct InputTooLargeError;
 
@@ -43,14 +45,19 @@ impl<const N: usize> BigInt<N> {
 
     /// Wrapping-subtracts `rhs` from `self`, returning the result and whether the operation
     /// overflowed.
-    pub fn overflowing_sub(self, rhs: Self) -> (Self, bool) {
-        let mut diff = [0u64; N];
+    pub fn overflowing_sub(&self, rhs: &Self) -> (Self, bool) {
+        let mut buf = *self;
+        let overflowed = buf.overflowing_sub_assign(rhs);
+        (buf, overflowed)
+    }
+
+    pub fn overflowing_sub_assign(&mut self, rhs: &Self) -> bool {
         let mut carry = false;
         for i in 0..N {
             // TODO: use libcore implementation once stabilized
-            (diff[i], carry) = carry_sub(self[i], rhs[i], carry);
+            (self[i], carry) = carry_sub(self[i], rhs[i], carry);
         }
-        (diff.into(), carry)
+        carry
     }
 
     /// Returns the number of digits in `self`.
@@ -63,33 +70,96 @@ impl<const N: usize> BigInt<N> {
         0
     }
 
-    fn bad_div(mut self, rhs: Self) -> (Self, Self) {
-        assert_ne!(rhs, Self::ZERO);
-        let mut quotient = BigInt::ZERO;
-        while self >= rhs {
-            if self.count_digits() > 2 {
-                self -= rhs;
-                quotient += 1u64.into();
-                continue;
-            }
-            let mut dividend = self[0] as u128;
-            dividend += (self[1] as u128) << 64;
+    pub fn add(&self, rhs: &Self) -> Self {
+        let mut buf = *self;
+        buf.add_assign(rhs);
+        buf
+    }
 
-            let mut divisor = rhs[0] as u128;
-            divisor += (rhs[1] as u128) << 64;
-
-            let int_quotient = dividend / divisor;
-            let int_remainder = dividend % divisor;
-
-            quotient[0] += int_quotient as u64;
-            quotient[1] += (int_quotient >> 64) as u64;
-
-            self = Self::ZERO;
-            self[0] = int_remainder as u64;
-            self[1] = (int_remainder >> 64) as u64;
-            break;
+    pub fn add_assign(&mut self, rhs: &Self) {
+        let mut carry = false;
+        for i in 0..N {
+            // TODO: use core implementation once stabilized
+            (self[i], carry) = carry_add(self[i], rhs[i], carry);
         }
-        (quotient, self)
+    }
+
+    pub fn sub(&self, rhs: &Self) -> Self {
+        let mut buf = *self;
+        buf.sub_assign(rhs);
+        buf
+    }
+
+    pub fn sub_assign(&mut self, rhs: &Self) {
+        let mut carry = false;
+        for i in 0..N {
+            // TODO: use libcore implementation once stabilized
+            (self[i], carry) = carry_sub(self[i], rhs[i], carry);
+        }
+    }
+
+    pub fn and_bool(&self, rhs: bool) -> Self {
+        match rhs {
+            true => *self,
+            false => Self::ZERO,
+        }
+    }
+
+    pub fn and_bool_assign(&mut self, rhs: bool) {
+        if !rhs {
+            *self = Self::ZERO
+        };
+    }
+
+    pub fn div(&self, rhs: &Self) -> (Self, Self) {
+        todo!();
+    }
+
+    pub fn div_assign(&mut self, rhs: &Self) {
+        todo!();
+    }
+
+    //    fn bad_div(mut self, rhs: Self) -> (Self, Self) {
+    //        assert_ne!(rhs, Self::ZERO);
+    //        let mut quotient = BigInt::ZERO;
+    //        while self >= rhs {
+    //            if self.count_digits() > 2 {
+    //                self -= rhs;
+    //                quotient += 1u64.into();
+    //                continue;
+    //            }
+    //            let mut dividend = self[0] as u128;
+    //            dividend += (self[1] as u128) << 64;
+    //
+    //            let mut divisor = rhs[0] as u128;
+    //            divisor += (rhs[1] as u128) << 64;
+    //
+    //            let int_quotient = dividend / divisor;
+    //            let int_remainder = dividend % divisor;
+    //
+    //            quotient[0] += int_quotient as u64;
+    //            quotient[1] += (int_quotient >> 64) as u64;
+    //
+    //            self = Self::ZERO;
+    //            self[0] = int_remainder as u64;
+    //            self[1] = (int_remainder >> 64) as u64;
+    //            break;
+    //        }
+    //        (quotient, self)
+    //    }
+}
+
+impl BigInt<4> {
+    pub fn expanding_mul(&self, rhs: &Self) -> BigInt<8> {
+        let mut product = [0u64; 8];
+        for i in 0..self.len() {
+            let mut carry = 0;
+            for j in 0..rhs.len() {
+                (product[i + j], carry) = carry_mul(self[i], rhs[j], carry);
+            }
+            product[i] = carry;
+        }
+        product.into()
     }
 }
 
@@ -187,126 +257,35 @@ impl<const N: usize> TryFrom<&[u64]> for BigInt<N> {
     }
 }
 
-impl<const N: usize> Add for BigInt<N> {
-    type Output = Self;
-    /// Overflowing addition
-    fn add(self, rhs: Self) -> Self::Output {
-        let mut sum = [0u64; N];
-        let mut carry = false;
-        for i in 0..N {
-            // TODO: use core implementation once stabilized
-            (sum[i], carry) = carry_add(self[i], rhs[i], carry);
-        }
-        sum.into()
-    }
-}
-
-impl<const N: usize> AddAssign for BigInt<N> {
-    fn add_assign(&mut self, rhs: Self) {
-        *self = *self + rhs;
-    }
-}
-
-impl<const N: usize> Mul<bool> for BigInt<N> {
-    type Output = Self;
-    fn mul(self, rhs: bool) -> Self::Output {
-        match rhs {
-            true => self,
-            false => Self::ZERO,
-        }
-    }
-}
-
-impl<const N: usize> Sub for BigInt<N> {
-    type Output = Self;
-    /// Overflowing subtraction
-    fn sub(self, rhs: Self) -> Self::Output {
-        let mut diff = [0u64; N];
-        let mut carry = false;
-        for i in 0..N {
-            // TODO: use libcore implementation once stabilized
-            (diff[i], carry) = carry_sub(self[i], rhs[i], carry);
-        }
-        diff.into()
-    }
-}
-
-impl<const N: usize> SubAssign for BigInt<N> {
-    fn sub_assign(&mut self, rhs: Self) {
-        *self = *self - rhs;
-    }
-}
-
-impl Mul for BigInt<4> {
-    type Output = BigInt<8>;
-    /// Performs an expanding multiplication, meaning the output length will be double the input
-    /// length
-    #[allow(clippy::suspicious_arithmetic_impl)]
-    fn mul(self, rhs: Self) -> Self::Output {
-        let mut product = [0u64; 8];
-        for i in 0..self.len() {
-            let mut carry = 0;
-            for j in 0..rhs.len() {
-                (product[i + j], carry) = carry_mul(self[i], rhs[j], carry);
-            }
-            product[i] = carry;
-        }
-        product.into()
-    }
-}
-
-impl<const N: usize> Div for BigInt<N> {
-    type Output = (Self, Self);
-    fn div(self, rhs: Self) -> Self::Output {
-        assert_ne!(rhs, Self::ZERO);
-        if rhs > self {
-            return (Self::ZERO, rhs);
-        }
-
-        let mut quotient = Self::ZERO;
-        let mut partial_remainder = Self::ZERO;
-
-        let dividend_size = self.count_digits();
-        let divisor_size = rhs.count_digits();
-        let mut remainder_size = 0;
-
-
-        let mut current_pos = dividend_size;
-        while current_pos > 0 {
-            let partial_dividend: Self = {
-                let mut partial_dividend = Self::ZERO;
-
-                partial_dividend[..divisor_size - remainder_size].copy_from_slice(
-                    &self[current_pos + remainder_size - divisor_size..current_pos],
-                );
-
-                partial_dividend[divisor_size - remainder_size..][..remainder_size]
-                    .copy_from_slice(&partial_remainder[..remainder_size]);
-
-                // grab an extra digit if needed
-                if partial_dividend < rhs {
-                    partial_dividend[..divisor_size + 1 - remainder_size].copy_from_slice(
-                        &self[current_pos + remainder_size - divisor_size - 1..current_pos],
-                    );
-                    partial_dividend[divisor_size + 1 - remainder_size..][..remainder_size]
-                        .copy_from_slice(&partial_remainder[..remainder_size]);
-                }
-                partial_dividend
-            };
-
-            current_pos += remainder_size;
-            let results = partial_dividend.bad_div(rhs);
-
-            // partial_quotient will always be one digit
-            quotient[current_pos - partial_dividend.count_digits()] = results.0[0];
-
-            partial_remainder = results.1;
-            remainder_size = partial_remainder.count_digits();
-            current_pos -= divisor_size;
-        }
-        (quotient, partial_remainder)
-    }
-}
+//impl<const N: usize> Div for BigInt<N> {
+//    type Output = (Self, Self);
+//    fn div(self, rhs: Self) -> Self::Output {
+//        assert_ne!(rhs, Self::ZERO);
+//        let mut quotient = Self::ZERO;
+//        let mut remainder = self;
+//
+//        for i in (0..4).rev() {
+//            let mut chunk_quotient = 0;
+//            let mut shifted_rhs = rhs;
+//            shifted_rhs <<= i * 64;
+//
+//            let mut shifted_remainder = remainder;
+//            shifted_remainder <<= i * 64;
+//
+//            for _ in 0..64 {
+//                if shifted_remainder >= shifted_rhs {
+//                    shifted_remainder -= shifted_rhs;
+//                    chunk_quotient = (chunk_quotient << 1) | 1;
+//                } else {
+//                    chunk_quotient <<= 1;
+//                }
+//                shifted_rhs >>= 1;
+//            }
+//
+//        }
+//        (remainder, quotient)
+//    }
+//}
 
 const fn carry_add(x: u64, y: u64, carry: bool) -> (u64, bool) {
     let (sum1, overflowed1) = x.overflowing_add(y);
@@ -352,7 +331,7 @@ mod tests {
             0x0000000000000000,
         ]);
         assert_eq!(
-            x + y,
+            x.add(&y),
             BigInt::from([
                 0xffffffffffffffff,
                 0x0000000000000000,
@@ -373,7 +352,7 @@ mod tests {
             0x0123456789abcdef,
             0xfedcba9876543210,
         ]);
-        assert_eq!(x + y, BigInt::MAX);
+        assert_eq!(x.add(&y), BigInt::MAX);
 
         let x = BigInt::from([
             0xfedcba9876543211,
@@ -381,7 +360,7 @@ mod tests {
             0xfedcba9876543210,
             0x0123456789abcdef,
         ]);
-        assert_eq!(x + y, BigInt::ZERO);
+        assert_eq!(x.add(&y), BigInt::ZERO);
     }
 
     #[test]
@@ -399,7 +378,7 @@ mod tests {
             0x0000000000000000,
         ]);
         assert_eq!(
-            x * y,
+            x.expanding_mul(&y),
             BigInt::from([
                 0x0000000000000000,
                 0x0000000000000000,
@@ -415,26 +394,51 @@ mod tests {
 
     #[test]
     fn div() {
-        let y = BigInt::from([
-            0x0123456789abcdef,
-            0xfedcba9876543210,
-            0x0123456789abcdef,
-            0xfedcba9876543210,
-        ]);
-        let x = BigInt::from([0, 1, 0, 0]);
-        assert_eq!(y / y, (BigInt::from([1, 0, 0, 0]), BigInt::ZERO));
-        assert_eq!(
-            y / x,
-            (
-                BigInt::from([
-                    0xfedcba9876543210,
-                    0x0123456789abcdef,
-                    0xfedcba9876543210,
-                    0,
-                ]),
-                BigInt::from([0x0123456789abcdef, 0, 0, 0,])
-            )
-        );
-        // TODO: make test more exaustive
+            let y = BigInt::from([
+                0x0123456789abcdef,
+                0xfedcba9876543210,
+                0x0123456789abcdef,
+                0xfedcba9876543210,
+            ]);
+            let x = BigInt::from([0, 1, 0, 0]);
+            assert_eq!(y.div(&y), (BigInt::from([1, 0, 0, 0]), BigInt::ZERO));
+            assert_eq!(
+                y.div(&x),
+                (
+                    BigInt::from([
+                        0xfedcba9876543210,
+                        0x0123456789abcdef,
+                        0xfedcba9876543210,
+                        0,
+                    ]),
+                    BigInt::from([0x0123456789abcdef, 0, 0, 0,])
+                )
+            );
+            let a = BigInt::from([
+                0xfedcba9876543210,
+                0x0123456789abcdef,
+                0xfedcba9876543210,
+                0x0123456789abcdef,
+            ]);
+            let b = BigInt::from([
+                0xfedcba9876543210,
+                0x0123456789abcdef,
+                0xfedcba9876543210,
+                0,
+            ]);
+            let quotient = BigInt::from([
+                0x124924924924920,
+                0,
+                0,
+                0,
+            ]);
+            let remainder = BigInt::from([
+                0x7e3649cb031697d0,
+                0x81cb031697cfe364,
+                0x7e34fce968301c9b,
+                0,
+            ]);
+            assert_eq!(a.div(&b), (quotient, remainder));
+            // TODO: make test more exaustive
     }
 }

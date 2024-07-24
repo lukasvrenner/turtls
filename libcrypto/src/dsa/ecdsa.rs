@@ -11,10 +11,9 @@ pub fn generate_signature(
 
     let new_point = Point::G.mul_scalar(secret_num);
 
-    let s = inverse * (hash + new_point.0 * key);
+    let s = inverse.mul(&(hash.add(&(new_point.0.mul(&key)))));
 
     // TODO: destroy inverse
 
     (new_point.0, s)
-
 }
