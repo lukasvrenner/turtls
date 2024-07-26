@@ -70,11 +70,12 @@ impl FieldElement {
     }
 
     pub fn mul(&self, rhs: &Self) -> Self {
-        Self(
-            (((self.0.expanding_mul(&rhs.0)).div(&Self::MODULUS.0.into())).1)[..4]
-                .try_into()
-                .unwrap(),
-        )
+        //Self(
+        //    (((self.0.expanding_mul(&rhs.0)).div(&Self::MODULUS.0.into())).1)[..4]
+        //        .try_into()
+        //        .unwrap(),
+        //)
+        todo!();
     }
 
     pub fn div(&self, rhs: &Self) -> (Self, Self) {
