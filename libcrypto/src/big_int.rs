@@ -704,7 +704,7 @@ mod tests {
         assert_eq!(x.widening_shift_left(12), shifted);
 
         let mut widened_x = BigInt::ZERO;
-        widened_x.copy_from_slice(&x[..]);
+        widened_x[..x.len()].copy_from_slice(&x[..]);
         assert_eq!(x.widening_shift_left(0), widened_x);
     }
 
