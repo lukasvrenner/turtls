@@ -117,11 +117,7 @@ impl<const N: usize> BigInt<N> {
 
     /// Wrapping-adds `rhs` from `self`, returning the result
     ///
-    /// This is a constant-time operation in respect to the numeric value of `self` and `rhs.
-    ///
-    /// Note: while this operation is constant-time for any given `N` value,
-    /// grows, but is constant in respect to `self` and `rhs`
-    /// it is not constant-time for all `N` values. That is, the time-complexity grows as `N`
+    /// This is a constant-time operation.
     pub fn sub(&self, rhs: &Self) -> Self {
         let mut buf = *self;
         buf.sub_assign(rhs);
@@ -130,11 +126,7 @@ impl<const N: usize> BigInt<N> {
 
     /// Wrapping-subtracts `rhs` from `self`, storing the result in `self`
     ///
-    /// This is a constant-time operation in respect to the numeric value of `self` and `rhs.
-    ///
-    /// Note: while this operation is constant-time for any given `N` value,
-    /// it is not constant-time for all `N` values. That is, the time-complexity grows as `N`
-    /// grows, but is constant in respect to `self` and `rhs`
+    /// This is a constant-time operation.
     pub fn sub_assign(&mut self, rhs: &Self) {
         let mut carry = false;
         for i in 0..N {
@@ -156,7 +148,6 @@ impl<const N: usize> BigInt<N> {
         };
     }
 
-
     /// Shifts `self` to the left until the most significant bit is on
     ///
     /// This function does not align leading 0-digits; it only considers the ones after the last
@@ -176,26 +167,61 @@ impl<const N: usize> BigInt<N> {
 
     /// Performs a bitshift `rhs` to the right, storing the result in `self`
     ///
+    /// This is a constant-time operation.
+    ///
     /// # Panics:
     /// This function will panic if `rhs >= 64`
     pub fn shift_right_assign(&mut self, rhs: u64) {
         assert!(rhs < 64);
         let left_shift = (64 - rhs) % 64;
+        let mask = 0u64.wrapping_sub((rhs != 0) as u64);
 
-        for i in 1..N - 1 {
+        for i in 0..N - 1 {
             self[i] >>= rhs;
-            self[i] |= self[i + 1] << left_shift;
+            self[i] |= self[i + 1] << left_shift & mask;
         }
         self[N - 1] >>= rhs;
     }
 
     /// Performs a bitshift `rhs` to the right, returning the result
     ///
+    /// This is a constant-time operation.
+    ///
     /// # Panics:
     /// This function will panic if `rhs >= 64`
     pub fn shift_right(&self, rhs: u64) -> Self {
         let mut buf = *self;
         buf.shift_right_assign(rhs);
+        buf
+    }
+
+    /// Performs a bitshift `rhs` to the left, storing the result in `self`
+    ///
+    /// This is a constant-time operation.
+    ///
+    /// # Panics:
+    /// This function will panic if `rhs >= 64`
+    pub fn shift_left_assign(&mut self, rhs: u64) {
+        assert!(rhs < 64);
+        let right_shift = (64 - rhs) % 64;
+        let mask = 0u64.wrapping_sub((rhs != 0) as u64);
+
+        for i in (1..N).rev() {
+            self[i] <<= rhs;
+            self[i] |= self[i + 1] >> right_shift & mask;
+        }
+        self[N - 1] >>= rhs;
+    }
+
+    /// Performs a bitshift `rhs` to the right, returning the result
+    ///
+    /// This is a constant-time operation.
+    ///
+    /// # Panics:
+    /// This function will panic if `rhs >= 64`
+    pub fn shift_left(&self, rhs: u64) -> Self {
+        let mut buf = *self;
+        buf.shift_left_assign(rhs);
         buf
     }
 
@@ -239,7 +265,7 @@ fn div_3_words(m0: u64, m1: u64, d1: u64, d0: u64) -> u64 {
         q <<= 1;
         if r >= d {
             q |= 1;
-            r = r.wrapping_sub(d);
+            r -= d;
         }
         d >>= 1;
     }
@@ -249,7 +275,7 @@ fn div_3_words(m0: u64, m1: u64, d1: u64, d0: u64) -> u64 {
     q <<= 1;
     q |= (r >= d) as u64;
 
-    return (q | mask) & 64;
+    return q | mask;
 }
 
 impl BigInt<4> {
@@ -275,54 +301,59 @@ impl BigInt<4> {
     /// The output is 64 bits longer, so ovelflow never occurs.
     ///
     /// This is a constant-time operation
-    pub fn shift_left(&self, rhs: u64) -> BigInt<5> {
+    pub fn widening_shift_left(&self, rhs: u64) -> BigInt<5> {
         assert!(rhs < 64);
         let mut expanded = [0u64; 5];
         let right_shift = (64 - rhs) % 64;
+        let mask = 0u64.wrapping_sub((rhs != 0) as u64);
 
-        expanded[4] = self[3] >> right_shift;
+        expanded[4] = self[3] >> right_shift & mask;
         for i in (1..4).rev() {
             expanded[i] = self[i] << rhs;
-            expanded[i] |= self[i - 1] >> right_shift;
+            expanded[i] |= (self[i - 1] >> right_shift) & mask;
         }
         expanded[0] = self[0] << rhs;
         expanded.into()
     }
 
+    // A port of OpenSSL's `BN_div()`
     pub fn div(&self, divisor: &Self) -> (Self, Self) {
+        assert_ne!(*self, Self::ZERO);
+
+        // Normalize both numerator and denominator
         let norm_shift;
         let sdiv = {
             let mut sdiv = *divisor;
             norm_shift = sdiv.left_align();
             sdiv
         };
-        let mut snum = self.shift_left(norm_shift);
+        let mut snum = self.widening_shift_left(norm_shift);
 
-        // TODO: maybe add one?
-        let num_n = snum.count_digits();
+        let num_n = self.count_digits() + 1;
         let div_n = sdiv.count_digits();
 
-        // TODO: maybe `>`?
-        debug_assert!(num_n >= div_n);
+        assert!(num_n > div_n);
 
-        let loopy = num_n - div_n;
-        let mut wnum = loopy;
-        let mut wnum_top = num_n;
+        let num_loops = num_n - div_n;
+        let mut wnum = num_loops;
+        let mut wnum_top = num_n - 1;
 
         let mut quotient = Self::ZERO;
-        let mut quotient_pos = loopy;
+        let mut quotient_pos = num_loops;
 
         // `div_n` is guaranteed to be at least 1
         let d0 = sdiv[div_n - 1];
         let d1 = match div_n {
+            0 => unreachable!(),
             1 => 0,
-            _ => sdiv[div_n - 2]
+            _ => sdiv[div_n - 2],
         };
 
         let mut temp = BigInt::<5>::ZERO;
-        for _ in 0..loopy {
 
-            let mut q = div_3_words(snum[wnum_top - 1], snum[wnum_top - 2], d1, d0);
+        // `num_n` is always >= `num_loops`
+        for _ in 0..num_loops {
+            let mut q = div_3_words(snum[wnum_top], snum[wnum_top - 1], d1, d0);
 
             // multiply
             let mut carry = 0;
@@ -333,29 +364,35 @@ impl BigInt<4> {
 
             wnum -= 1;
 
-            // subtract
+            // subtract result from `snum`
             let mut carry = false;
             for i in 0..div_n + 1 {
-                (snum[wnum + i ], carry) = carry_sub(snum[wnum + i], temp[i], carry);
+                (snum[wnum + i], carry) = carry_sub(snum[wnum + i], temp[i], carry);
             }
             q -= carry as u64;
-            let carry = 0u64.wrapping_sub(carry as u64);
 
+            // zeroize `temp` if overflow didn't occur and otherwise set it do sdiv
+            let carry = 0u64.wrapping_sub(carry as u64);
             for i in 0..div_n {
                 temp[i] = sdiv[i] & carry;
             }
 
-            // add
+            // add back if overflow occured
             let mut carry = false;
             for i in 0..div_n {
                 (snum[wnum + i], carry) = carry_add(snum[wnum + i], temp[i], carry);
             }
-            snum[wnum_top - 1] += carry as u64;
-            debug_assert!(snum[wnum_top - 1] == 0);
-            quotient[quotient_pos] = q;
+            snum[wnum_top] = snum[wnum_top].wrapping_add(carry as u64);
+            debug_assert!(snum[wnum_top] == 0);
+
             quotient_pos -= 1;
+            quotient[quotient_pos] = q;
+
             wnum_top -= 1;
         }
+        // Un-normalize remainder
+        snum.shift_right_assign(norm_shift);
+        // we can safely unwrap because because `snum.len()` is 5
         (quotient, snum[..4].try_into().unwrap())
     }
 
@@ -521,28 +558,6 @@ mod tests {
     fn add() {
         let x = BigInt::from([
             0xfedcba9876543210,
-            0x0000000000000000,
-            0x0000000000000000,
-            0x0000000000000000,
-        ]);
-        let y = BigInt::from([
-            0x0123456789abcdef,
-            0x0000000000000000,
-            0x0000000000000000,
-            0x0000000000000000,
-        ]);
-        assert_eq!(
-            x.add(&y),
-            BigInt::from([
-                0xffffffffffffffff,
-                0x0000000000000000,
-                0x0000000000000000,
-                0x0000000000000000,
-            ])
-        );
-
-        let x = BigInt::from([
-            0xfedcba9876543210,
             0x0123456789abcdef,
             0xfedcba9876543210,
             0x0123456789abcdef,
@@ -562,6 +577,38 @@ mod tests {
             0x0123456789abcdef,
         ]);
         assert_eq!(x.add(&y), BigInt::ZERO);
+    }
+
+    #[test]
+    fn carry_sub() {
+        let a = 0;
+        let b = 0xfedcba9876543210;
+        assert_eq!(super::carry_sub(a, b, true), (0x0123456789abcdef, true));
+    }
+
+    #[test]
+    fn sub() {
+        let x = BigInt::from([
+            0xfedcba9876543210,
+            0x0123456789abcdef,
+            0xfedcba9876543210,
+            0x0123456789abcdef,
+        ]);
+        let y = BigInt::from([
+            0x0123456789abcdef,
+            0xfedcba9876543210,
+            0x0123456789abcdef,
+            0xfedcba9876543210,
+        ]);
+        assert_eq!(BigInt::MAX.sub(&x), y);
+
+        let x = BigInt::from([
+            0xfedcba9876543211,
+            0x0123456789abcdef,
+            0xfedcba9876543210,
+            0x0123456789abcdef,
+        ]);
+        assert_eq!(BigInt::ZERO.sub(&y), x);
     }
 
     #[test]
@@ -601,8 +648,9 @@ mod tests {
             0x0123456789abcdef,
             0xfedcba9876543210,
         ]);
-        let x = BigInt::from([0, 1, 0, 0]);
         assert_eq!(y.div(&y), (BigInt::from([1, 0, 0, 0]), BigInt::ZERO));
+
+        let x = BigInt::from([0, 1, 0, 0]);
         assert_eq!(
             y.div(&x),
             (
@@ -615,6 +663,7 @@ mod tests {
                 BigInt::from([0x0123456789abcdef, 0, 0, 0,])
             )
         );
+
         let a = BigInt::from([
             0xfedcba9876543210,
             0x0123456789abcdef,
@@ -635,11 +684,10 @@ mod tests {
             0,
         ]);
         assert_eq!(a.div(&b), (quotient, remainder));
-        // TODO: make test more exaustive
     }
 
     #[test]
-    fn shift_left() {
+    fn widening_shift_left() {
         let x = BigInt::from([
             0x0123456789abcdef,
             0xfedcba9876543210,
@@ -653,14 +701,28 @@ mod tests {
             0xcba9876543210012,
             0xfed,
         ]);
-        assert_eq!(x.shift_left(12), shifted);
+        assert_eq!(x.widening_shift_left(12), shifted);
+
+        let mut widened_x = BigInt::ZERO;
+        widened_x.copy_from_slice(&x[..]);
+        assert_eq!(x.widening_shift_left(0), widened_x);
     }
 
     #[test]
     fn left_align() {
-        let mut x = BigInt::from([0xfedcba9876543210, 0x0123456789abcdef, 0xfedcba9876543210, 0x0823456789abcdef]);
+        let mut x = BigInt::from([
+            0xfedcba9876543210,
+            0x0123456789abcdef,
+            0xfedcba9876543210,
+            0x0823456789abcdef,
+        ]);
         let shift_amount = x.left_align();
-        let aligned = BigInt::from([0xedcba98765432100, 0x123456789abcdeff, 0xedcba98765432100, 0x823456789abcdeff]);
+        let aligned = BigInt::from([
+            0xedcba98765432100,
+            0x123456789abcdeff,
+            0xedcba98765432100,
+            0x823456789abcdeff,
+        ]);
         assert_eq!(x, aligned);
         assert_eq!(shift_amount, 4);
     }
