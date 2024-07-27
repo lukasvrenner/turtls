@@ -156,12 +156,7 @@ impl<const N: usize> BigInt<N> {
         let num_digits = self.count_digits();
         assert_ne!(num_digits, 0);
         let left_shift = self[num_digits - 1].leading_zeros() as u64;
-        let right_shift = (64 - left_shift) % 64;
-        for i in (1..num_digits).rev() {
-            self[i] <<= left_shift;
-            self[i] |= self[i - 1] >> right_shift;
-        }
-        self[0] <<= left_shift;
+        self.shift_left_assign(left_shift);
         left_shift
     }
 
@@ -178,7 +173,7 @@ impl<const N: usize> BigInt<N> {
 
         for i in 0..N - 1 {
             self[i] >>= rhs;
-            self[i] |= self[i + 1] << left_shift & mask;
+            self[i] |= (self[i + 1] << left_shift) & mask;
         }
         self[N - 1] >>= rhs;
     }
@@ -208,9 +203,9 @@ impl<const N: usize> BigInt<N> {
 
         for i in (1..N).rev() {
             self[i] <<= rhs;
-            self[i] |= self[i + 1] >> right_shift & mask;
+            self[i] |= (self[i - 1] >> right_shift) & mask;
         }
-        self[N - 1] >>= rhs;
+        self[0] <<= rhs;
     }
 
     /// Performs a bitshift `rhs` to the right, returning the result
@@ -355,7 +350,7 @@ impl BigInt<4> {
         for _ in 0..num_loops {
             let mut q = div_3_words(snum[wnum_top], snum[wnum_top - 1], d1, d0);
 
-            // multiply
+            // multiply `sdiv` by `q`
             let mut carry = 0;
             for i in 0..div_n {
                 (temp[i], carry) = carry_mul(sdiv[i], q, carry);
@@ -676,7 +671,7 @@ mod tests {
             0xfedcba9876543210,
             0,
         ]);
-        let quotient = BigInt::from([0x124924924924920, 0, 0, 0]);
+        let quotient = BigInt::from([0x124924924924924, 0, 0, 0]);
         let remainder = BigInt::from([
             0x7e3649cb031697d0,
             0x81cb031697cfe364,
