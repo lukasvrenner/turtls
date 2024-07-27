@@ -323,20 +323,10 @@ impl BigInt<4> {
     pub fn div(&self, divisor: &Self) -> (Self, Self) {
         assert_ne!(*divisor, Self::ZERO);
 
-        let num_n = self.count_digits() + 1;
-        let div_n = divisor.count_digits();
+        let num_len = self.count_digits() + 1;
+        let div_len = divisor.count_digits();
 
-        assert!(num_n > div_n);
-
-
-        let num_loops = num_n - div_n;
-
-        // a 'window' into `snum`
-        let mut win_bot = num_loops;
-        let mut win_top = num_n - 1;
-
-        let mut quotient = Self::ZERO;
-        let mut quotient_pos = num_loops;
+        assert!(num_len > div_len);
 
         // Normalize both numerator and denominator
         let norm_shift;
@@ -348,30 +338,32 @@ impl BigInt<4> {
         let mut snum = self.widening_shift_left(norm_shift);
 
         // `div_n` is guaranteed to be at least 1
-        let d0 = sdiv[div_n - 1];
-        let d1 = match div_n {
+        let d0 = sdiv[div_len - 1];
+        let d1 = match div_len {
             0 => unreachable!(),
             1 => 0,
-            _ => sdiv[div_n - 2],
+            _ => sdiv[div_len - 2],
         };
 
-        // `num_n` is always >= `num_loops`
-        for _ in 0..num_loops {
-            win_bot -= 1;
+        let num_loops = num_len - div_len;
+
+        let mut quotient = Self::ZERO;
+        let mut quotient_pos = num_loops;
+
+        for (win_bot, win_top) in (0..num_loops).zip(num_len - num_loops..num_len).rev() {
             let mut temp = BigInt::<5>::ZERO;
             let mut partial_quotient = partial_div(snum[win_top], snum[win_top - 1], d1, d0);
 
             // multiply `sdiv` by `q`
             let mut mul_carry = 0;
-            for i in 0..div_n {
+            for i in 0..div_len {
                 (temp[i], mul_carry) = carry_mul(sdiv[i], partial_quotient, mul_carry);
             }
-            temp[div_n] = mul_carry;
-
+            temp[div_len] = mul_carry;
 
             // subtract result from `snum`
             let mut sub_carry = false;
-            for i in 0..div_n + 1 {
+            for i in 0..div_len + 1 {
                 (snum[win_bot + i], sub_carry) = carry_sub(snum[win_bot + i], temp[i], sub_carry);
             }
 
@@ -380,16 +372,15 @@ impl BigInt<4> {
             // add back if overflow occured
             let mask = 0u64.wrapping_sub(sub_carry as u64);
             let mut add_carry = false;
-            for i in 0..div_n {
-                (snum[win_bot + i], add_carry) = carry_add(snum[win_bot + i], sdiv[i] & mask, add_carry);
+            for i in 0..div_len {
+                (snum[win_bot + i], add_carry) =
+                    carry_add(snum[win_bot + i], sdiv[i] & mask, add_carry);
             }
             snum[win_top] = snum[win_top].wrapping_add(add_carry as u64);
             debug_assert!(snum[win_top] == 0);
 
             quotient_pos -= 1;
             quotient[quotient_pos] = partial_quotient;
-
-            win_top -= 1;
         }
         // Un-normalize remainder
         snum.shift_right_assign(norm_shift);
@@ -700,25 +691,55 @@ mod tests {
 
     #[test]
     fn count_digits_fast() {
-        let x = BigInt::from([0x0123456789abcdef, 0xfedcba9876543210, 0x0123456789abcdef, 0xfedcba9876543210]);
+        let x = BigInt::from([
+            0x0123456789abcdef,
+            0xfedcba9876543210,
+            0x0123456789abcdef,
+            0xfedcba9876543210,
+        ]);
         assert_eq!(x.count_digits_fast(), 4);
 
-        let y = BigInt::from([0x0123456789abcdef, 0xfedcba9876543210, 0, 0xfedcba9876543210]);
+        let y = BigInt::from([
+            0x0123456789abcdef,
+            0xfedcba9876543210,
+            0,
+            0xfedcba9876543210,
+        ]);
         assert_eq!(y.count_digits_fast(), 4);
 
-        let z = BigInt::from([0x0123456789abcdef, 0xfedcba9876543210, 0x0123456789abcdef, 0]);
+        let z = BigInt::from([
+            0x0123456789abcdef,
+            0xfedcba9876543210,
+            0x0123456789abcdef,
+            0,
+        ]);
         assert_eq!(z.count_digits_fast(), 3);
     }
 
     #[test]
     fn count_digits() {
-        let x = BigInt::from([0x0123456789abcdef, 0xfedcba9876543210, 0x0123456789abcdef, 0xfedcba9876543210]);
+        let x = BigInt::from([
+            0x0123456789abcdef,
+            0xfedcba9876543210,
+            0x0123456789abcdef,
+            0xfedcba9876543210,
+        ]);
         assert_eq!(x.count_digits(), 4);
 
-        let y = BigInt::from([0x0123456789abcdef, 0xfedcba9876543210, 0, 0xfedcba9876543210]);
+        let y = BigInt::from([
+            0x0123456789abcdef,
+            0xfedcba9876543210,
+            0,
+            0xfedcba9876543210,
+        ]);
         assert_eq!(y.count_digits(), 4);
 
-        let z = BigInt::from([0x0123456789abcdef, 0xfedcba9876543210, 0x0123456789abcdef, 0]);
+        let z = BigInt::from([
+            0x0123456789abcdef,
+            0xfedcba9876543210,
+            0x0123456789abcdef,
+            0,
+        ]);
         assert_eq!(z.count_digits(), 3);
     }
 }
