@@ -27,7 +27,7 @@ impl<const N: usize> UBigInt<N> {
 
     /// The minimum value representable by [`UBigInt<N>`].
     ///
-    /// Note: this has the same value as [`UBigInt<N>::ZERO`].
+    /// This has the same value as [`UBigInt<N>::ZERO`].
     pub const MIN: Self = Self::ZERO;
 
     /// A `UBigInt` with value 1
@@ -118,7 +118,7 @@ impl<const N: usize> UBigInt<N> {
     /// This is *not* the same as [`Self::len()`].
     ///
     /// # Constant-timedness:
-    /// This operation is constant-time.
+    /// This is a constant-time operation.
     /// If constant-time is not needed, consider using [`Self::count_digits_fast()`].
     ///
     /// Note: this function has not yet been benchmarked. It may not actually be any slower.
@@ -180,14 +180,20 @@ impl<const N: usize> UBigInt<N> {
         }
     }
 
-    /// Returns `self` if `rhs` is `true`, otherwise `Self::ZERO`
+    /// Returns `self` if `rhs` is `true`, otherwise `Self::ZERO`.
+    ///
+    /// # Constant-timedness:
+    /// This is a constant-time operation.
     pub fn and_bool(&self, rhs: bool) -> Self {
         let mut buf = *self;
         buf.and_bool_assign(rhs);
         buf
     }
 
-    /// reasigns `self` to equal `self` if `rhs` is `true`, otherwise `Self::ZERO`
+    /// reasigns `self` to equal `self` if `rhs` is `true`, otherwise `Self::ZERO`.
+    ///
+    /// # Constant-timedness:
+    /// This is a constant-time operation.
     pub fn and_bool_assign(&mut self, rhs: bool) {
         let mask = (rhs as u64).wrapping_neg();
         for digit in self.iter_mut() {
@@ -195,13 +201,13 @@ impl<const N: usize> UBigInt<N> {
         }
     }
 
-    /// Shifts `self` to the left until the most significant bit is on
+    /// Shifts `self` to the left until the most significant bit is on.
     ///
     /// This function does not align leading 0-digits; it only considers the ones after the last
-    /// leading `0`
+    /// leading `0`.
     ///
     /// # Constant-timedness:
-    /// This is a constant-time operation
+    /// This is a constant-time operation.
     pub fn left_align(&mut self) -> u64 {
         let num_digits = self.count_digits();
         assert_ne!(num_digits, 0);
@@ -210,15 +216,11 @@ impl<const N: usize> UBigInt<N> {
         left_shift
     }
 
-    /// Performs a bitshift `rhs` to the right, storing the result in `self`
-    ///
-    /// # Panics:
-    /// This function will panic if `rhs >= 64`
+    /// Performs a bitshift `rhs % 64` to the right and stores the result in `self`.
     ///
     /// # Constant-timedness:
-    /// This function is constant-time
+    /// This is a constant-time operation.
     pub fn shift_right_assign(&mut self, rhs: u64) {
-        assert!(rhs < 64);
         let left_shift = (64 - rhs) % 64;
         let mask = ((rhs != 0) as u64).wrapping_neg();
 
@@ -229,26 +231,23 @@ impl<const N: usize> UBigInt<N> {
         self[N - 1] >>= rhs;
     }
 
-    /// Performs a bitshift `rhs` to the right, returning the result
-    ///
-    /// # Panics:
-    /// This function will panic if `rhs >= 64`
+    /// Performs a bitshift `rhs % 64` to the right and returns the result.
     ///
     /// # Constant-timedness:
-    /// This function is constant-time
+    /// This is a constant-time operation.
     pub fn shift_right(&self, rhs: u64) -> Self {
         let mut buf = *self;
         buf.shift_right_assign(rhs);
         buf
     }
 
-    /// Performs a bitshift `rhs` to the left, storing the result in `self`
+    /// Performs a bitshift `rhs` to the left and stores the result in `self`.
     ///
     /// # Panics:
     /// This function will panic if `rhs >= 64`
     ///
     /// # Constant-timedness:
-    /// This function is constant-time
+    /// This is a constant-time operation.
     pub fn shift_left_assign(&mut self, rhs: u64) {
         assert!(rhs < 64);
         let right_shift = (64 - rhs) % 64;
@@ -261,20 +260,23 @@ impl<const N: usize> UBigInt<N> {
         self[0] <<= rhs;
     }
 
-    /// Performs a bitshift `rhs` to the right, returning the result
+    /// Performs a bitshift `rhs` to the right and returns the result.
     ///
     /// # Panics:
     /// This function will panic if `rhs >= 64`
     ///
     /// # Constant-timedness:
-    /// This function is constant-time
+    /// This is a constant-time operation.
     pub fn shift_left(&self, rhs: u64) -> Self {
         let mut buf = *self;
         buf.shift_left_assign(rhs);
         buf
     }
 
-    /// Converts `self` into its one's compliment
+    /// Converts `self` into its one's compliment.
+    ///
+    /// # Constant-timedness:
+    /// This is a constant-time operation.
     pub fn not_assign(&mut self) {
         for digit in self.iter_mut() {
             *digit = !*digit
@@ -282,6 +284,9 @@ impl<const N: usize> UBigInt<N> {
     }
 
     /// Returns the one's compliment of `self`
+    ///
+    /// # Constant-timedness:
+    /// This is a constant-time operation.
     pub fn not(&self) -> Self {
         let mut buf = *self;
         buf.not_assign();
@@ -335,7 +340,7 @@ macro_rules! impl_non_generic {
                 product.into()
             }
 
-            /// Left-shifts `self` `rhs` bits, so long as `rhs` is less than 64.
+            /// Left-shifts `self` `rhs` bits, so long as `rhs` is less than `64`.
             ///
             /// The output is 64 bits longer, so ovelflow never occurs.
             ///
@@ -438,7 +443,7 @@ macro_rules! impl_non_generic {
                 todo!();
             }
 
-            /// converts a big-endian byte array to a `UBigInt`
+            /// converts a big-endian byte array to a [`UBigInt`]
             // TODO: implement this for all values of `N` once const_generic operations are stabilized
             pub fn from_be_bytes(bytes: [u8; $n * 8]) -> Self {
                 // TODO: consider using uninitialized array
