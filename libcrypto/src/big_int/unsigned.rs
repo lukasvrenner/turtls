@@ -3,13 +3,11 @@
 //! For signed integers, use [`BigInt`](`super::BigInt`).
 use super::{BigInt, FromNegErr, InputTooLargeError};
 use core::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
-use core::ops::{Deref, DerefMut};
-
 /// An unsigned integer of size `N * 64` bits.
 ///
 /// Internally, [`UBigInt<N>`] is a little-endian `[u64; N]`
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct UBigInt<const N: usize>([u64; N]);
+pub struct UBigInt<const N: usize>(pub [u64; N]);
 
 impl<const N: usize> UBigInt<N> {
     /// Constructs a new `UBigInt` of length `N` from a little-endian `[u64; N]`
@@ -61,7 +59,7 @@ impl<const N: usize> UBigInt<N> {
         let mut carry = false;
         for i in 0..N {
             // TODO: use libcore implementation once stabilized
-            (self[i], carry) = super::carry_sub(self[i], rhs[i], carry);
+            (self.0[i], carry) = super::carry_sub(self.0[i], rhs.0[i], carry);
         }
         carry
     }
@@ -90,7 +88,7 @@ impl<const N: usize> UBigInt<N> {
         let mut carry = false;
         for i in 0..N {
             // TODO: use core implementation once stabilized
-            (self[i], carry) = super::carry_add(self[i], rhs[i], carry);
+            (self.0[i], carry) = super::carry_add(self.0[i], rhs.0[i], carry);
         }
         carry
     }
@@ -105,7 +103,7 @@ impl<const N: usize> UBigInt<N> {
     ///
     /// Note: this function has not yet been benchmarked. It may not actually be any faster.
     pub fn count_digits_fast(&self) -> usize {
-        for (count, digit) in self.iter().rev().enumerate() {
+        for (count, digit) in self.0.iter().rev().enumerate() {
             if *digit != 0 {
                 return N - count;
             };
@@ -125,7 +123,7 @@ impl<const N: usize> UBigInt<N> {
     pub fn count_digits(&self) -> usize {
         let mut num_digts = 0;
         let mut digit_encounterd = false;
-        for digit in self.iter().rev() {
+        for digit in self.0.iter().rev() {
             digit_encounterd |= *digit != 0;
             num_digts += digit_encounterd as usize;
         }
@@ -154,7 +152,7 @@ impl<const N: usize> UBigInt<N> {
         let mut carry = false;
         for i in 0..N {
             // TODO: use core implementation once stabilized
-            (self[i], carry) = super::carry_add(self[i], rhs[i], carry);
+            (self.0[i], carry) = super::carry_add(self.0[i], rhs.0[i], carry);
         }
     }
 
@@ -176,7 +174,7 @@ impl<const N: usize> UBigInt<N> {
         let mut carry = false;
         for i in 0..N {
             // TODO: use libcore implementation once stabilized
-            (self[i], carry) = super::carry_sub(self[i], rhs[i], carry);
+            (self.0[i], carry) = super::carry_sub(self.0[i], rhs.0[i], carry);
         }
     }
 
@@ -196,7 +194,7 @@ impl<const N: usize> UBigInt<N> {
     /// This is a constant-time operation.
     pub fn and_bool_assign(&mut self, rhs: bool) {
         let mask = (rhs as u64).wrapping_neg();
-        for digit in self.iter_mut() {
+        for digit in self.0.iter_mut() {
             *digit &= mask
         }
     }
@@ -211,7 +209,7 @@ impl<const N: usize> UBigInt<N> {
     pub fn left_align(&mut self) -> u64 {
         let num_digits = self.count_digits();
         assert_ne!(num_digits, 0);
-        let left_shift = self[num_digits - 1].leading_zeros() as u64;
+        let left_shift = self.0[num_digits - 1].leading_zeros() as u64;
         self.shift_left_assign(left_shift);
         left_shift
     }
@@ -225,10 +223,10 @@ impl<const N: usize> UBigInt<N> {
         let mask = ((rhs != 0) as u64).wrapping_neg();
 
         for i in 0..N - 1 {
-            self[i] >>= rhs;
-            self[i] |= (self[i + 1] << left_shift) & mask;
+            self.0[i] >>= rhs;
+            self.0[i] |= (self.0[i + 1] << left_shift) & mask;
         }
-        self[N - 1] >>= rhs;
+        self.0[N - 1] >>= rhs;
     }
 
     /// Performs a bitshift `rhs % 64` to the right and returns the result.
@@ -254,10 +252,10 @@ impl<const N: usize> UBigInt<N> {
         let mask = ((rhs != 0) as u64).wrapping_neg();
 
         for i in (1..N).rev() {
-            self[i] <<= rhs;
-            self[i] |= (self[i - 1] >> right_shift) & mask;
+            self.0[i] <<= rhs;
+            self.0[i] |= (self.0[i - 1] >> right_shift) & mask;
         }
-        self[0] <<= rhs;
+        self.0[0] <<= rhs;
     }
 
     /// Performs a bitshift `rhs` to the right and returns the result.
@@ -278,7 +276,7 @@ impl<const N: usize> UBigInt<N> {
     /// # Constant-timedness:
     /// This is a constant-time operation.
     pub fn not_assign(&mut self) {
-        for digit in self.iter_mut() {
+        for digit in self.0.iter_mut() {
             *digit = !*digit
         }
     }
@@ -291,6 +289,10 @@ impl<const N: usize> UBigInt<N> {
         let mut buf = *self;
         buf.not_assign();
         buf
+    }
+
+    pub fn len(&self) -> usize {
+        N
     }
 }
 
@@ -333,7 +335,7 @@ macro_rules! impl_non_generic {
                     let mut carry = 0;
                     for j in 0..rhs.len() {
                         // TODO: use libcore super::carry_mul once stabilized
-                        (product[i + j], carry) = super::carry_mul(self[i], rhs[j], carry);
+                        (product[i + j], carry) = super::carry_mul(self.0[i], rhs.0[j], carry);
                     }
                     product[i] = carry;
                 }
@@ -352,12 +354,12 @@ macro_rules! impl_non_generic {
                 let right_shift = (64 - rhs) % 64;
                 let mask = ((rhs != 0) as u64).wrapping_neg();
 
-                expanded[$n] = self[$n - 1] >> right_shift & mask;
+                expanded[$n] = self.0[$n - 1] >> right_shift & mask;
                 for i in (1..$n).rev() {
-                    expanded[i] = self[i] << rhs;
-                    expanded[i] |= (self[i - 1] >> right_shift) & mask;
+                    expanded[i] = self.0[i] << rhs;
+                    expanded[i] |= (self.0[i - 1] >> right_shift) & mask;
                 }
-                expanded[0] = self[0] << rhs;
+                expanded[0] = self.0[0] << rhs;
                 expanded.into()
             }
 
@@ -385,11 +387,11 @@ macro_rules! impl_non_generic {
                 let mut snum = self.widening_shift_left(norm_shift);
 
                 // `div_n` is guaranteed to be at least 1
-                let d0 = sdiv[div_len - 1];
+                let d0 = sdiv.0[div_len - 1];
                 let d1 = match div_len {
                     0 => unreachable!(),
                     1 => 0,
-                    _ => sdiv[div_len - 2],
+                    _ => sdiv.0[div_len - 2],
                 };
 
                 let num_loops = num_len.saturating_sub(div_len);
@@ -400,21 +402,21 @@ macro_rules! impl_non_generic {
                 for (win_bot, win_top) in (0..num_loops).zip(num_len - num_loops..num_len).rev() {
                     let mut temp = UBigInt::<{ $n + 1 }>::ZERO;
                     let mut partial_quotient =
-                        partial_div(snum[win_top], snum[win_top - 1], d1, d0);
+                        partial_div(snum.0[win_top], snum.0[win_top - 1], d1, d0);
 
                     // multiply `sdiv` by `q`
                     let mut mul_carry = 0;
                     for i in 0..div_len {
-                        (temp[i], mul_carry) =
-                            super::carry_mul(sdiv[i], partial_quotient, mul_carry);
+                        (temp.0[i], mul_carry) =
+                            super::carry_mul(sdiv.0[i], partial_quotient, mul_carry);
                     }
-                    temp[div_len] = mul_carry;
+                    temp.0[div_len] = mul_carry;
 
                     // subtract result from `snum`
                     let mut sub_carry = false;
                     for i in 0..div_len + 1 {
-                        (snum[win_bot + i], sub_carry) =
-                            super::carry_sub(snum[win_bot + i], temp[i], sub_carry);
+                        (snum.0[win_bot + i], sub_carry) =
+                            super::carry_sub(snum.0[win_bot + i], temp.0[i], sub_carry);
                     }
 
                     partial_quotient -= sub_carry as u64;
@@ -423,19 +425,19 @@ macro_rules! impl_non_generic {
                     let mask = (sub_carry as u64).wrapping_neg();
                     let mut add_carry = false;
                     for i in 0..div_len {
-                        (snum[win_bot + i], add_carry) =
-                            super::carry_add(snum[win_bot + i], sdiv[i] & mask, add_carry);
+                        (snum.0[win_bot + i], add_carry) =
+                            super::carry_add(snum.0[win_bot + i], sdiv.0[i] & mask, add_carry);
                     }
-                    snum[win_top] = snum[win_top].wrapping_add(add_carry as u64);
-                    debug_assert!(snum[win_top] == 0);
+                    snum.0[win_top] = snum.0[win_top].wrapping_add(add_carry as u64);
+                    debug_assert!(snum.0[win_top] == 0);
 
                     quotient_pos -= 1;
-                    quotient[quotient_pos] = partial_quotient;
+                    quotient.0[quotient_pos] = partial_quotient;
                 }
                 // Un-normalize remainder
                 snum.shift_right_assign(norm_shift);
                 // we can safely unwrap because because `snum.len()` is 5
-                (quotient, snum[..$n].try_into().unwrap())
+                (quotient, snum.0[..$n].try_into().unwrap())
             }
 
             /// Divides `self` by `rhs` in place, modifying `self`
@@ -480,19 +482,6 @@ impl<const N: usize> PartialOrd for UBigInt<N> {
     }
 }
 
-impl<const N: usize> Deref for UBigInt<N> {
-    type Target = [u64; N];
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<const N: usize> DerefMut for UBigInt<N> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
 impl<const N: usize> From<[u64; N]> for UBigInt<N> {
     fn from(value: [u64; N]) -> Self {
         Self::new(value)
@@ -533,11 +522,11 @@ impl TryFrom<UBigInt<8>> for UBigInt<4> {
     type Error = InputTooLargeError;
     fn try_from(value: UBigInt<8>) -> Result<Self, Self::Error> {
         // we can safely unwrap because the slice is guaranteed to have a length of 4
-        if <&[u64] as TryInto<&[u64; 4]>>::try_into(&value[..4]).unwrap() > &[0u64; 4] {
+        if <&[u64] as TryInto<&[u64; 4]>>::try_into(&value.0[..4]).unwrap() > &[0u64; 4] {
             return Err(InputTooLargeError);
         }
         // we can safely unwrap because the slice is guaranteed to have a length of 4
-        Ok(value[4..].try_into().unwrap())
+        Ok(value.0[4..].try_into().unwrap())
     }
 }
 
@@ -706,7 +695,7 @@ mod tests {
         assert_eq!(x.widening_shift_left(12), shifted);
 
         let mut widened_x = UBigInt::ZERO;
-        widened_x[..x.len()].copy_from_slice(&x[..]);
+        widened_x.0[..x.len()].copy_from_slice(&x.0[..]);
         assert_eq!(x.widening_shift_left(0), widened_x);
     }
 

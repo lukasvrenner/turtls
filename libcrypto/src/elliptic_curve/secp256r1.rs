@@ -1,4 +1,4 @@
-use crate::big_int::UBigInt;
+use crate::big_int::{BigInt, UBigInt};
 
 #[derive(Debug)]
 pub struct GreaterThanMod;
@@ -35,30 +35,25 @@ impl FieldElement {
     /// Returns the multiplicative inverse of `self`.
     ///
     /// This value has the property that `self.inverse() * self == 1`
-    pub fn inverse(self) -> Self {
-        let mut y1 = UBigInt::<4>::ONE;
-        let mut y2 = UBigInt::ZERO;
-        let mut i = Self::MODULUS.0;
-        let mut j = self.0;
-        let expanded_modulus = {
-            let mut expanded_modulus = UBigInt::<8>::ZERO;
-            expanded_modulus[..4].copy_from_slice(&Self::MODULUS.0[..]);
-            expanded_modulus
-        };
-        while j > UBigInt::ZERO {
-            let (quotient, remainder) = i.div(&j);
-            let y = y2.sub(
-                &(y1.expanding_mul(&quotient).div(&expanded_modulus).1[..4]
-                    .try_into()
-                    .unwrap()),
-            );
-            i = j;
-            j = remainder;
-            y2 = y1;
-            assert_ne!(y2, UBigInt::ZERO);
-            y1 = y;
+    ///
+    /// # Constant-timedness:
+    /// TODO: document constant-timedness
+    pub fn inverse(&self) -> Self {
+        let mut x = BigInt::ONE;
+        let mut y = BigInt::ZERO;
+        let mut a: BigInt<4> = self.0.into();
+        let mut modulus: BigInt<4> = Self::MODULUS.0.into();
+
+        while a > BigInt::ZERO {
+            let mut t = modulus;
+            let (quotient, remainder) = a.div(&modulus);
+            modulus = remainder;
+            a = t;
+            t = y;
+            y = x.sub(&quotient.expanding_mul(&y).try_into().unwrap());
+            x = t;
         }
-        Self(UBigInt::<4>::from(<[u64; 4]>::try_from(&y2[..4]).unwrap()))
+        UBigInt::try_from(y).unwrap().try_into().unwrap()
     }
 
     /// Returns the number of digits in `self`, not counting leading zeros
@@ -89,24 +84,21 @@ impl FieldElement {
     /// Returns `self` * `rhs` mod [`MODULUS`](Self::MODULUS)
     ///
     /// # Constant-timedness:
-    /// This function is constant-time
+    /// TODO: document constant-timedness
     pub fn mul(&self, rhs: &Self) -> Self {
         Self(
-            (((self.0.expanding_mul(&rhs.0)).div(&Self::MODULUS.0.into())).1)[..4]
+            (((self.0.expanding_mul(&rhs.0)).div(&Self::MODULUS.0.into())).1).0[..4]
                 .try_into()
                 .unwrap(),
         )
-        //todo!();
     }
 
     /// Returns (`self` / `rhs`, `self` mod `rhs)`
     ///
     /// # Constant-timedness:
     /// TODO: document constant-timedness
-    pub fn div(&self, rhs: &Self) -> (Self, Self) {
-        let (quotient, remainder) = self.0.div(&rhs.0);
-        // guaranteed to be less than `Self::MODULUS`
-        (Self(quotient), Self(remainder))
+    pub fn div(&self, rhs: &Self) -> Self {
+        self.mul(&rhs.inverse())
     }
 }
 

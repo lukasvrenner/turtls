@@ -1,7 +1,7 @@
 //! This module provides large signed integers.
 //!
 //! For unsigned integers, use [`UBigInt`](`super::BigInt`).
-use super::UBigInt;
+use super::{InputTooLargeError, UBigInt};
 /// A signed integer of size `N * 64` bits, plus 1 signed bit.
 ///
 /// Unlike builting integers, [`BigInt<N>::MAX`] is the same size as [`UBigInt<N>::MAX`].
@@ -15,7 +15,6 @@ pub struct BigInt<const N: usize> {
 }
 
 impl<const N: usize> BigInt<N> {
-
     /// Represents the value `0`
     ///
     /// This is the equivalent to [`UBigInt<N>::ZERO`].
@@ -166,6 +165,32 @@ impl<const N: usize> BigInt<N> {
     }
 }
 
+macro_rules! impl_big_int {
+    ($n:literal) => {
+        impl BigInt<$n> {
+            pub fn div(&self, divisor: &Self) -> (Self, Self) {
+                let (quotient, remainder) = self.digits.div(&divisor.digits);
+                let quotient = Self {
+                    digits: quotient,
+                    is_negative: self.is_negative ^ divisor.is_negative,
+                };
+                let remainder = Self {
+                    digits: remainder,
+                    is_negative: self.is_negative,
+                };
+                (quotient, remainder)
+            }
+
+            pub fn expanding_mul(&self, rhs: &Self) -> BigInt<{ $n * 2 }> {
+                todo!();
+            }
+        }
+    };
+}
+
+impl_big_int!(4);
+impl_big_int!(8);
+
 impl<const N: usize> core::cmp::PartialEq for BigInt<N> {
     fn eq(&self, other: &Self) -> bool {
         self.digits == other.digits && self.is_negative == other.is_negative
@@ -215,6 +240,20 @@ impl<const N: usize> From<UBigInt<N>> for BigInt<N> {
             digits: value,
             is_negative: false,
         }
+    }
+}
+
+impl TryFrom<BigInt<8>> for BigInt<4> {
+    type Error = InputTooLargeError;
+    fn try_from(value: BigInt<8>) -> Result<Self, Self::Error> {
+        if value.digits.count_digits() > 4 {
+            return Err(InputTooLargeError);
+        }
+        let array: [u64; 4] = value.digits.0[..4].try_into().unwrap();
+        Ok(Self {
+            digits: UBigInt(array),
+            is_negative: value.is_negative,
+        })
     }
 }
 
