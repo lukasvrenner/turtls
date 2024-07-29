@@ -111,7 +111,7 @@ const fn little_sigma_1(x: u64) -> u64 {
     x.rotate_right(19) ^ x.rotate_right(61) ^ x >> 6
 }
 
-/// Calculates a 512-bit hash of `msg` using the SHA-256 algorithm.
+/// Calculates a 512-bit hash of `msg` using the SHA-512 algorithm.
 ///
 /// # Examples
 ///
