@@ -254,6 +254,20 @@ impl<const N: usize> UBigInt<N> {
         buf.shift_left_assign(rhs);
         buf
     }
+
+    /// Converts `self` into its one's compliment
+    pub fn not_assign(&mut self) {
+        for digit in self.iter_mut() {
+            *digit = !*digit
+        }
+    }
+
+    /// Returns the one's compliment of `self`
+    pub fn not(&self) -> Self {
+        let mut buf = *self;
+        buf.not_assign();
+        buf
+    }
 }
 
 // TODO: figure out what this does to see if it can be simplified
@@ -423,6 +437,7 @@ impl_non_generic!(4);
 impl_non_generic!(8);
 
 impl<const N: usize> Ord for UBigInt<N> {
+    // TODO: make this constant-time?
     fn cmp(&self, other: &Self) -> Ordering {
         for i in (0..N).rev() {
             match self.0[i].cmp(&other.0[i]) {
