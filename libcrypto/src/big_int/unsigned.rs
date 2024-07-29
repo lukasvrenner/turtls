@@ -1,7 +1,7 @@
 //! This module provides large unsigned integers.
 //!
 //! For signed integers, use [`BigInt`](`super::BigInt`).
-use super::{BigInt, InputTooLargeError};
+use super::{BigInt, InputTooLargeError, FromNegErr};
 use core::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
 use core::ops::{Deref, DerefMut};
 
