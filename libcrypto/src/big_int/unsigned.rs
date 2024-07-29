@@ -7,12 +7,12 @@ use core::ops::{Deref, DerefMut};
 
 /// An unsigned integer of size `N * 64` bits.
 ///
-/// Internally, it is a little-endian array of 64-bit unsigned integers ([`u64`])
+/// Internally, [`UBigInt<N>`] is a little-endian `[u64; N]`
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct UBigInt<const N: usize>([u64; N]);
 
 impl<const N: usize> UBigInt<N> {
-    /// Constructs a new `UBigInt` of length `N` from a little-endian [`[u64; N`]
+    /// Constructs a new `UBigInt` of length `N` from a little-endian `[u64; N]`
     pub const fn new(value: [u64; N]) -> Self {
         Self(value)
     }
@@ -37,8 +37,10 @@ impl<const N: usize> UBigInt<N> {
         one
     };
 
-    /// Wrapping-subtracts `rhs` from `self`, returning the result and whether the operation
+    /// Subtracts `rhs` from `self`, returning the result and whether the operation
     /// overflowed.
+    ///
+    /// If overflow occurs, it wraps around.
     ///
     /// # Constant-timedness:
     /// This operation is constant-time.
@@ -48,8 +50,10 @@ impl<const N: usize> UBigInt<N> {
         (buf, overflowed)
     }
 
-    /// Wrapping-subtracts `rhs` from `self`, storing the result in `self`,
+    /// Subtracts `rhs` from `self`, storing the result in `self` and
     /// returning whether the operation overflowed.
+    ///
+    /// If overflow occurs, it wraps around.
     ///
     /// # Constant-timedness:
     /// This operation is constant-time.
@@ -62,6 +66,26 @@ impl<const N: usize> UBigInt<N> {
         carry
     }
 
+    /// Adds `self` and `rhs`, returning the result and whether the operation
+    /// overflowed.
+    ///
+    /// If overflow occurs, it wraps around.
+    ///
+    /// # Constant-timedness:
+    /// This operation is constant-time.
+    pub fn overflowing_add(&self, rhs: &Self) -> (Self, bool) {
+        let mut buf = *self;
+        let overflowed = buf.overflowing_add_assign(rhs);
+        (buf, overflowed)
+    }
+
+    /// Adds `self` and `rhs`, storing the result in `self` and
+    /// returning whether the operation overflowed.
+    ///
+    /// If overflow occurs, it wraps around.
+    ///
+    /// # Constant-timedness:
+    /// This operation is constant-time.
     pub fn overflowing_add_assign(&mut self, rhs: &Self) -> bool {
         let mut carry = false;
         for i in 0..N {
@@ -71,17 +95,15 @@ impl<const N: usize> UBigInt<N> {
         carry
     }
 
-    pub fn overflowing_add(&self, rhs: &Self) -> (Self, bool) {
-        let mut buf = *self;
-        let overflowed = buf.overflowing_add_assign(rhs);
-        (buf, overflowed)
-    }
-
-    /// Returns the number of digits in `self`.
+    /// Returns the number of used digits in `self`.
+    ///
+    /// This is *not* the same as [`Self::len()`].
     ///
     /// # Constant-timedness:
     /// This operation is *NOT* constant-time.
-    /// If constant-time is needed, use [`Self::count_digits()`]
+    /// If constant-time is needed, use [`Self::count_digits()`].
+    ///
+    /// Note: this function has not yet been benchmarked. It may not actually be any faster.
     pub fn count_digits_fast(&self) -> usize {
         for (count, digit) in self.iter().rev().enumerate() {
             if *digit != 0 {
@@ -93,9 +115,13 @@ impl<const N: usize> UBigInt<N> {
 
     /// Returns the number of digits in `self`.
     ///
+    /// This is *not* the same as [`Self::len()`].
+    ///
     /// # Constant-timedness:
     /// This operation is constant-time.
-    /// If constant-time is not needed, consider using [`Self::count_digits_fast()`]
+    /// If constant-time is not needed, consider using [`Self::count_digits_fast()`].
+    ///
+    /// Note: this function has not yet been benchmarked. It may not actually be any slower.
     pub fn count_digits(&self) -> usize {
         let mut num_digts = 0;
         let mut digit_encounterd = false;
@@ -106,26 +132,24 @@ impl<const N: usize> UBigInt<N> {
         num_digts
     }
 
-    /// Wrapping-adds `rhs` from `self`, returning the result
+    /// Adds `self` and `rhs` and returns the result.
     ///
-    /// This is a constant-time operation in respect to the numeric value of `self` and `rhs.
+    /// If overflow occurs, it wraps around.
     ///
-    /// Note: while this operation is constant-time for any given `N` value,
-    /// grows, but is constant in respect to `self` and `rhs`
-    /// it is not constant-time for all `N` values. That is, the time-complexity grows as `N`
+    /// # Constant-timedness:
+    /// This operation is constant-time.
     pub fn add(&self, rhs: &Self) -> Self {
         let mut buf = *self;
         buf.add_assign(rhs);
         buf
     }
 
-    /// Wrapping-adds `rhs` from `self`, storing the result in `self`
+    /// Adds `self` and `rhs` and stores the result in `self`
     ///
-    /// This is a constant-time operation in respect to the numeric value of `self` and `rhs.
+    /// If overflow occurs, it wraps around.
     ///
-    /// Note: while this operation is constant-time for any given `N` value,
-    /// it is not constant-time for all `N` values. That is, the time-complexity grows as `N`
-    /// grows, but is constant in respect to `self` and `rhs`
+    /// # Constant-timedness:
+    /// This operation is constant-time.
     pub fn add_assign(&mut self, rhs: &Self) {
         let mut carry = false;
         for i in 0..N {
@@ -134,18 +158,20 @@ impl<const N: usize> UBigInt<N> {
         }
     }
 
-    /// Wrapping-adds `rhs` from `self`, returning the result
+    /// Subtracts `rhs` from `self` and returns the result.
     ///
-    /// This is a constant-time operation.
+    /// # Constant-timedness:
+    /// This is a constant-time operation
     pub fn sub(&self, rhs: &Self) -> Self {
         let mut buf = *self;
         buf.sub_assign(rhs);
         buf
     }
 
-    /// Wrapping-subtracts `rhs` from `self`, storing the result in `self`
+    /// Subtracts `rhs` from `self` and stores the result in `self`
     ///
-    /// This is a constant-time operation.
+    /// # Constant-timedness:
+    /// This is a constant-time operation
     pub fn sub_assign(&mut self, rhs: &Self) {
         let mut carry = false;
         for i in 0..N {
@@ -156,17 +182,17 @@ impl<const N: usize> UBigInt<N> {
 
     /// Returns `self` if `rhs` is `true`, otherwise `Self::ZERO`
     pub fn and_bool(&self, rhs: bool) -> Self {
-        match rhs {
-            true => *self,
-            false => Self::ZERO,
-        }
+        let mut buf = *self;
+        buf.and_bool_assign(rhs);
+        buf
     }
 
     /// reasigns `self` to equal `self` if `rhs` is `true`, otherwise `Self::ZERO`
     pub fn and_bool_assign(&mut self, rhs: bool) {
-        if !rhs {
-            *self = Self::ZERO
-        };
+        let mask = (rhs as u64).wrapping_neg();
+        for digit in self.iter_mut() {
+            *digit &= mask
+        }
     }
 
     /// Shifts `self` to the left until the most significant bit is on
@@ -194,7 +220,7 @@ impl<const N: usize> UBigInt<N> {
     pub fn shift_right_assign(&mut self, rhs: u64) {
         assert!(rhs < 64);
         let left_shift = (64 - rhs) % 64;
-        let mask = 0u64.wrapping_sub((rhs != 0) as u64);
+        let mask = ((rhs != 0) as u64).wrapping_neg();
 
         for i in 0..N - 1 {
             self[i] >>= rhs;
@@ -226,7 +252,7 @@ impl<const N: usize> UBigInt<N> {
     pub fn shift_left_assign(&mut self, rhs: u64) {
         assert!(rhs < 64);
         let right_shift = (64 - rhs) % 64;
-        let mask = 0u64.wrapping_sub((rhs != 0) as u64);
+        let mask = ((rhs != 0) as u64).wrapping_neg();
 
         for i in (1..N).rev() {
             self[i] <<= rhs;
@@ -267,7 +293,7 @@ impl<const N: usize> UBigInt<N> {
 fn partial_div(m0: u64, m1: u64, d1: u64, d0: u64) -> u64 {
     let mut r = ((m0 as u128) << 64) | m1 as u128;
     let mut d = ((d0 as u128) << 64) | d1 as u128;
-    let mut q = 0;
+    let mut q: u64 = 0;
 
     for _ in 0..64 {
         q <<= 1;
@@ -278,7 +304,7 @@ fn partial_div(m0: u64, m1: u64, d1: u64, d0: u64) -> u64 {
         d >>= 1;
     }
 
-    let mask = 0u64.wrapping_sub(q >> (64 - 1));
+    let mask = (q >> (64 - 1)).wrapping_neg();
 
     q <<= 1;
     q |= (r >= d) as u64;
@@ -319,7 +345,7 @@ macro_rules! impl_non_generic {
                 assert!(rhs < 64);
                 let mut expanded = [0u64; $n + 1];
                 let right_shift = (64 - rhs) % 64;
-                let mask = 0u64.wrapping_sub((rhs != 0) as u64);
+                let mask = ((rhs != 0) as u64).wrapping_neg();
 
                 expanded[$n] = self[$n - 1] >> right_shift & mask;
                 for i in (1..$n).rev() {
@@ -389,7 +415,7 @@ macro_rules! impl_non_generic {
                     partial_quotient -= sub_carry as u64;
 
                     // add back if overflow occured
-                    let mask = 0u64.wrapping_sub(sub_carry as u64);
+                    let mask = (sub_carry as u64).wrapping_neg();
                     let mut add_carry = false;
                     for i in 0..div_len {
                         (snum[win_bot + i], add_carry) =

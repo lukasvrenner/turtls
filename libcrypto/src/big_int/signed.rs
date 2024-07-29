@@ -2,11 +2,11 @@
 //!
 //! For unsigned integers, use [`UBigInt`](`super::BigInt`).
 use super::UBigInt;
-/// A signed integer of size `N * 64` bits.
+/// A signed integer of size `N * 64` bits, plus 1 signed bit.
 ///
 /// Unlike builting integers, [`BigInt<N>::MAX`] is the same size as [`UBigInt<N>::MAX`].
 ///
-/// Internally, [`BigInt<N>`] is a little-endian [`[u6u; N]`]
+/// Internally, [`BigInt<N>`] is a little-endian `[u64; N]`
 /// and it represents negative numbers using two's compliment.
 #[derive(Default, Clone, Copy, Eq, Debug)]
 pub struct BigInt<const N: usize> {
@@ -15,15 +15,22 @@ pub struct BigInt<const N: usize> {
 }
 
 impl<const N: usize> BigInt<N> {
+
+    /// Represents the value `0`
+    ///
+    /// This is the equivalent to [`UBigInt<N>::ZERO`].
     pub const ZERO: Self = Self {
         digits: UBigInt::ZERO,
         is_negative: false,
     };
 
+    /// Represents the value `1`
     pub const ONE: Self = Self {
         digits: UBigInt::ONE,
         is_negative: false,
     };
+
+    /// Represents the value `-1`
     pub const NEG_ONE: Self = Self {
         digits: UBigInt::MAX,
         is_negative: true,
@@ -31,7 +38,7 @@ impl<const N: usize> BigInt<N> {
 
     /// The maximum-representable value for [`BigInt<N>`].
     ///
-    /// This is the equivalent to [`UBigInt<N>`](`super::UBigInt`).
+    /// This is the equivalent to [`UBigInt<N>::MAX`].
     pub const MAX: Self = Self {
         digits: UBigInt::MAX,
         is_negative: false,
@@ -40,27 +47,36 @@ impl<const N: usize> BigInt<N> {
     /// The minimum-representable value for [`BigInt<N>`].
     ///
     /// The absolute value of [`BigInt<N>::MIN`] is 1 more than [`BigInt<N>::MAX`].
-    /// This causes a weird quirk where [`BigInt<N>::MIN.neg()`] equals [`BigInt<N>::MIN`].
+    /// This causes a weird quirk where `BigInt<N>::MIN`[`.neg()`](`BigInt::neg()`) equals [`BigInt<N>::MIN`].
     pub const MIN: Self = Self {
         digits: UBigInt::MIN,
         is_negative: true,
     };
 
     /// Returns the number of digits in `self`. This is value is equal to `N`
+    ///
+    /// # Constant-timedness:
+    /// This is a constant-time operation.
     pub fn len(&self) -> usize {
         N
     }
 
     /// Returns the additive inverse of `self`.
     ///
-    /// This is the equivalent to multiplying `self` by -1.
+    /// This is the equivalent to multiplying `self` by `-1`.
+    ///
+    /// # Constant-timedness:
+    /// This is a constant-time operation.
     pub fn neg(&self) -> Self {
         Self::ZERO.sub(self)
     }
 
     /// Converts `self` to its additive inverse.
     ///
-    /// This is the equivalent to multiplying `self` by -1.
+    /// This is the equivalent to multiplying `self` by `-1`.
+    ///
+    /// # Constant-timedness:
+    /// This is a constant-time operation.
     pub fn neg_assign(&mut self) {
         self.not_assign();
         self.add_assign(&Self::ONE);
@@ -100,6 +116,10 @@ impl<const N: usize> BigInt<N> {
         self.is_negative ^= overflowed ^ rhs.is_negative;
     }
 
+    /// Subtracts `rhs` from `self`, returning the result.
+    ///
+    /// If overflow occurs, it wraps around.
+    ///
     /// # Constant-timedness:
     /// This is a constant-time operation.
     pub fn sub(&self, rhs: &Self) -> Self {
