@@ -6,4 +6,4 @@
 //! GCM (Galois/Counter Mode).
 mod aes_core;
 pub use aes_core::*;
-mod gcm;
+pub mod gcm;
