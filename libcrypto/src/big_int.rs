@@ -3,8 +3,8 @@
 //! This is useful for many algorithms, such as those used in public key cryptography, whose
 //! security depends on very large numbers.
 //!
-//! It contains two types, [`UBigInt`] and [`BigInt`]. Refer to there respective documentation for
-//! more information
+//! It contains two types, [`UBigInt`] and [`BigInt`]. Refer to their respective documentation for
+//! more information.
 mod signed;
 mod unsigned;
 
