@@ -1,4 +1,4 @@
-//! Gallois/counter mode for AES
+//! [`Gallois/Counter Mode`] for AES
 //!
 //! This module implements Gallois/counter mode for AES.
 //! It provides efficient encryption/decryption and authentication
@@ -47,6 +47,8 @@
 //!
 //! assert_eq!(plain_text, "Top secret message".as_bytes());
 //! ```
+//!
+//! [`Gallois/Counter Mode`]: https://en.wikipedia.org/wiki/Galois/Counter_Mode
 use super::aes_core;
 
 const R: u128 = 0xe1 << 120;

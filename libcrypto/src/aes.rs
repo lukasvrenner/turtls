@@ -4,6 +4,6 @@
 //! such as CTR or CBC. Usually it is even more preferable to use an AEAD (Authenticated Encryption
 //! with Associated Data) for authenticated encryption. This module provides one such algorithm,
 //! GCM (Galois/Counter Mode).
-pub mod aes_core;
+mod aes_core;
 pub use aes_core::*;
-pub mod gcm;
+mod gcm;

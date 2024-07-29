@@ -11,7 +11,7 @@ mod unsigned;
 pub use signed::BigInt;
 pub use unsigned::UBigInt;
 
-/// The error that is returned when conversion from a larger [`BigInt`] or [`UBigInt`] to a smaller ['BigInt'] or [`UBigInt`]
+/// The error that is returned when conversion from a larger [`BigInt`] or [`UBigInt`] to a smaller [`BigInt`] or [`UBigInt`]
 /// fails
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct InputTooLargeError;

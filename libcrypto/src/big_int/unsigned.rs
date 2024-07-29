@@ -1,11 +1,11 @@
 //! This module provides large unsigned integers.
 //!
 //! For signed integers, use [`BigInt`](`super::BigInt`).
-use super::{BigInt, InputTooLargeError, FromNegErr};
+use super::{BigInt, FromNegErr, InputTooLargeError};
 use core::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
 use core::ops::{Deref, DerefMut};
 
-/// An unsigned integer of size `N`
+/// An unsigned integer of size `N * 64` bits.
 ///
 /// Internally, it is a little-endian array of 64-bit unsigned integers ([`u64`])
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]

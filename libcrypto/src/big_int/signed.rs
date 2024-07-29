@@ -2,7 +2,7 @@
 //!
 //! For unsigned integers, use [`UBigInt`](`super::BigInt`).
 use super::UBigInt;
-/// A signed integer of size `N`.
+/// A signed integer of size `N * 64` bits.
 ///
 /// Unlike builting integers, [`BigInt<N>::MAX`] is the same size as [`UBigInt<N>::MAX`].
 ///
@@ -58,7 +58,7 @@ impl<const N: usize> BigInt<N> {
         buf
     }
 
-    /// Converts `self` to its additive inverse
+    /// Converts `self` to its additive inverse.
     ///
     /// This is the equivalent to multiplying `self` by -1.
     pub fn neg_assign(&mut self) {
@@ -66,9 +66,9 @@ impl<const N: usize> BigInt<N> {
         self.add_assign(&Self::ONE);
     }
 
-    /// modifies `self` to equal `self` + `rhs`
+    /// Adds `self` and `rhs`, storing the renult in `self`.
     ///
-    /// If `self` + `rhs` is greater than `BigInt::MAX`, the addition wraps around.
+    /// If overflow occurs, it wraps around.
     ///
     /// # Constant-timedness:
     /// This is a constant-time operation.
@@ -89,6 +89,10 @@ impl<const N: usize> BigInt<N> {
         buf
     }
 
+    /// Subtracts `rhs` from `self`, storing the result in `self`.
+    ///
+    /// If overflow occurs, it wraps around.
+    ///
     /// # Constant-timedness:
     /// This is a constant-time operation.
     pub fn sub_assign(&mut self, rhs: &Self) {
@@ -119,7 +123,7 @@ impl<const N: usize> BigInt<N> {
     /// This is a constant-time operation.
     #[inline]
     pub fn is_positive(&self) -> bool {
-        !self.is_negative && self.digits != Self::ZERO.digits
+        *self > Self::ZERO
     }
 
     /// Converts `self` into its one's compliment

@@ -1,4 +1,4 @@
-//! A software implementation of AES, as specified by NIST
+//! A software implementation of [`AES`], as specified by NIST
 //!
 //! 128, 192, and 256-bit keys are supported
 //!
@@ -29,6 +29,7 @@
 //! ];
 //! assert_eq!(plain_text, cipher_text);
 //! ```
+//! [`AES`]: https://en.wikipedia.org/wiki/Advanced_Encryption_Standard
 
 /// The size of a single block
 ///
