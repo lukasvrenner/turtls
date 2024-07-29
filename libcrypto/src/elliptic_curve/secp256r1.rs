@@ -1,4 +1,4 @@
-use crate::big_int::{BigInt, UBigInt};
+use crate::big_int::{BigInt, InputTooLargeError, UBigInt};
 
 #[derive(Debug)]
 pub struct GreaterThanMod;
@@ -100,11 +100,17 @@ impl FieldElement {
     pub fn div(&self, rhs: &Self) -> Self {
         self.mul(&rhs.inverse())
     }
+
+    pub fn from_u_big_int(value: UBigInt<4>) -> Self {
+        Self(value.div(&Self::MODULUS.0).1)
+    }
 }
 
-impl From<UBigInt<4>> for FieldElement {
-    fn from(value: UBigInt<4>) -> Self {
-        Self((value.div(&Self::MODULUS.0)).1)
+impl TryFrom<UBigInt<4>> for FieldElement {
+    type Error = InputTooLargeError;
+    fn try_from(value: UBigInt<4>) -> Result<Self, Self::Error> {
+        if value > Self::MODULUS.0 { return Err(InputTooLargeError) };
+        Ok(Self(value))
     }
 }
 

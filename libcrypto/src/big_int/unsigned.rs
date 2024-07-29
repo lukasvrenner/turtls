@@ -316,7 +316,7 @@ fn partial_div(m0: u64, m1: u64, d1: u64, d0: u64) -> u64 {
     q <<= 1;
     q |= (r >= d) as u64;
 
-    return q | mask;
+    q | mask
 }
 
 macro_rules! impl_non_generic {
