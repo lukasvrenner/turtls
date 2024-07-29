@@ -5,11 +5,11 @@
 //!
 //! It contains two types, [`UBigInt`] and [`BigInt`]. Refer to there respective documentation for
 //! more information
-pub mod unsigned;
-pub mod signed;
+mod signed;
+mod unsigned;
 
-pub use unsigned::UBigInt;
 pub use signed::BigInt;
+pub use unsigned::UBigInt;
 
 /// The error that is returned when conversion from a larger [`BigInt`] or [`UBigInt`] to a smaller ['BigInt'] or [`UBigInt`]
 /// fails
@@ -18,12 +18,24 @@ pub struct InputTooLargeError;
 
 impl core::fmt::Display for InputTooLargeError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "input is too large for output type")
+        f.write_str("input is too large for output type")
     }
 }
 
 // TODO: uncomment the following line once stabilized
 // impl core::error::Error for InputTooLargeError {};
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub struct FromNegErr;
+
+impl core::fmt::Display for FromNegErr {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str("input is negative")
+    }
+}
+
+// TODO: uncomment the following line once stabilized
+// impl core::error::Error for FromNegErr {};
 
 const fn carry_add(x: u64, y: u64, carry: bool) -> (u64, bool) {
     let (sum1, overflowed1) = x.overflowing_add(y);

@@ -1,16 +1,9 @@
 //! This module provides large unsigned integers.
 //!
 //! For signed integers, use [`BigInt`](`super::BigInt`).
+use super::{BigInt, InputTooLargeError};
 use core::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
 use core::ops::{Deref, DerefMut};
-use super::{BigInt, InputTooLargeError};
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
-pub struct FromNegErr;
-
-// TODO: uncomment the following line once stabilized
-// impl core::error::Error for FromNegErr {};
-
 
 /// An unsigned integer of size `N`
 ///
@@ -381,7 +374,8 @@ macro_rules! impl_non_generic {
                     // multiply `sdiv` by `q`
                     let mut mul_carry = 0;
                     for i in 0..div_len {
-                        (temp[i], mul_carry) = super::carry_mul(sdiv[i], partial_quotient, mul_carry);
+                        (temp[i], mul_carry) =
+                            super::carry_mul(sdiv[i], partial_quotient, mul_carry);
                     }
                     temp[div_len] = mul_carry;
 
@@ -526,7 +520,9 @@ impl<const N: usize> TryFrom<&[u64]> for UBigInt<N> {
 impl<const N: usize> TryFrom<BigInt<N>> for UBigInt<N> {
     type Error = FromNegErr;
     fn try_from(value: BigInt<N>) -> Result<Self, Self::Error> {
-        if value.is_negative() { return Err(FromNegErr) };
+        if value.is_negative() {
+            return Err(FromNegErr);
+        };
         Ok(value.digits)
     }
 }
@@ -535,7 +531,6 @@ impl<const N: usize> TryFrom<BigInt<N>> for UBigInt<N> {
 mod tests {
 
     use super::UBigInt;
-
 
     #[test]
     fn add() {

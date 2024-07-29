@@ -16,18 +16,33 @@ pub struct BigInt<const N: usize> {
 }
 
 impl<const N: usize> BigInt<N> {
-    pub const ZERO: Self = Self { digits: UBigInt::ZERO, is_negative: false };
+    pub const ZERO: Self = Self {
+        digits: UBigInt::ZERO,
+        is_negative: false,
+    };
 
-    pub const ONE: Self = Self { digits: UBigInt::ONE, is_negative: false };
-    pub const NEG_ONE: Self = Self { digits: UBigInt::MAX, is_negative: true };
+    pub const ONE: Self = Self {
+        digits: UBigInt::ONE,
+        is_negative: false,
+    };
+    pub const NEG_ONE: Self = Self {
+        digits: UBigInt::MAX,
+        is_negative: true,
+    };
 
-    pub const MAX: Self = Self { digits: UBigInt::MAX, is_negative: false };
+    pub const MAX: Self = Self {
+        digits: UBigInt::MAX,
+        is_negative: false,
+    };
 
     /// The minimum-representable value for [`BigInt<N>`].
     ///
     /// The absolute value of [`BigInt<N>::MIN`] is 1 more than [`BigInt<N>::MAX`].
     /// This causes a weird quirk where [`BigInt<N>::MIN.neg()`] equals [`BigInt<N>::MIN`].
-    pub const MIN: Self = Self { digits: UBigInt::MIN, is_negative: true };
+    pub const MIN: Self = Self {
+        digits: UBigInt::MIN,
+        is_negative: true,
+    };
 
     /// Returns the number of digits in `self`. This is value is equal to `N`
     pub fn len(&self) -> usize {
@@ -172,7 +187,10 @@ impl<const N: usize> Ord for BigInt<N> {
 
 impl<const N: usize> From<UBigInt<N>> for BigInt<N> {
     fn from(value: UBigInt<N>) -> Self {
-        Self { digits: value, is_negative: false }
+        Self {
+            digits: value,
+            is_negative: false,
+        }
     }
 }
 
