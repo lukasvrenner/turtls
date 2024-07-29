@@ -145,46 +145,51 @@ const R_CON: [u32; 256] = [
     0x61, 0xc2, 0x9f, 0x25, 0x4a, 0x94, 0x33, 0x66, 0xcc, 0x83, 0x1d, 0x3a, 0x74, 0xe8, 0xcb, 0x8d,
 ];
 
-/// AES-128 encryption
+/// AES encryption with a 128-bit key.
+///
+/// This is typically much faster than [`Aes256`] or [`Aes192`],
+/// at the slight cost of security. [`Aes128`] is yet to be broken, and is enough for most use
+/// cases.
 pub struct Aes128 {
     round_keys: [[u8; BLOCK_SIZE]; Self::NUM_ROUNDS + 1],
 }
 
-/// AES-192 encryption
+/// AES encryption with a 192-bit key.
+///
+/// This is the least-commonly used mode.
 pub struct Aes192 {
     round_keys: [[u8; BLOCK_SIZE]; Self::NUM_ROUNDS + 1],
 }
 
-/// AES-256 encryption
+/// AES encryption with a 256-bit key.
+///
+/// This is useful when security is of utmost importance, even at the cost of performance.
 pub struct Aes256 {
     round_keys: [[u8; BLOCK_SIZE]; Self::NUM_ROUNDS + 1],
 }
 
-/// A common interface for AES ciphers
+/// A common interface for AES ciphers.
 pub trait AesCipher {
-    /// The length of the key, in bytes
+    /// The length of the key, in bytes.
     ///
     /// For AES-128, this is 16.
     /// For AES-192, this is 24.
     /// For AES-256, this is 32.
     const KEY_SIZE: usize;
 
-    /// The number of rounds AES will loop through
+    /// The number of rounds AES will loop through.
     ///
     /// For AES-128, this is 10. \
     /// For AES-192, this is 12. \
     /// For AES-256, this is 16.
     const NUM_ROUNDS: usize;
 
-    /// The number of 32-bit "words" in the key
+    /// The number of 32-bit "words" in the key.
     const NUM_KEY_WORDS: usize = Self::KEY_SIZE / 4;
     /// The type used to represent a key.
-    ///
-    /// Note: this will be auto-implemented
-    /// once trait type defaults are stabilized.
     type Key;
 
-    /// Encrypts `block` inline, mutating `block`
+    /// Encrypts `block` inline, mutating `block`.
     fn encrypt_inline(&self, block: &mut [u8; BLOCK_SIZE]);
 
     /// Copies `block` into a new buffer and encrypts the buffer
@@ -194,12 +199,11 @@ pub trait AesCipher {
         buffer
     }
 
-    /// Create a new cipher using `key`
+    /// Create a new cipher using `key`.
     fn new(key: Self::Key) -> Self;
 }
 
-// we can't use a trait because the input and
-// return types are dependant on the specific implementor
+// TODO: put this into the trait once const-generic expressions are stabilized
 macro_rules! impl_expand_key {
     ($cipher:ty) => {
         impl $cipher {
@@ -231,8 +235,7 @@ impl_expand_key!(Aes128);
 impl_expand_key!(Aes192);
 impl_expand_key!(Aes256);
 
-// we can add this as an auto-implemented trait function for AesCipher
-// once trait type defaults is stabilized
+// TODO: put this into the trait once const-generic expressions are stabilized
 macro_rules! impl_aes_cipher {
     ($cipher:ty, $key_size:literal, $num_rounds:literal) => {
         impl AesCipher for $cipher {
