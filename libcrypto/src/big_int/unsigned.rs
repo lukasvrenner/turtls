@@ -3,7 +3,13 @@
 //! For signed integers, use [`BigInt`](`super::BigInt`).
 use core::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
 use core::ops::{Deref, DerefMut};
-use super::InputTooLargeError;
+use super::{BigInt, InputTooLargeError};
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub struct FromNegErr;
+
+// TODO: uncomment the following line once stabilized
+// impl core::error::Error for FromNegErr {};
 
 
 /// An unsigned integer of size `N`
@@ -41,11 +47,8 @@ impl<const N: usize> UBigInt<N> {
     /// Wrapping-subtracts `rhs` from `self`, returning the result and whether the operation
     /// overflowed.
     ///
-    /// This is a constant-time operation in respect to the numeric value of `self` and `rhs.
-    ///
-    /// Note: while this operation is constant-time for any given `N` value,
-    /// it is not constant-time for all `N` values. That is, the time-complexity grows as `N`
-    /// grows, but is constant in respect to `self` and `rhs`
+    /// # Constant-timedness:
+    /// This operation is constant-time.
     pub fn overflowing_sub(&self, rhs: &Self) -> (Self, bool) {
         let mut buf = *self;
         let overflowed = buf.overflowing_sub_assign(rhs);
@@ -55,18 +58,30 @@ impl<const N: usize> UBigInt<N> {
     /// Wrapping-subtracts `rhs` from `self`, storing the result in `self`,
     /// returning whether the operation overflowed.
     ///
-    /// This is a constant-time operation in respect to the numeric value of `self` and `rhs.
-    ///
-    /// Note: while this operation is constant-time for any given `N` value,
-    /// it is not constant-time for all `N` values. That is, the time-complexity grows as `N`
-    /// grows, but is constant in respect to `self` and `rhs`
+    /// # Constant-timedness:
+    /// This operation is constant-time.
     pub fn overflowing_sub_assign(&mut self, rhs: &Self) -> bool {
         let mut carry = false;
         for i in 0..N {
             // TODO: use libcore implementation once stabilized
-            (self[i], carry) = carry_sub(self[i], rhs[i], carry);
+            (self[i], carry) = super::carry_sub(self[i], rhs[i], carry);
         }
         carry
+    }
+
+    pub fn overflowing_add_assign(&mut self, rhs: &Self) -> bool {
+        let mut carry = false;
+        for i in 0..N {
+            // TODO: use core implementation once stabilized
+            (self[i], carry) = super::carry_add(self[i], rhs[i], carry);
+        }
+        carry
+    }
+
+    pub fn overflowing_add(&self, rhs: &Self) -> (Self, bool) {
+        let mut buf = *self;
+        let overflowed = buf.overflowing_add_assign(rhs);
+        (buf, overflowed)
     }
 
     /// Returns the number of digits in `self`.
@@ -122,7 +137,7 @@ impl<const N: usize> UBigInt<N> {
         let mut carry = false;
         for i in 0..N {
             // TODO: use core implementation once stabilized
-            (self[i], carry) = carry_add(self[i], rhs[i], carry);
+            (self[i], carry) = super::carry_add(self[i], rhs[i], carry);
         }
     }
 
@@ -142,7 +157,7 @@ impl<const N: usize> UBigInt<N> {
         let mut carry = false;
         for i in 0..N {
             // TODO: use libcore implementation once stabilized
-            (self[i], carry) = carry_sub(self[i], rhs[i], carry);
+            (self[i], carry) = super::carry_sub(self[i], rhs[i], carry);
         }
     }
 
@@ -279,8 +294,8 @@ macro_rules! impl_non_generic {
                 for i in 0..self.len() {
                     let mut carry = 0;
                     for j in 0..rhs.len() {
-                        // TODO: use libcore carry_mul once stabilized
-                        (product[i + j], carry) = carry_mul(self[i], rhs[j], carry);
+                        // TODO: use libcore super::carry_mul once stabilized
+                        (product[i + j], carry) = super::carry_mul(self[i], rhs[j], carry);
                     }
                     product[i] = carry;
                 }
@@ -352,7 +367,7 @@ macro_rules! impl_non_generic {
                     // multiply `sdiv` by `q`
                     let mut mul_carry = 0;
                     for i in 0..div_len {
-                        (temp[i], mul_carry) = carry_mul(sdiv[i], partial_quotient, mul_carry);
+                        (temp[i], mul_carry) = super::carry_mul(sdiv[i], partial_quotient, mul_carry);
                     }
                     temp[div_len] = mul_carry;
 
@@ -360,7 +375,7 @@ macro_rules! impl_non_generic {
                     let mut sub_carry = false;
                     for i in 0..div_len + 1 {
                         (snum[win_bot + i], sub_carry) =
-                            carry_sub(snum[win_bot + i], temp[i], sub_carry);
+                            super::carry_sub(snum[win_bot + i], temp[i], sub_carry);
                     }
 
                     partial_quotient -= sub_carry as u64;
@@ -370,7 +385,7 @@ macro_rules! impl_non_generic {
                     let mut add_carry = false;
                     for i in 0..div_len {
                         (snum[win_bot + i], add_carry) =
-                            carry_add(snum[win_bot + i], sdiv[i] & mask, add_carry);
+                            super::carry_add(snum[win_bot + i], sdiv[i] & mask, add_carry);
                     }
                     snum[win_top] = snum[win_top].wrapping_add(add_carry as u64);
                     debug_assert!(snum[win_top] == 0);
@@ -458,6 +473,12 @@ impl<const N: usize> From<u64> for UBigInt<N> {
     }
 }
 
+impl<const N: usize> Default for UBigInt<N> {
+    fn default() -> Self {
+        Self::ZERO
+    }
+}
+
 // TODO: make this generic over any size N and O once const generic where clauses are stabilized
 impl From<UBigInt<4>> for UBigInt<8> {
     fn from(value: UBigInt<4>) -> Self {
@@ -487,21 +508,12 @@ impl<const N: usize> TryFrom<&[u64]> for UBigInt<N> {
     }
 }
 
-const fn carry_add(x: u64, y: u64, carry: bool) -> (u64, bool) {
-    let (sum1, overflowed1) = x.overflowing_add(y);
-    let (sum2, overflowed2) = sum1.overflowing_add(carry as u64);
-    (sum2, overflowed1 || overflowed2)
-}
-
-const fn carry_mul(x: u64, y: u64, carry: u64) -> (u64, u64) {
-    let product = x as u128 * y as u128 + carry as u128;
-    (product as u64, (product >> 64) as u64)
-}
-
-const fn carry_sub(x: u64, y: u64, carry: bool) -> (u64, bool) {
-    let (diff1, overflowed1) = x.overflowing_sub(y);
-    let (diff2, overflowed2) = diff1.overflowing_sub(carry as u64);
-    (diff2, overflowed1 || overflowed2)
+impl<const N: usize> TryFrom<BigInt<N>> for UBigInt<N> {
+    type Error = FromNegErr;
+    fn try_from(value: BigInt<N>) -> Result<Self, Self::Error> {
+        if value.is_negative() { return Err(FromNegErr) };
+        Ok(value.digits)
+    }
 }
 
 #[cfg(test)]
@@ -509,12 +521,6 @@ mod tests {
 
     use super::UBigInt;
 
-    #[test]
-    fn carry_add() {
-        let a = 0x0123456789abcdef;
-        let b = 0xfedcba9876543210;
-        assert_eq!(super::carry_add(a, b, true), (0, true));
-    }
 
     #[test]
     fn add() {
@@ -539,13 +545,6 @@ mod tests {
             0x0123456789abcdef,
         ]);
         assert_eq!(x.add(&y), UBigInt::ZERO);
-    }
-
-    #[test]
-    fn carry_sub() {
-        let a = 0;
-        let b = 0xfedcba9876543210;
-        assert_eq!(super::carry_sub(a, b, true), (0x0123456789abcdef, true));
     }
 
     #[test]
