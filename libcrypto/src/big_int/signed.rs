@@ -11,7 +11,6 @@ use super::UBigInt;
 #[derive(Default, Clone, Copy, Eq, Debug)]
 pub struct BigInt<const N: usize> {
     pub(super) digits: UBigInt<N>,
-    /// Determines whether the value is positive or negative.
     is_negative: bool,
 }
 
@@ -30,6 +29,9 @@ impl<const N: usize> BigInt<N> {
         is_negative: true,
     };
 
+    /// The maximum-representable value for [`BigInt<N>`].
+    ///
+    /// This is the equivalent to [`UBigInt<N>`](`super::UBigInt`).
     pub const MAX: Self = Self {
         digits: UBigInt::MAX,
         is_negative: false,
@@ -53,9 +55,7 @@ impl<const N: usize> BigInt<N> {
     ///
     /// This is the equivalent to multiplying `self` by -1.
     pub fn neg(&self) -> Self {
-        let mut buf = *self;
-        buf.neg_assign();
-        buf
+        Self::ZERO.sub(self)
     }
 
     /// Converts `self` to its additive inverse.
@@ -232,5 +232,9 @@ mod tests {
         assert_eq!(BigInt::<4>::NEG_ONE.neg(), BigInt::ONE);
         assert_eq!(BigInt::<4>::ZERO.neg(), BigInt::ZERO);
         assert_eq!(BigInt::<4>::MIN.neg(), BigInt::MIN);
+
+        let mut one = BigInt::<4>::ONE;
+        one.neg_assign();
+        assert_eq!(one, BigInt::NEG_ONE);
     }
 }
