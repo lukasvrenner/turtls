@@ -6,7 +6,8 @@ pub fn generate_signature(
     hash_func: fn(&[u8]) -> [u8; 32],
     secret_num: FieldElement,
 ) -> (FieldElement, FieldElement) {
-    let hash: FieldElement = FieldElement::from_u_big_int(UBigInt::<4>::from_be_bytes(hash_func(msg)));
+    let hash: FieldElement =
+        FieldElement::from_u_big_int(UBigInt::<4>::from_be_bytes(hash_func(msg)));
     let inverse = secret_num.inverse();
 
     let new_point = Point::G.mul_scalar(secret_num);

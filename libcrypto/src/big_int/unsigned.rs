@@ -329,7 +329,7 @@ macro_rules! impl_non_generic {
             ///
             /// # Constant-timedness:
             /// This is a constant-time operation.
-            pub fn expanding_mul(&self, rhs: &Self) -> UBigInt<{ $n * 2 }> {
+            pub fn widening_mul(&self, rhs: &Self) -> UBigInt<{ $n * 2 }> {
                 let mut product = [0u64; $n * 2];
                 for i in 0..self.len() {
                     let mut carry = 0;
@@ -508,32 +508,60 @@ impl<const N: usize> Default for UBigInt<N> {
     }
 }
 
-// TODO: make this generic over any size N and O once const generic where clauses are stabilized
-impl From<UBigInt<4>> for UBigInt<8> {
-    fn from(value: UBigInt<4>) -> Self {
-        let mut expanded = [0u64; 8];
-        expanded[..4].copy_from_slice(&value.0);
-        Self(expanded)
+//// TODO: make this generic over any size N and O once const generic where clauses are stabilized
+//impl From<UBigInt<4>> for UBigInt<8> {
+//    fn from(value: UBigInt<4>) -> Self {
+//        let mut expanded = [0u64; 8];
+//        expanded[..4].copy_from_slice(&value.0);
+//        Self(expanded)
+//    }
+//}
+//
+//// TODO: make this generic over any size N and O once const generic where clauses are stabilized
+//impl TryFrom<UBigInt<8>> for UBigInt<4> {
+//    type Error = InputTooLargeError;
+//    fn try_from(value: UBigInt<8>) -> Result<Self, Self::Error> {
+//        if value.count_digits() > 4 {
+//            return Err(InputTooLargeError);
+//        };
+//        Ok(Self(<[u64; 4]>::try_from(&value.0[..4]).unwrap()))
+//    }
+//}
+
+// TODO: uncomment this line once `where` clauses are supported for const-generics
+//impl<const N: usize, const O: usize> From<UBigInt<O>> for UBigInt<N> {
+//    fn from(value: UBigInt<O>) -> Self {
+//        let mut output = Self::ZERO;
+//        let min = core::cmp::min(N, O);
+//        output.0[..min].copy_from_slice(&value.0[..min]);
+//        output
+//    }
+//}
+
+impl From<UBigInt<9>> for UBigInt<4> {
+    fn from(value: UBigInt<9>) -> Self {
+        Self(value.0[..4].try_into().unwrap())
     }
 }
 
-// TODO: make this generic over any size N and O once const generic where clauses are stabilized
-impl TryFrom<UBigInt<8>> for UBigInt<4> {
-    type Error = InputTooLargeError;
-    fn try_from(value: UBigInt<8>) -> Result<Self, Self::Error> {
-        // we can safely unwrap because the slice is guaranteed to have a length of 4
-        if <&[u64] as TryInto<&[u64; 4]>>::try_into(&value.0[..4]).unwrap() > &[0u64; 4] {
-            return Err(InputTooLargeError);
-        }
-        // we can safely unwrap because the slice is guaranteed to have a length of 4
-        Ok(value.0[4..].try_into().unwrap())
+impl From<UBigInt<8>> for UBigInt<4> {
+    fn from(value: UBigInt<8>) -> Self {
+        Self(value.0[..4].try_into().unwrap())
+    }
+}
+
+impl From<UBigInt<4>> for UBigInt<8> {
+    fn from(value: UBigInt<4>) -> Self {
+        let mut output = Self::ZERO;
+        output.0[..4].copy_from_slice(&value.0);
+        output
     }
 }
 
 impl<const N: usize> TryFrom<&[u64]> for UBigInt<N> {
     type Error = core::array::TryFromSliceError;
     fn try_from(value: &[u64]) -> Result<Self, Self::Error> {
-        Ok(<&[u64] as TryInto<[u64; N]>>::try_into(value)?.into())
+        Ok(Self(<[u64; N]>::try_from(value)?))
     }
 }
 
@@ -617,7 +645,7 @@ mod tests {
             0x0000000000000000,
         ]);
         assert_eq!(
-            x.expanding_mul(&y),
+            x.widening_mul(&y),
             UBigInt::from([
                 0x0000000000000000,
                 0x0000000000000000,

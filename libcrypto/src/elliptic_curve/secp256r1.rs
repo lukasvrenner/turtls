@@ -39,21 +39,23 @@ impl FieldElement {
     /// # Constant-timedness:
     /// TODO: document constant-timedness
     pub fn inverse(&self) -> Self {
-        let mut x = BigInt::ONE;
-        let mut y = BigInt::ZERO;
-        let mut a: BigInt<4> = self.0.into();
-        let mut modulus: BigInt<4> = Self::MODULUS.0.into();
+        let mut new_t = BigInt::ONE;
+        let mut t = BigInt::ZERO;
+        let mut new_r: BigInt<4> = self.0.into();
+        let mut r: BigInt<4> = Self::MODULUS.0.into();
 
-        while a > BigInt::ZERO {
-            let mut t = modulus;
-            let (quotient, remainder) = a.div(&modulus);
-            modulus = remainder;
-            a = t;
-            t = y;
-            y = x.sub(&quotient.expanding_mul(&y).try_into().unwrap());
-            x = t;
+        while new_r > BigInt::ZERO {
+            let (quotient, remainder) = r.div(&new_r);
+            (t, new_t) = (
+                new_t,
+                t.sub(&BigInt::<4>::from(quotient.widening_mul(&new_t))),
+            );
+            (r, new_r) = (new_r, remainder);
         }
-        UBigInt::try_from(y).unwrap().try_into().unwrap()
+        assert!(t.is_positive());
+        assert!(t.digits < Self::MODULUS.0);
+        // TODO: make this good
+        Self(UBigInt::try_from(t).unwrap())
     }
 
     /// Returns the number of digits in `self`, not counting leading zeros
@@ -87,7 +89,7 @@ impl FieldElement {
     /// TODO: document constant-timedness
     pub fn mul(&self, rhs: &Self) -> Self {
         Self(
-            (((self.0.expanding_mul(&rhs.0)).div(&Self::MODULUS.0.into())).1).0[..4]
+            (((self.0.widening_mul(&rhs.0)).div(&Self::MODULUS.0.into())).1).0[..4]
                 .try_into()
                 .unwrap(),
         )
@@ -101,6 +103,9 @@ impl FieldElement {
         self.mul(&rhs.inverse())
     }
 
+    /// Converts `value` into the equivalent [`FieldElement`].
+    ///
+    /// This is used instead of [`From<UBigInt<4>>`] because then we can't have a custom [`TryFrom`] implementation.
     pub fn from_u_big_int(value: UBigInt<4>) -> Self {
         Self(value.div(&Self::MODULUS.0).1)
     }
@@ -109,7 +114,9 @@ impl FieldElement {
 impl TryFrom<UBigInt<4>> for FieldElement {
     type Error = InputTooLargeError;
     fn try_from(value: UBigInt<4>) -> Result<Self, Self::Error> {
-        if value > Self::MODULUS.0 { return Err(InputTooLargeError) };
+        if value > Self::MODULUS.0 {
+            return Err(InputTooLargeError);
+        };
         Ok(Self(value))
     }
 }

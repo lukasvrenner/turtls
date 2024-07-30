@@ -10,7 +10,7 @@ use super::{InputTooLargeError, UBigInt};
 /// and it represents negative numbers using two's compliment.
 #[derive(Default, Clone, Copy, Eq, Debug)]
 pub struct BigInt<const N: usize> {
-    pub(super) digits: UBigInt<N>,
+    pub(crate) digits: UBigInt<N>,
     is_negative: bool,
 }
 
@@ -181,8 +181,12 @@ macro_rules! impl_big_int {
                 (quotient, remainder)
             }
 
-            pub fn expanding_mul(&self, rhs: &Self) -> BigInt<{ $n * 2 }> {
-                todo!();
+            /// Muliplies `self` and `rhs`, returing the result.
+            ///
+            /// The product is twice the width of the input, so overflow cannot occur.
+            pub fn widening_mul(&self, rhs: &Self) -> BigInt<{ $n * 2 }> {
+                let product = self.digits.widening_mul(&rhs.digits);
+                BigInt::<{ $n * 2 }> { digits: product, is_negative: self.is_negative ^ rhs.is_negative }
             }
         }
     };
@@ -243,17 +247,12 @@ impl<const N: usize> From<UBigInt<N>> for BigInt<N> {
     }
 }
 
-impl TryFrom<BigInt<8>> for BigInt<4> {
-    type Error = InputTooLargeError;
-    fn try_from(value: BigInt<8>) -> Result<Self, Self::Error> {
-        if value.digits.count_digits() > 4 {
-            return Err(InputTooLargeError);
-        }
-        let array: [u64; 4] = value.digits.0[..4].try_into().unwrap();
-        Ok(Self {
-            digits: UBigInt(array),
-            is_negative: value.is_negative,
-        })
+impl From<BigInt<8>> for BigInt<4> {
+    fn from(value: BigInt<8>) -> Self {
+        let mut output = Self::ZERO;
+        output.digits.0.copy_from_slice(&value.digits.0[..4]);
+        output.is_negative = value.is_negative;
+        output
     }
 }
 
