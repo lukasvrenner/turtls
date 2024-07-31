@@ -218,7 +218,8 @@ impl<const N: usize> UBigInt<N> {
     ///
     /// # Constant-timedness:
     /// This is a constant-time operation.
-    pub fn shift_right_assign(&mut self, rhs: u64) {
+    pub fn shift_right_assign(&mut self, mut rhs: u64) {
+        rhs %= 64;
         let left_shift = (64 - rhs) % 64;
         let mask = ((rhs != 0) as u64).wrapping_neg();
 
@@ -239,15 +240,12 @@ impl<const N: usize> UBigInt<N> {
         buf
     }
 
-    /// Performs a bitshift `rhs` to the left and stores the result in `self`.
-    ///
-    /// # Panics:
-    /// This function will panic if `rhs >= 64`
+    /// Performs a bitshift `rhs % 64` to the left and stores the result in `self`.
     ///
     /// # Constant-timedness:
     /// This is a constant-time operation.
-    pub fn shift_left_assign(&mut self, rhs: u64) {
-        assert!(rhs < 64);
+    pub fn shift_left_assign(&mut self, mut rhs: u64) {
+        rhs %= 64;
         let right_shift = (64 - rhs) % 64;
         let mask = ((rhs != 0) as u64).wrapping_neg();
 
@@ -291,6 +289,131 @@ impl<const N: usize> UBigInt<N> {
         buf
     }
 
+    /// Performs a bitwise `XOR` on `self` and `rhs` and stores the result in `self`.
+    ///
+    /// # Constant-timedness:
+    /// This is a constant-time operation.
+    pub fn xor_assign(&mut self, rhs: &Self) {
+        for (digit, rhs_digit) in self.0.iter_mut().zip(rhs.0) {
+            *digit ^= rhs_digit;
+        }
+    }
+
+    /// Performs a bitwise `XOR` on `self` and `rhs` and returns the result.
+    ///
+    /// # Constant-timedness:
+    /// This is a constant-time operation.
+    pub fn xor(&self, rhs: &Self) -> Self {
+        let mut buf = *self;
+        buf.xor_assign(rhs);
+        buf
+    }
+
+    /// Performs a bitwise `AND` on `self` and `rhs` and stores the result in `self`.
+    ///
+    /// # Constant-timedness:
+    /// This is a constant-time operation.
+    pub fn and_assign(&mut self, rhs: &Self) {
+        for (digit, rhs_digit) in self.0.iter_mut().zip(rhs.0) {
+            *digit &= rhs_digit;
+        }
+    }
+
+    /// Performs a bitwise `AND` on `self` and `rhs` and returns the result.
+    ///
+    /// # Constant-timedness:
+    /// This is a constant-time operation.
+    pub fn and(&self, rhs: &Self) -> Self {
+        let mut buf = *self;
+        buf.and_assign(rhs);
+        buf
+    }
+
+    /// Performs a bitwise `OR` on `self` and `rhs` and stores the result in `self`.
+    ///
+    /// # Constant-timedness:
+    /// This is a constant-time operation.
+    pub fn or_assign(&mut self, rhs: &Self) {
+        for (digit, rhs_digit) in self.0.iter_mut().zip(rhs.0) {
+            *digit |= rhs_digit;
+        }
+    }
+
+    /// Performs a bitwise `OR` on `self` and `rhs` and returns the result.
+    ///
+    /// # Constant-timedness:
+    /// This is a constant-time operation.
+    pub fn or(&self, rhs: &Self) -> Self {
+        let mut buf = *self;
+        buf.or_assign(rhs);
+        buf
+    }
+
+    /// Performs a bitwise `NOR` on `self` and `rhs` and stores the result in `self`.
+    ///
+    /// # Constant-timedness:
+    /// This is a constant-time operation.
+    pub fn nor_assign(&mut self, rhs: &Self) {
+        for (digit, rhs_digit) in self.0.iter_mut().zip(rhs.0) {
+            *digit = !(*digit | rhs_digit);
+        }
+    }
+
+    /// Performs a bitwise `NOR` on `self` and `rhs` and returns the result.
+    ///
+    /// # Constant-timedness:
+    /// This is a constant-time operation.
+    pub fn nor(&self, rhs: &Self) -> Self {
+        let mut buf = *self;
+        buf.nor_assign(rhs);
+        buf
+    }
+
+    /// Performs a bitwise `XNOR` on `self` and `rhs` and stores the result in `self`.
+    ///
+    /// # Constant-timedness:
+    /// This is a constant-time operation.
+    pub fn xnor_assign(&mut self, rhs: &Self) {
+        for (digit, rhs_digit) in self.0.iter_mut().zip(rhs.0) {
+            *digit = !(*digit ^ rhs_digit);
+        }
+    }
+
+    /// Performs a bitwise `XNOR` on `self` and `rhs` and returns the result.
+    ///
+    /// # Constant-timedness:
+    /// This is a constant-time operation.
+    pub fn xnor(&self, rhs: &Self) -> Self {
+        let mut buf = *self;
+        buf.xnor_assign(rhs);
+        buf
+    }
+
+    /// Performs a bitwise `NAND` on `self` and `rhs` and stores the result in `self`.
+    ///
+    /// # Constant-timedness:
+    /// This is a constant-time operation.
+    pub fn nand_assign(&mut self, rhs: &Self) {
+        for (digit, rhs_digit) in self.0.iter_mut().zip(rhs.0) {
+            *digit = !(*digit & rhs_digit);
+        }
+    }
+
+    /// Performs a bitwise `NAND` on `self` and `rhs` and returns the result.
+    ///
+    /// # Constant-timedness:
+    /// This is a constant-time operation.
+    pub fn nand(&self, rhs: &Self) -> Self {
+        let mut buf = *self;
+        buf.nand_assign(rhs);
+        buf
+    }
+
+    /// Returns the total number of digits in `self`.
+    ///
+    /// The returned value is `N`.
+    ///
+    /// Note: this is not the same as [`Self::count_digits()`].
     pub fn len(&self) -> usize {
         N
     }
@@ -363,24 +486,23 @@ macro_rules! impl_non_generic {
                 expanded.into()
             }
 
-            // A port of OpenSSL's `BN_div()`
-            /// Divides `self` by `divisor`, returning the quotient and the remainder.
+            /// Divides `self` by `rhs`, returning the quotient and the remainder.
             ///
             /// # Panics
             /// This function will panic if `divisor == Self::ZERO`.
             ///
             /// # Constant-timedness:
             /// TODO: document constant-timedness
-            pub fn div(&self, divisor: &Self) -> (Self, Self) {
-                assert_ne!(*divisor, Self::ZERO);
+            pub fn div(&self, rhs: &Self) -> (Self, Self) {
+                assert_ne!(*rhs, Self::ZERO);
 
                 let num_len = self.count_digits() + 1;
-                let div_len = divisor.count_digits();
+                let div_len = rhs.count_digits();
 
                 // Normalize both numerator and denominator
                 let norm_shift;
                 let sdiv = {
-                    let mut sdiv = *divisor;
+                    let mut sdiv = *rhs;
                     norm_shift = sdiv.left_align();
                     sdiv
                 };
@@ -440,9 +562,9 @@ macro_rules! impl_non_generic {
                 (quotient, snum.0[..$n].try_into().unwrap())
             }
 
-            /// Divides `self` by `rhs` in place, modifying `self`
+            /// Divides `self` by `rhs` and stores the result in `self`
             pub fn div_assign(&mut self, rhs: &Self) {
-                todo!();
+                *self = self.div(rhs).0;
             }
 
             /// converts a big-endian byte array to a [`UBigInt`]
@@ -507,26 +629,6 @@ impl<const N: usize> Default for UBigInt<N> {
         Self::ZERO
     }
 }
-
-//// TODO: make this generic over any size N and O once const generic where clauses are stabilized
-//impl From<UBigInt<4>> for UBigInt<8> {
-//    fn from(value: UBigInt<4>) -> Self {
-//        let mut expanded = [0u64; 8];
-//        expanded[..4].copy_from_slice(&value.0);
-//        Self(expanded)
-//    }
-//}
-//
-//// TODO: make this generic over any size N and O once const generic where clauses are stabilized
-//impl TryFrom<UBigInt<8>> for UBigInt<4> {
-//    type Error = InputTooLargeError;
-//    fn try_from(value: UBigInt<8>) -> Result<Self, Self::Error> {
-//        if value.count_digits() > 4 {
-//            return Err(InputTooLargeError);
-//        };
-//        Ok(Self(<[u64; 4]>::try_from(&value.0[..4]).unwrap()))
-//    }
-//}
 
 // TODO: uncomment this line once `where` clauses are supported for const-generics
 //impl<const N: usize, const O: usize> From<UBigInt<O>> for UBigInt<N> {

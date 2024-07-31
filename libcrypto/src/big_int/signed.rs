@@ -8,7 +8,7 @@ use super::{InputTooLargeError, UBigInt};
 ///
 /// Internally, [`BigInt<N>`] is a little-endian `[u64; N]`
 /// and it represents negative numbers using two's compliment.
-#[derive(Default, Clone, Copy, Eq, Debug)]
+#[derive(Default, Clone, Copy, Eq, PartialEq, Debug)]
 pub struct BigInt<const N: usize> {
     pub(crate) digits: UBigInt<N>,
     is_negative: bool,
@@ -46,7 +46,16 @@ impl<const N: usize> BigInt<N> {
     /// The minimum-representable value for [`BigInt<N>`].
     ///
     /// The absolute value of [`BigInt<N>::MIN`] is 1 more than [`BigInt<N>::MAX`].
-    /// This causes a weird quirk where `BigInt<N>::MIN`[`.neg()`](`BigInt::neg()`) equals [`BigInt<N>::MIN`].
+    ///
+    /// This particular value has some weird quirks:
+    /// * Calling [`BigInt::neg()`] on it returns itself.
+    /// * Calling [`BigInt::abs()`] on it returns itself.
+    ///
+    /// # Examples
+    /// ```
+    /// assert_eq!(BigInt<4>::MIN.neg(), BigInt::MIN);
+    /// assert_eq!(BigInt<4>::MIN.abs(), BigInt::MIN);
+    /// ```
     pub const MIN: Self = Self {
         digits: UBigInt::MIN,
         is_negative: true,
@@ -142,7 +151,7 @@ impl<const N: usize> BigInt<N> {
     /// This is a constant-time operation.
     #[inline]
     pub fn is_positive(&self) -> bool {
-        *self > Self::ZERO
+        !self.is_negative && *self != Self::ZERO
     }
 
     /// Converts `self` into its one's compliment
@@ -163,16 +172,66 @@ impl<const N: usize> BigInt<N> {
         buf.not_assign();
         buf
     }
+
+    /// Performs a bitwise `XOR` on `self` and `rhs` and stores the result in `self`.
+    ///
+    /// # Constant-timedness:
+    /// This is a constant-time operation.
+    pub fn xor_assign(&mut self, rhs: &Self) {
+        self.digits.xor_assign(&rhs.digits);
+        self.is_negative ^= rhs.is_negative;
+    }
+
+    /// Performs a bitwise `XOR` on `self` and `rhs` and returns the result.
+    ///
+    /// # Constant-timedness:
+    /// This is a constant-time operation.
+    pub fn xor(&self, rhs: &Self) -> Self {
+        let mut buf = *self;
+        buf.xor_assign(rhs);
+        buf
+    }
+
+    /// Converts `self` into its absolute value.
+    ///
+    /// Note: the returned value will be positive for all input valuess *except* [`Self::MIN`]
+    ///
+    /// # Constant-timedness:
+    /// This is a constant-time operation.
+    pub fn abs_assign(&mut self) {
+        let temp = *self;
+        self.neg_assign();
+        self.xor_assign(&temp);
+    }
+
+    /// Returns the absolute value of `self`.
+    ///
+    /// Note: the returned value will be positive for all input valuess *except* [`Self::MIN`]
+    ///
+    /// # Constant-timedness:
+    /// This is a constant-time operation.
+    pub fn abs(&self) -> Self {
+        self.xor(&self.neg())
+    }
 }
 
 macro_rules! impl_big_int {
     ($n:literal) => {
         impl BigInt<$n> {
-            pub fn div(&self, divisor: &Self) -> (Self, Self) {
-                let (quotient, remainder) = self.digits.div(&divisor.digits);
+            /// Divides `self` by `rhs`, returning the quotient and the remainder.
+            ///
+            /// # Panics
+            /// This function will panic if `divisor == Self::ZERO`.
+            ///
+            /// # Constant-timedness:
+            /// TODO: document constant-timedness
+            pub fn div(&self, rhs: &Self) -> (Self, Self) {
+                let (quotient, remainder) = self.digits.div(&rhs.digits);
                 let quotient = Self {
                     digits: quotient,
-                    is_negative: self.is_negative ^ divisor.is_negative,
+                    is_negative: (self.is_negative ^ rhs.is_negative)
+                        && *self != Self::ZERO
+                        && *rhs != Self::ZERO,
                 };
                 let remainder = Self {
                     digits: remainder,
@@ -181,12 +240,22 @@ macro_rules! impl_big_int {
                 (quotient, remainder)
             }
 
+            /// Divides `self` by `rhs` and stores the result in `self`
+            pub fn div_assign(&mut self, rhs: &Self) {
+                *self = self.div(rhs).0;
+            }
+
             /// Muliplies `self` and `rhs`, returing the result.
             ///
             /// The product is twice the width of the input, so overflow cannot occur.
             pub fn widening_mul(&self, rhs: &Self) -> BigInt<{ $n * 2 }> {
                 let product = self.digits.widening_mul(&rhs.digits);
-                BigInt::<{ $n * 2 }> { digits: product, is_negative: self.is_negative ^ rhs.is_negative }
+                BigInt::<{ $n * 2 }> {
+                    digits: product,
+                    is_negative: (self.is_negative ^ !rhs.is_negative)
+                        && *self != Self::ZERO
+                        && *rhs != Self::ZERO,
+                }
             }
         }
     };
@@ -194,16 +263,6 @@ macro_rules! impl_big_int {
 
 impl_big_int!(4);
 impl_big_int!(8);
-
-impl<const N: usize> core::cmp::PartialEq for BigInt<N> {
-    fn eq(&self, other: &Self) -> bool {
-        self.digits == other.digits && self.is_negative == other.is_negative
-    }
-
-    fn ne(&self, other: &Self) -> bool {
-        !self.eq(other)
-    }
-}
 
 impl<const N: usize> PartialOrd for BigInt<N> {
     fn lt(&self, other: &Self) -> bool {
@@ -294,5 +353,17 @@ mod tests {
         let mut one = BigInt::<4>::ONE;
         one.neg_assign();
         assert_eq!(one, BigInt::NEG_ONE);
+    }
+
+    #[test]
+    fn mul() {
+        // Multiplying by zero can be tricky to implement properly
+        assert_eq!(BigInt::<4>::ZERO.widening_mul(&BigInt::MIN), BigInt::ZERO);
+        assert_eq!(BigInt::<4>::ZERO.widening_mul(&BigInt::ZERO), BigInt::ZERO);
+        assert_eq!(
+            BigInt::<4>::ZERO.widening_mul(&BigInt::NEG_ONE),
+            BigInt::ZERO
+        );
+        assert_eq!(BigInt::<4>::ZERO.widening_mul(&BigInt::ONE), BigInt::ZERO);
     }
 }
