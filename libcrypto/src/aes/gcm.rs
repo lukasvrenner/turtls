@@ -331,7 +331,7 @@ impl<C: aes_core::AesCipher> Gcm<C> {
         add_block(&mut tag, last_block, self.h);
 
         tag ^= ((add_data.len() as u128 * 8) << 64) + cipher_text.len() as u128 * 8;
-        tag = gf_2to128_mult(tag, self.h);
+        tag = gf_2to128_mul(tag, self.h);
 
         let encrypted_iv = u128::from_be_bytes(self.cipher.encrypt(counter));
 
@@ -343,7 +343,7 @@ impl<C: aes_core::AesCipher> Gcm<C> {
 /// Multiplication in GF(2^128)
 ///
 /// Cannot overflow
-fn gf_2to128_mult(a: u128, b: u128) -> u128 {
+fn gf_2to128_mul(a: u128, b: u128) -> u128 {
     let mut product = 0;
     let mut temp = a;
     for i in (0..128).rev() {
@@ -362,7 +362,7 @@ fn gf_2to128_mult(a: u128, b: u128) -> u128 {
 /// A helper function for g_hash()
 fn add_block(tag: &mut u128, block: [u8; aes_core::BLOCK_SIZE], h: u128) {
     *tag ^= u128::from_be_bytes(block);
-    *tag = gf_2to128_mult(*tag, h);
+    *tag = gf_2to128_mul(*tag, h);
 }
 
 #[cfg(test)]
@@ -436,11 +436,11 @@ mod tests {
     }
 
     #[test]
-    fn mult() {
+    fn mul() {
         let a = 0x66e94bd4ef8a2c3b884cfa59ca342b2e;
         let b = 0x0388dace60b6a392f328c2b971b2fe78;
         let product = 0x5e2ec746917062882c85b0685353deb7;
-        assert_eq!(super::gf_2to128_mult(a, b), product);
+        assert_eq!(super::gf_2to128_mul(a, b), product);
     }
 
     #[test]
