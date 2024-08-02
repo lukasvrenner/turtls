@@ -69,4 +69,12 @@ mod tests {
         let b = 0xfedcba9876543210;
         assert_eq!(super::carry_sub(a, b, true), (0x0123456789abcdef, true));
     }
+
+    #[test]
+    fn carry_mul() {
+        let a = 1;
+        let b = 0xfedcba9876543210;
+        assert_eq!(super::carry_mul(a, b, 0), (b, 0));
+        // TODO: make test more exaustive
+    }
 }

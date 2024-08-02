@@ -1,7 +1,7 @@
 //! This module provides large signed integers.
 //!
 //! For unsigned integers, use [`UBigInt`](`super::BigInt`).
-use super::{InputTooLargeError, UBigInt};
+use super::UBigInt;
 /// A signed integer of size `N * 64` bits, plus 1 signed bit.
 ///
 /// Unlike builting integers, [`BigInt<N>::MAX`] is the same size as [`UBigInt<N>::MAX`].
@@ -65,6 +65,7 @@ impl<const N: usize> BigInt<N> {
     ///
     /// # Constant-timedness:
     /// This is a constant-time operation.
+    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         N
     }
@@ -109,7 +110,7 @@ impl<const N: usize> BigInt<N> {
     /// This is a constant-time operation.
     pub fn add(&self, rhs: &Self) -> Self {
         let mut buf = *self;
-        buf.add_assign(&rhs);
+        buf.add_assign(rhs);
         buf
     }
 
@@ -132,7 +133,7 @@ impl<const N: usize> BigInt<N> {
     /// This is a constant-time operation.
     pub fn sub(&self, rhs: &Self) -> Self {
         let mut buf = *self;
-        buf.sub_assign(&rhs);
+        buf.sub_assign(rhs);
         buf
     }
 

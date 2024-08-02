@@ -39,12 +39,12 @@ impl FieldElement {
     /// # Constant-timedness:
     /// TODO: document constant-timedness
     pub fn inverse(&self) -> Self {
-        let mut new_t = BigInt::ONE;
         let mut t = BigInt::ZERO;
-        let mut new_r: BigInt<4> = self.0.into();
+        let mut new_t = BigInt::ONE;
         let mut r: BigInt<4> = Self::MODULUS.0.into();
+        let mut new_r: BigInt<4> = self.0.into();
 
-        while new_r > BigInt::ZERO {
+        while new_r != BigInt::ZERO {
             let (quotient, remainder) = r.div(&new_r);
             (t, new_t) = (
                 new_t,
@@ -52,8 +52,10 @@ impl FieldElement {
             );
             (r, new_r) = (new_r, remainder);
         }
-        assert!(t.is_positive());
-        assert!(t.digits < Self::MODULUS.0);
+        assert_eq!(r, BigInt::ONE);
+        if t.is_negative() {
+            t.add_assign(&Self::MODULUS.0.into())
+        }
         // TODO: make this good
         Self(UBigInt::try_from(t).unwrap())
     }

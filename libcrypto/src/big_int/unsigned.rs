@@ -1,7 +1,7 @@
 //! This module provides large unsigned integers.
 //!
 //! For signed integers, use [`BigInt`](`super::BigInt`).
-use super::{BigInt, FromNegErr, InputTooLargeError};
+use super::{BigInt, FromNegErr};
 use core::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
 /// An unsigned integer of size `N * 64` bits.
 ///
@@ -414,6 +414,7 @@ impl<const N: usize> UBigInt<N> {
     /// The returned value is `N`.
     ///
     /// Note: this is not the same as [`Self::count_digits()`].
+    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         N
     }
@@ -457,22 +458,29 @@ macro_rules! impl_non_generic {
                 for i in 0..self.len() {
                     let mut carry = 0;
                     for j in 0..rhs.len() {
-                        // TODO: use libcore super::carry_mul once stabilized
-                        (product[i + j], carry) = super::carry_mul(self.0[i], rhs.0[j], carry);
+                        // TODO: use libcore carry_mul once stabilized
+                        let result = super::carry_mul(self.0[i], rhs.0[j], carry);
+                        let (sum, overflowed) = product[i + j].overflowing_add(result.0);
+                        product[i + j] = sum;
+                        product[i + j + 1] += overflowed as u64;
+                        carry = result.1;
+                        //let temp = product[i + j];
+                        //(product[i + j], carry) = super::carry_mul(self.0[i], rhs.0[j], carry);
+                        //product[i + j]
                     }
-                    product[i] = carry;
+                    product[i + rhs.len()] = carry;
                 }
                 product.into()
             }
 
-            /// Left-shifts `self` `rhs` bits, so long as `rhs` is less than `64`.
+            /// Left-shifts `self` `rhs % 64` bits.
             ///
             /// The output is 64 bits longer, so ovelflow never occurs.
             ///
             /// # Constant-timedness:
             /// This is a constant-time operation.
-            pub fn widening_shift_left(&self, rhs: u64) -> UBigInt<{ $n + 1 }> {
-                assert!(rhs < 64);
+            pub fn widening_shift_left(&self, mut rhs: u64) -> UBigInt<{ $n + 1 }> {
+                rhs %= 64;
                 let mut expanded = [0u64; $n + 1];
                 let right_shift = (64 - rhs) % 64;
                 let mask = ((rhs != 0) as u64).wrapping_neg();
@@ -733,7 +741,7 @@ mod tests {
     }
 
     #[test]
-    fn mul() {
+    fn widening_mul() {
         let x = UBigInt::from([
             0x0000000000000000,
             0x0000000000000000,
@@ -746,19 +754,40 @@ mod tests {
             0x0000000000010000,
             0x0000000000000000,
         ]);
-        assert_eq!(
-            x.widening_mul(&y),
-            UBigInt::from([
-                0x0000000000000000,
-                0x0000000000000000,
-                0x0000000000000000,
-                0x0000000000000000,
-                0x0000000000000000,
-                0x0000000000000000,
-                0x0000000000001000,
-                0x0000000000000000,
-            ])
-        );
+        let product = UBigInt::from([
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000001000,
+            0x0000000000000000,
+        ]);
+        assert_eq!(x.widening_mul(&y), product);
+
+        let y = UBigInt::from([
+            0xfedcba9876543211,
+            0x0123456789abcdef,
+            0xfedcba9876543210,
+            0x0123456789abcdef,
+        ]);
+        assert_eq!(y.widening_mul(&UBigInt::ONE), y.into());
+        let a = UBigInt::from([0x124924924924924, 0, 0, 0]);
+        let b = UBigInt::from([
+            0xfedcba9876543210,
+            0x0123456789abcdef,
+            0xfedcba9876543210,
+            0,
+        ]);
+        // TODO: make this hex
+        let product = UBigInt::from([
+            0x80a670cd733d9a40,
+            0x7f584250f1dbea8b,
+            0x80a7bdaf0e241574,
+            81985529216486895,
+        ]);
+        assert_eq!(UBigInt::<4>::from(a.widening_mul(&b)), product);
     }
 
     #[test]
@@ -772,18 +801,16 @@ mod tests {
         assert_eq!(y.div(&y), (UBigInt::ONE, UBigInt::ZERO));
 
         let x = UBigInt::from([0, 1, 0, 0]);
-        let z = (
-            UBigInt::from([
-                0xfedcba9876543210,
-                0x0123456789abcdef,
-                0xfedcba9876543210,
-                0,
-            ]),
-            UBigInt::from([0x0123456789abcdef, 0, 0, 0]),
-        );
-        assert_eq!(y.div(&x), z);
+        let quotient = UBigInt::from([
+            0xfedcba9876543210,
+            0x0123456789abcdef,
+            0xfedcba9876543210,
+            0,
+        ]);
+        let remainder = UBigInt::from([0x0123456789abcdef, 0, 0, 0]);
+        assert_eq!(y.div(&x), (quotient, remainder));
 
-        assert_eq!(z.0.div(&y), (UBigInt::ZERO, z.0));
+        assert_eq!(quotient.div(&y), (UBigInt::ZERO, quotient));
 
         let a = UBigInt::from([
             0xfedcba9876543210,
