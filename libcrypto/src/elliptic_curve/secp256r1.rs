@@ -169,4 +169,21 @@ mod tests {
         ]));
         assert_eq!(a.inverse(), inverse);
     }
+
+    #[test]
+    fn mul() {
+        let a = FieldElement(UBigInt::from([
+            0x0123456789abcdef,
+            0xfedcba9876543210,
+            0x0123456789abcdef,
+            0xfedcba9876543210,
+        ]));
+        let inverse = FieldElement(UBigInt::from([
+            0x26df004c195c1bad,
+            0xba2f345d14469232,
+            0xf1fc3784a656a487,
+            0x6f8924011bb0d776,
+        ]));
+        assert_eq!(a.mul(&inverse), FieldElement::ONE);
+    }
 }
