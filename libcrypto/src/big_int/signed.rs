@@ -49,12 +49,14 @@ impl<const N: usize> BigInt<N> {
     ///
     /// This particular value has some weird quirks:
     /// * Calling [`BigInt::neg()`] on it returns itself.
-    /// * Calling [`BigInt::abs()`] on it returns itself.
+    /// * Calling [`BigInt::abs()`] on it returns [`Self::ZERO`].
     ///
     /// # Examples
     /// ```
-    /// assert_eq!(BigInt<4>::MIN.neg(), BigInt::MIN);
-    /// assert_eq!(BigInt<4>::MIN.abs(), BigInt::MIN);
+    /// use libcrypto::big_int::BigInt;
+    ///
+    /// assert_eq!(BigInt::<4>::MIN.neg(), BigInt::MIN);
+    /// assert_eq!(BigInt::<4>::MIN.abs(), BigInt::ZERO);
     /// ```
     pub const MIN: Self = Self {
         digits: UBigInt::MIN,
