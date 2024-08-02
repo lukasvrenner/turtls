@@ -258,9 +258,6 @@ impl<const N: usize> UBigInt<N> {
 
     /// Performs a bitshift `rhs` to the right and returns the result.
     ///
-    /// # Panics:
-    /// This function will panic if `rhs >= 64`
-    ///
     /// # Constant-timedness:
     /// This is a constant-time operation.
     pub fn shift_left(&self, rhs: u64) -> Self {
@@ -462,6 +459,7 @@ macro_rules! impl_non_generic {
                         let result = super::carry_mul(self.0[i], rhs.0[j], carry);
                         let (sum, overflowed) = product[i + j].overflowing_add(result.0);
                         product[i + j] = sum;
+                        // TODO: can this overflow?
                         product[i + j + 1] += overflowed as u64;
                         carry = result.1;
                         //let temp = product[i + j];
