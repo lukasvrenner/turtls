@@ -52,12 +52,12 @@ impl FieldElement {
             );
             (r, new_r) = (new_r, remainder);
         }
-        assert_eq!(r, BigInt::ONE);
+        debug_assert_eq!(r, BigInt::ONE);
         if t.is_negative() {
             t.add_assign(&Self::MODULUS.0.into())
         }
-        // TODO: make this good
-        Self(UBigInt::try_from(t).unwrap())
+        debug_assert!(t.is_positive());
+        Self(t.digits)
     }
 
     /// Returns the number of digits in `self`, not counting leading zeros
