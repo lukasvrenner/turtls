@@ -81,8 +81,14 @@ impl FieldElement {
     /// # Constant-timedness:
     /// This function is constant-time
     pub fn sub(&self, rhs: &Self) -> Self {
-        let (difference, carry) = self.0.overflowing_sub(&rhs.0);
-        Self(difference.add(&(Self::MODULUS.0.and_bool(carry))))
+        let (difference, mask) = self.0.overflowing_sub(&rhs.0);
+        Self(difference.add(&(Self::MODULUS.0.and_bool(mask))))
+    }
+
+    pub fn sub_assign(&mut self, rhs: &Self) {
+        let mask = self.0.overflowing_sub_assign(&rhs.0);
+        // make sure self < MODULUS
+        self.0.add_assign(&(Self::MODULUS.0.and_bool(mask)));
     }
 
     /// Returns `self` * `rhs` mod [`MODULUS`](Self::MODULUS)
@@ -105,24 +111,44 @@ impl FieldElement {
         self.mul(&rhs.inverse())
     }
 
+    pub fn sqr(&self) -> Self {
+        todo!();
+    }
+
     /// Converts `value` into the equivalent [`FieldElement`].
     ///
     /// This is used instead of [`From<UBigInt<4>>`] because then we can't have a custom [`TryFrom`] implementation.
     pub fn from_u_big_int(value: UBigInt<4>) -> Self {
         Self(value.div(&Self::MODULUS.0).1)
     }
+
+    /// Calculates the additive inverse of `self` returning the result.
+    ///
+    /// The returned value has the property that, when added to `self`, the sum is [`Self::ZERO`].
+    pub fn neg(&self) -> Self {
+        Self::ZERO.sub(self)
+    }
+
+    /// Calculates the additive inverse of `self` storing the result in `self`.
+    ///
+    /// The returned value has the property that, when added to `self`, the sum is [`Self::ZERO`].
+    pub fn neg_assign(&mut self) {
+        // TODO: can this be made more efficient?
+        *self = self.neg();
+    }
 }
 
 impl TryFrom<UBigInt<4>> for FieldElement {
     type Error = InputTooLargeError;
     fn try_from(value: UBigInt<4>) -> Result<Self, Self::Error> {
-        if value > Self::MODULUS.0 {
+        if value >= Self::MODULUS.0 {
             return Err(InputTooLargeError);
         };
         Ok(Self(value))
     }
 }
 
+#[derive(Clone, Debug, Copy)]
 pub struct Point(pub FieldElement, pub FieldElement);
 
 impl Point {
@@ -143,8 +169,55 @@ impl Point {
     );
     /// Multiplies a [`Point`] by a [`FieldElement`]
     pub fn mul_scalar(&self, scalar: FieldElement) -> Self {
+        let mut r0 = *self;
+        let mut r1 = self.double();
+        for i in (0..scalar.0.len() - 2).rev() {
+            if scalar.0.0[i] == 0 {
+                r1.add_assign(&r0);
+                r0.double_assign();
+            } else {
+                r0.add_assign(&r1);
+                r1.double_assign();
+            }
+        }
+        r0
+    }
+
+    pub fn double(&self) -> Self {
         todo!();
     }
+
+    pub fn double_assign(&mut self) {
+        todo!();
+    }
+
+    /// Adds `self` and `rhs`, returning the result.
+    ///
+    /// # Panics:
+    /// This function will panic if `self.0 == rhs.0`. That is, when they have the same
+    /// x-coordinate.
+    pub fn add(&self, rhs: &Self) -> Self {
+        // TODO: use `assign` variants to avoid extra duplications
+        let lambda = rhs.1.sub(&self.1).div(&rhs.0.sub(&self.0));
+        let x = lambda.sqr().sub(&self.0).sub(&rhs.0);
+        let y = lambda.mul(&self.0.sub(&rhs.0)).sub(&self.1);
+        Self(x, y)
+    }
+
+    pub fn add_assign(&mut self, rhs: &Self) {
+        todo!();
+    }
+
+    pub fn neg(&self) -> Self {
+        let mut buf = *self;
+        buf.neg_assign();
+        buf
+    }
+
+    pub fn neg_assign(&mut self) {
+        self.1.neg_assign();
+    }
+
 }
 
 #[cfg(test)]
