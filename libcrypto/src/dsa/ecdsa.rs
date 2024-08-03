@@ -1,12 +1,12 @@
 use crate::big_int::UBigInt;
-use crate::elliptic_curve::secp256r1::{FieldElement, Point};
-pub fn generate_signature(
+use crate::finite_field::{FieldElement, FiniteField, Point};
+pub fn generate_signature<F: FiniteField>(
     msg: &[u8],
-    key: FieldElement,
+    key: FieldElement<F>,
     hash_func: fn(&[u8]) -> [u8; 32],
-    secret_num: FieldElement,
-) -> (FieldElement, FieldElement) {
-    let hash: FieldElement =
+    secret_num: FieldElement<F>,
+) -> (FieldElement<F>, FieldElement<F>) {
+    let hash: FieldElement<F> =
         FieldElement::from_u_big_int(UBigInt::<4>::from_be_bytes(hash_func(msg)));
     let inverse = secret_num.inverse();
 

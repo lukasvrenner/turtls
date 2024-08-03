@@ -15,4 +15,5 @@ pub mod big_int;
 pub mod chacha;
 pub mod dsa;
 pub mod elliptic_curve;
+pub mod finite_field;
 pub mod sha2;
