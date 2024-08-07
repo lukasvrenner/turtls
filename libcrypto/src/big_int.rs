@@ -13,7 +13,7 @@ pub use unsigned::UBigInt;
 
 /// The error that is returned when conversion from a larger [`BigInt`] or [`UBigInt`] to a smaller [`BigInt`] or [`UBigInt`]
 /// fails
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct InputTooLargeError;
 
 impl core::fmt::Display for InputTooLargeError {
@@ -25,7 +25,7 @@ impl core::fmt::Display for InputTooLargeError {
 // TODO: uncomment the following line once stabilized
 // impl core::error::Error for InputTooLargeError {};
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FromNegErr;
 
 impl core::fmt::Display for FromNegErr {

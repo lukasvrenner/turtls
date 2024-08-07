@@ -3,7 +3,7 @@ use core::marker::PhantomData;
 use crate::big_int::{BigInt, InputTooLargeError, UBigInt};
 
 use super::FiniteField;
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
 /// A big integer with the invariant that its value is less than its modulus
 pub struct FieldElement<F: FiniteField>(UBigInt<4>, PhantomData<F>);
 
@@ -126,7 +126,6 @@ impl<F: FiniteField> FieldElement<F> {
     pub fn sqr(&self) -> Self {
         todo!();
     }
-
 
     /// Calculates the additive inverse of `self` returning the result.
     ///

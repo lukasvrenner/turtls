@@ -6,7 +6,7 @@ use core::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
 /// An unsigned integer of size `N * 64` bits.
 ///
 /// Internally, [`UBigInt<N>`] is a little-endian `[u64; N]`
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub struct UBigInt<const N: usize>(pub [u64; N]);
 
 impl<const N: usize> UBigInt<N> {

@@ -59,7 +59,7 @@ pub const IV_SIZE: usize = 12;
 /// does not match its generated tag
 ///
 /// If this error is found, the message cannot be considered safe
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BadData;
 
 impl core::fmt::Display for BadData {

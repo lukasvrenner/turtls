@@ -8,7 +8,7 @@ use super::UBigInt;
 ///
 /// Internally, [`BigInt<N>`] is a little-endian `[u64; N]`
 /// and it represents negative numbers using two's compliment.
-#[derive(Default, Clone, Copy, Eq, PartialEq, Debug)]
+#[derive(Default, Clone, Copy, Eq, PartialEq, Debug, Hash)]
 pub struct BigInt<const N: usize> {
     pub(crate) digits: UBigInt<N>,
     is_negative: bool,
