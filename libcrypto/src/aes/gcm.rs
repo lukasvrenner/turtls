@@ -143,8 +143,8 @@ impl<C: aes_core::AesCipher> Gcm<C> {
         tag: &[u8; aes_core::BLOCK_SIZE],
     ) -> Result<(), BadData> {
         let counter = {
-            // TODO: consider using uninitialized array
-            let mut counter = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
+            let mut counter = [0; aes_core::BLOCK_SIZE];
+            counter[aes_core::BLOCK_SIZE - 1] = 1;
             counter[..init_vector.len()].copy_from_slice(init_vector);
             counter
         };
