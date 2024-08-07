@@ -19,10 +19,20 @@ impl<F: FiniteField> FieldElement<F> {
         Self(value.div(&F::MODULUS).1, PhantomData)
     }
 
+    /// Creates a new `FieldElement` without checking if `int` is less than `F::MODULUS`.
+    ///
+    /// # Safety:
+    /// `int` must be less than `F::MODULUS`. A violation of this will result in undefined
+    /// behavior.
+    ///
+    /// In most cases, it's better to use the safe version: [`Self::try_new()`]
     pub const unsafe fn new_unchecked(int: UBigInt<4>) -> Self {
         Self(int, PhantomData)
     }
 
+    /// Creates a new `FieldElement` from `int`, returning an `Err` if `int >= F::MODULUS`.
+    ///
+    /// This is the safe version of [`Self::new_unchecked()`]
     pub fn try_new(int: UBigInt<4>) -> Result<Self, InputTooLargeError> {
         if int >= F::MODULUS {
             return Err(InputTooLargeError);
@@ -31,12 +41,6 @@ impl<F: FiniteField> FieldElement<F> {
         Ok(unsafe { Self::new_unchecked(int) })
     }
 
-    //pub const MODULUS: Self = Self(UBigInt::new([
-    //    0xf3b9cac2fc632551,
-    //    0xbce6faada7179e84,
-    //    0xffffffffffffffff,
-    //    0xffffffff00000000,
-    //]));
 
     /// Returns the multiplicative inverse of `self`.
     ///
@@ -63,7 +67,8 @@ impl<F: FiniteField> FieldElement<F> {
             t.add_assign(&F::MODULUS.into())
         }
         debug_assert!(t.is_positive());
-        Self(t.digits, PhantomData)
+        // TODO: is it better to use safe or unsafe version?
+        Self::try_new(t.digits).unwrap()
     }
 
     /// Returns the number of digits in `self`, not counting leading zeros
@@ -74,7 +79,7 @@ impl<F: FiniteField> FieldElement<F> {
         self.0.count_digits()
     }
 
-    /// Returns `self` + `rhs` modulo [`MODULUS`](M::MODULUS)
+    /// Returns `self` + `rhs` modulo [`MODULUS`](F::MODULUS)
     ///
     /// # Constant-timedness:
     /// This function is constant-time.
@@ -107,12 +112,11 @@ impl<F: FiniteField> FieldElement<F> {
     /// # Constant-timedness:
     /// TODO: document constant-timedness
     pub fn mul(&self, rhs: &Self) -> Self {
-        Self(
-            (((self.0.widening_mul(&rhs.0)).div(&F::MODULUS.into())).1).0[..4]
-                .try_into()
-                .unwrap(),
-            PhantomData,
-        )
+        let product = (((self.0.widening_mul(&rhs.0)).div(&F::MODULUS.into())).1).0[..4]
+            .try_into()
+            .unwrap();
+
+        unsafe { Self::new_unchecked(product) }
     }
 
     /// Returns (`self` / `rhs`, `self` mod `rhs)`
