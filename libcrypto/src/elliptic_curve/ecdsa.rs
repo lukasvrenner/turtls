@@ -1,5 +1,5 @@
 use crate::big_int::UBigInt;
-use crate::elliptic_curve::EllipticCurve;
+use super::EllipticCurve;
 use crate::finite_field::FieldElement;
 pub fn generate_signature<C: EllipticCurve>(
     msg: &[u8],

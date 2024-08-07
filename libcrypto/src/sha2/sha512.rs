@@ -1,4 +1,4 @@
-//! A software implementation of SHA-512
+//! A software implementation of SHA-512.
 
 const K: [u64; 80] = [
     0x428a2f98d728ae22,

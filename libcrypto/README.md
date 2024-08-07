@@ -1,7 +1,3 @@
-This crate implements various cryptographic functions,
-including AES in GCM and SHA-256.
+The crypto library used for turtls.
 
-This crate implements these functions purely in software.
-Hardware implementations are a future goal.
-
-WARNING: This code has not been audited. Use at your own risk.
+Refer to its [documentation](https://docs.rs/libcrypto) for more information.

@@ -4,7 +4,7 @@ use crate::big_int::{BigInt, InputTooLargeError, UBigInt};
 
 use super::FiniteField;
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
-/// A big integer with the invariant that its value is less than its modulus
+/// An element of the finite field `F`.
 pub struct FieldElement<F: FiniteField>(UBigInt<4>, PhantomData<F>);
 
 impl<F: FiniteField> FieldElement<F> {
@@ -164,7 +164,7 @@ mod tests {
     use crate::big_int::UBigInt;
 
     use super::FieldElement;
-    use crate::elliptic_curve::secp256r1::Secp256r1;
+    use crate::elliptic_curve::Secp256r1;
     use crate::finite_field::FiniteField;
 
     #[test]

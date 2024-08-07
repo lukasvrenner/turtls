@@ -1,4 +1,4 @@
-//! A software implementation of SHA-256
+//! A software implementation of SHA-256.
 
 const BLOCK_SIZE: usize = 64;
 const HASH_SIZE: usize = 32;

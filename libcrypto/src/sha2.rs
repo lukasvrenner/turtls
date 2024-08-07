@@ -1,3 +1,4 @@
+//! The SHA2 family of hash functions.
 mod sha256;
 mod sha512;
 

@@ -1,9 +1,12 @@
-//! This module provides signed and unsigned large integers.
+//! Signed and unsigned large integers.
 //!
 //! This is useful for many algorithms, such as those used in public key cryptography, whose
 //! security depends on very large numbers.
 //!
-//! It contains two types, [`UBigInt`] and [`BigInt`]. Refer to their respective documentation for
+//! Most operations provided by this module are constant-time, helping to prevent timing attacks.
+//! Refer to their individual documentation for more information.
+//!
+//! This module contains two types, [`UBigInt`] and [`BigInt`]. Refer to their respective documentation for
 //! more information.
 mod signed;
 mod unsigned;
@@ -12,7 +15,7 @@ pub use signed::BigInt;
 pub use unsigned::UBigInt;
 
 /// The error that is returned when conversion from a larger [`BigInt`] or [`UBigInt`] to a smaller [`BigInt`] or [`UBigInt`]
-/// fails
+/// fails.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct InputTooLargeError;
 

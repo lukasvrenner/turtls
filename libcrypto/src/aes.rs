@@ -1,9 +1,8 @@
-//! This module provides cryptographic primitives for AES and AES-GCM
+//! The AES block cipher and GCM AEAD.
 //!
-//! AES should not be used on its own. Instead, it should be combined with a mode of operation,
-//! such as CTR or CBC. Usually it is even more preferable to use an AEAD (Authenticated Encryption
-//! with Associated Data) for authenticated encryption. This module provides one such algorithm,
-//! GCM (Galois/Counter Mode).
+//! Generally, AES should not be used on its own. Instead, it should be combined into a
+//! higher-level cipher algorithm such as GCM. This module provides GCM support, but others are
+//! currently unsupported.
 mod aes_core;
 pub use aes_core::*;
 pub mod gcm;

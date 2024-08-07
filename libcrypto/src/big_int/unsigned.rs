@@ -1,11 +1,9 @@
-//! This module provides large unsigned integers.
-//!
-//! For signed integers, use [`BigInt`](`super::BigInt`).
+//! The home to [`UBigInt`].
 use super::{BigInt, FromNegErr};
 use core::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
 /// An unsigned integer of size `N * 64` bits.
 ///
-/// Internally, [`UBigInt<N>`] is a little-endian `[u64; N]`
+/// Internally, [`UBigInt<N>`] is a little-endian `[u64; N]`.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub struct UBigInt<const N: usize>(pub [u64; N]);
 
@@ -406,11 +404,10 @@ impl<const N: usize> UBigInt<N> {
         buf
     }
 
-    /// Returns the total number of digits in `self`.
+    /// Returns the number of digits `self` can store.
     ///
-    /// The returned value is `N`.
-    ///
-    /// Note: this is not the same as [`Self::count_digits()`].
+    /// # Constant-timedness:
+    /// This is a constant-time operation.
     #[allow(clippy::len_without_is_empty)]
     pub const fn len(&self) -> usize {
         N

@@ -1,13 +1,11 @@
-//! This module provides large signed integers.
-//!
-//! For unsigned integers, use [`UBigInt`](`super::BigInt`).
+//! The home to [`BigInt`].
 use super::UBigInt;
-/// A signed integer of size `N * 64` bits, plus 1 signed bit.
+/// A signed integer of size `N * 64` bits, plus 1 sign byte.
 ///
-/// Unlike builting integers, [`BigInt<N>::MAX`] is the same size as [`UBigInt<N>::MAX`].
+/// Unlike for built-in integers, [`BigInt<N>::MAX`] is the same size as [`UBigInt<N>::MAX`].
 ///
-/// Internally, [`BigInt<N>`] is a little-endian `[u64; N]`
-/// and it represents negative numbers using two's compliment.
+/// Internally, [`BigInt<N>`] is a little-endian `[u64; N]`.
+/// Negative numbers are represented using the [two's compliment](https://en.wikipedia.org/wiki/Two%27s_complement) number scheme.
 #[derive(Default, Clone, Copy, Eq, PartialEq, Debug, Hash)]
 pub struct BigInt<const N: usize> {
     pub(crate) digits: UBigInt<N>,
@@ -63,12 +61,12 @@ impl<const N: usize> BigInt<N> {
         is_negative: true,
     };
 
-    /// Returns the number of digits in `self`. This is value is equal to `N`
+    /// Returns the number of digits `self` can store.
     ///
     /// # Constant-timedness:
     /// This is a constant-time operation.
     #[allow(clippy::len_without_is_empty)]
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         N
     }
 

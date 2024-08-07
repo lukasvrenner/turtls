@@ -1,11 +1,7 @@
-//! This crate implements various cryptographic functions,
-//! including AES in GCM and SHA-256.
-//!
-//! This crate implements these functions purely in software.
-//! Hardware implementations are a future goal.
+//! A collection of cryptographic primitives.
 //!
 //! <div class="warning">
-//! WARNING: This code has not been audited. Use at your own risk.
+//! WARNING: This code has not been audited. Use it at your own risk.
 //! </div>
 #![warn(missing_docs, clippy::cargo)]
 #![no_std]
@@ -13,7 +9,6 @@
 pub mod aes;
 pub mod big_int;
 pub mod chacha;
-pub mod dsa;
 pub mod elliptic_curve;
 pub mod finite_field;
 pub mod sha2;

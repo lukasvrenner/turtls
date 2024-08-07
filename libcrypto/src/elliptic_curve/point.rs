@@ -23,7 +23,7 @@ impl<P: EllipticCurve> Point<P> {
 
     /// Adds `self` and `rhs`, returning the result.
     ///
-    /// # Panics:
+    /// # Panics
     /// This function will panic if `self.0 == rhs.0`. That is, when they have the same
     /// x-coordinate.
     pub fn add(&self, rhs: &Self) -> Self {
