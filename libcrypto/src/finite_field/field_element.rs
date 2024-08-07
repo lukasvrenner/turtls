@@ -41,7 +41,6 @@ impl<F: FiniteField> FieldElement<F> {
         Ok(unsafe { Self::new_unchecked(int) })
     }
 
-
     /// Returns the multiplicative inverse of `self`.
     ///
     /// This value has the property that `self.inverse() * self == 1`
@@ -79,10 +78,10 @@ impl<F: FiniteField> FieldElement<F> {
         self.0.count_digits()
     }
 
-    /// Returns `self` + `rhs` modulo [`MODULUS`](F::MODULUS)
+    /// Returns `self` + `rhs` modulo [`F::MODULUS`].
     ///
     /// # Constant-timedness:
-    /// This function is constant-time.
+    /// This is a constant-time operation.
     pub fn add(&self, rhs: &Self) -> Self {
         let mut sum = Self(self.0.add(&rhs.0), PhantomData);
         // SAFETY: `sub_assign` computes correct results even if `rhs` is `F::MODULUS`.
@@ -90,10 +89,10 @@ impl<F: FiniteField> FieldElement<F> {
         sum
     }
 
-    /// Returns `self` - `rhs` modulo [`MODULUS`](M::MODULUS)
+    /// Returns `self` - `rhs` modulo [`F::MODULUS`].
     ///
     /// # Constant-timedness:
-    /// This function is constant-time
+    /// This is a constant-time operation.
     pub fn sub(&self, rhs: &Self) -> Self {
         let (difference, mask) = self.0.overflowing_sub(&rhs.0);
         // SAFETY: we we guarantee that underflow doesn't occur by adding the modulus back if it
@@ -101,13 +100,17 @@ impl<F: FiniteField> FieldElement<F> {
         unsafe { Self::new_unchecked(difference.add(&(F::MODULUS.and_bool(mask)))) }
     }
 
+    /// Calculates `self` - `rhs` modulo [`F::MODULUS`], storing the result in `self`.
+    ///
+    /// # Constant-timedness:
+    /// This is a constant-time operation.
     pub fn sub_assign(&mut self, rhs: &Self) {
         let mask = self.0.overflowing_sub_assign(&rhs.0);
         // make sure self < MODULUS
         self.0.add_assign(&(F::MODULUS.and_bool(mask)));
     }
 
-    /// Returns `self` * `rhs` mod [`MODULUS`](M::MODULUS)
+    /// Returns `self` * `rhs` modulo [`F::MODULUS`].
     ///
     /// # Constant-timedness:
     /// TODO: document constant-timedness
@@ -119,7 +122,7 @@ impl<F: FiniteField> FieldElement<F> {
         unsafe { Self::new_unchecked(product) }
     }
 
-    /// Returns (`self` / `rhs`, `self` mod `rhs)`
+    /// Returns `self` / `rhs` modulo [`F::MODULUS`].
     ///
     /// # Constant-timedness:
     /// TODO: document constant-timedness
