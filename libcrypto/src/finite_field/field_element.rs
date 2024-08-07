@@ -5,9 +5,32 @@ use crate::big_int::{BigInt, InputTooLargeError, UBigInt};
 use super::FiniteField;
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 /// A big integer with the invariant that its value is less than its modulus
-pub struct FieldElement<F: FiniteField>(pub(crate) UBigInt<4>, pub(crate) PhantomData<F>);
+pub struct FieldElement<F: FiniteField>(UBigInt<4>, PhantomData<F>);
 
 impl<F: FiniteField> FieldElement<F> {
+    /// Creates a new `FieldElement` from `value`.
+    ///
+    /// If `value` is greater than `F::MODULUS`, it is properly reduced.
+    ///
+    /// Because it always performs a division operation, this function is much slower than a simple
+    /// type conversion. If higher performance, at the cost of falibility, is necessary, use
+    /// [`Self::try_new()`] or its unsafe counterpart, [`Self::new_unchecked()`]
+    pub fn new(value: UBigInt<4>) -> Self {
+        Self(value.div(&F::MODULUS).1, PhantomData)
+    }
+
+    pub const unsafe fn new_unchecked(int: UBigInt<4>) -> Self {
+        Self(int, PhantomData)
+    }
+
+    pub fn try_new(int: UBigInt<4>) -> Result<Self, InputTooLargeError> {
+        if int >= F::MODULUS {
+            return Err(InputTooLargeError);
+        };
+        // SAFETY: we already checked to guarantee that `int` is less than `F::MODULUS`.
+        Ok(unsafe { Self::new_unchecked(int) })
+    }
+
     //pub const MODULUS: Self = Self(UBigInt::new([
     //    0xf3b9cac2fc632551,
     //    0xbce6faada7179e84,
@@ -24,7 +47,7 @@ impl<F: FiniteField> FieldElement<F> {
     pub fn inverse(&self) -> Self {
         let mut t = BigInt::ZERO;
         let mut new_t = BigInt::ONE;
-        let mut r: BigInt<4> = F::MODULUS.0.into();
+        let mut r: BigInt<4> = F::MODULUS.into();
         let mut new_r: BigInt<4> = self.0.into();
 
         while new_r != BigInt::ZERO {
@@ -37,7 +60,7 @@ impl<F: FiniteField> FieldElement<F> {
         }
         debug_assert_eq!(r, BigInt::ONE);
         if t.is_negative() {
-            t.add_assign(&F::MODULUS.0.into())
+            t.add_assign(&F::MODULUS.into())
         }
         debug_assert!(t.is_positive());
         Self(t.digits, PhantomData)
@@ -46,7 +69,7 @@ impl<F: FiniteField> FieldElement<F> {
     /// Returns the number of digits in `self`, not counting leading zeros
     ///
     /// # Constant-timedness:
-    /// This function is constant-time
+    /// This function is constant-time.
     pub fn count_digits(&self) -> usize {
         self.0.count_digits()
     }
@@ -54,10 +77,11 @@ impl<F: FiniteField> FieldElement<F> {
     /// Returns `self` + `rhs` modulo [`MODULUS`](M::MODULUS)
     ///
     /// # Constant-timedness:
-    /// This function is constant-time
+    /// This function is constant-time.
     pub fn add(&self, rhs: &Self) -> Self {
         let mut sum = Self(self.0.add(&rhs.0), PhantomData);
-        sum.sub_assign(&F::MODULUS);
+        // SAFETY: `sub_assign` computes correct results even if `rhs` is `F::MODULUS`.
+        unsafe { sum.sub_assign(&Self::new_unchecked(F::MODULUS)) };
         sum
     }
 
@@ -67,13 +91,15 @@ impl<F: FiniteField> FieldElement<F> {
     /// This function is constant-time
     pub fn sub(&self, rhs: &Self) -> Self {
         let (difference, mask) = self.0.overflowing_sub(&rhs.0);
-        Self(difference.add(&(F::MODULUS.0.and_bool(mask))), PhantomData)
+        // SAFETY: we we guarantee that underflow doesn't occur by adding the modulus back if it
+        // does.
+        unsafe { Self::new_unchecked(difference.add(&(F::MODULUS.and_bool(mask)))) }
     }
 
     pub fn sub_assign(&mut self, rhs: &Self) {
         let mask = self.0.overflowing_sub_assign(&rhs.0);
         // make sure self < MODULUS
-        self.0.add_assign(&(F::MODULUS.0.and_bool(mask)));
+        self.0.add_assign(&(F::MODULUS.and_bool(mask)));
     }
 
     /// Returns `self` * `rhs` mod [`MODULUS`](M::MODULUS)
@@ -82,7 +108,7 @@ impl<F: FiniteField> FieldElement<F> {
     /// TODO: document constant-timedness
     pub fn mul(&self, rhs: &Self) -> Self {
         Self(
-            (((self.0.widening_mul(&rhs.0)).div(&F::MODULUS.0.into())).1).0[..4]
+            (((self.0.widening_mul(&rhs.0)).div(&F::MODULUS.into())).1).0[..4]
                 .try_into()
                 .unwrap(),
             PhantomData,
@@ -101,12 +127,6 @@ impl<F: FiniteField> FieldElement<F> {
         todo!();
     }
 
-    /// Converts `value` into the equivalent [`FieldElement`].
-    ///
-    /// This is used instead of [`From<UBigInt<4>>`] because then we can't have a custom [`TryFrom`] implementation.
-    pub fn from_u_big_int(value: UBigInt<4>) -> Self {
-        Self(value.div(&F::MODULUS.0).1, PhantomData)
-    }
 
     /// Calculates the additive inverse of `self` returning the result.
     ///
@@ -127,10 +147,7 @@ impl<F: FiniteField> FieldElement<F> {
 impl<M: FiniteField> TryFrom<UBigInt<4>> for FieldElement<M> {
     type Error = InputTooLargeError;
     fn try_from(value: UBigInt<4>) -> Result<Self, Self::Error> {
-        if value >= M::MODULUS.0 {
-            return Err(InputTooLargeError);
-        };
-        Ok(Self(value, PhantomData))
+        FieldElement::try_new(value)
     }
 }
 
@@ -146,35 +163,47 @@ mod tests {
 
     #[test]
     fn inverse() {
-        let a = FieldElement::<Secp256r1>(UBigInt::from([
-            0x0123456789abcdef,
-            0xfedcba9876543210,
-            0x0123456789abcdef,
-            0xfedcba9876543210,
-        ]), PhantomData);
-        let inverse = FieldElement(UBigInt::from([
-            0x26df004c195c1bad,
-            0xba2f345d14469232,
-            0xf1fc3784a656a487,
-            0x6f8924011bb0d776,
-        ]), PhantomData);
+        let a = FieldElement::<Secp256r1>(
+            UBigInt::from([
+                0x0123456789abcdef,
+                0xfedcba9876543210,
+                0x0123456789abcdef,
+                0xfedcba9876543210,
+            ]),
+            PhantomData,
+        );
+        let inverse = FieldElement(
+            UBigInt::from([
+                0x26df004c195c1bad,
+                0xba2f345d14469232,
+                0xf1fc3784a656a487,
+                0x6f8924011bb0d776,
+            ]),
+            PhantomData,
+        );
         assert_eq!(a.inverse(), inverse);
     }
 
     #[test]
     fn mul() {
-        let a = FieldElement::<Secp256r1>(UBigInt::from([
-            0x0123456789abcdef,
-            0xfedcba9876543210,
-            0x0123456789abcdef,
-            0xfedcba9876543210,
-        ]), PhantomData);
-        let inverse = FieldElement(UBigInt::from([
-            0x26df004c195c1bad,
-            0xba2f345d14469232,
-            0xf1fc3784a656a487,
-            0x6f8924011bb0d776,
-        ]), PhantomData);
+        let a = FieldElement::<Secp256r1>(
+            UBigInt::from([
+                0x0123456789abcdef,
+                0xfedcba9876543210,
+                0x0123456789abcdef,
+                0xfedcba9876543210,
+            ]),
+            PhantomData,
+        );
+        let inverse = FieldElement(
+            UBigInt::from([
+                0x26df004c195c1bad,
+                0xba2f345d14469232,
+                0xf1fc3784a656a487,
+                0x6f8924011bb0d776,
+            ]),
+            PhantomData,
+        );
         assert_eq!(a.mul(&inverse), Secp256r1::ONE);
     }
 }
