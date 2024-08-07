@@ -1,8 +1,6 @@
 mod field_element;
-mod point;
 
 pub use field_element::FieldElement;
-pub use point::Point;
 
 use crate::big_int::UBigInt;
 

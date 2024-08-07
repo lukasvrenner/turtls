@@ -136,14 +136,14 @@ impl<F: FiniteField> FieldElement<F> {
 
     /// Calculates the additive inverse of `self` returning the result.
     ///
-    /// The returned value has the property that, when added to `self`, the sum is [`M::ZERO`].
+    /// The returned value has the property that, when added to `self`, the sum is [`F::ZERO`].
     pub fn neg(&self) -> Self {
         Self::sub(&F::ZERO, self)
     }
 
     /// Calculates the additive inverse of `self` storing the result in `self`.
     ///
-    /// The returned value has the property that, when added to `self`, the sum is [`M::ZERO`].
+    /// The returned value has the property that, when added to `self`, the sum is [`F::ZERO`].
     pub fn neg_assign(&mut self) {
         // TODO: can this be made more efficient?
         *self = Self::neg(self);
