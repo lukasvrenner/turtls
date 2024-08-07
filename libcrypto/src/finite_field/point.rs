@@ -1,7 +1,4 @@
-use core::marker::PhantomData;
-
 use super::{FieldElement, FiniteField};
-use crate::big_int::UBigInt;
 #[derive(Clone, Debug, Copy, PartialEq, Eq, Hash)]
 pub struct Point<F: FiniteField>(pub FieldElement<F>, pub FieldElement<F>);
 

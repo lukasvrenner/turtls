@@ -21,7 +21,7 @@ impl<F: FiniteField> FieldElement<F> {
 
     /// Creates a new `FieldElement` without checking if `int` is less than `F::MODULUS`.
     ///
-    /// # Safety:
+    /// # Safety
     /// `int` must be less than `F::MODULUS`. A violation of this will result in undefined
     /// behavior.
     ///
