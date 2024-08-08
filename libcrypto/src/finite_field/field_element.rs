@@ -24,7 +24,7 @@ impl<F: FiniteField> FieldElement<F> {
     /// Creates a new [`FieldElement`] without checking if `int` is less than [`F::MODULUS`](super::FiniteField::MODULUS).
     ///
     /// # Safety
-    /// `int` must be less than `F::MODULUS`. A violation of this will result in undefined
+    /// `int` must be less than [`F::MODULUS`](super::FiniteField::MODULUS). A violation of this will result in undefined
     /// behavior.
     ///
     /// In most cases, it's better to use the safe version: [`Self::try_new()`]
@@ -32,7 +32,8 @@ impl<F: FiniteField> FieldElement<F> {
         Self(int, PhantomData)
     }
 
-    /// Creates a new `FieldElement` from `int`, returning an `Err` if `int >= [F::MODULUS(super::FiniteField::MODULUS)`.
+    /// Creates a new [`FieldElement`] from `int`, returning an [`Err`] if `int`
+    /// is greater than or equal to [`F::MODULUS`](super::FiniteField::MODULUS).
     ///
     /// This is the safe version of [`Self::new_unchecked()`]
     pub fn try_new(int: UBigInt<4>) -> Result<Self, InputTooLargeError> {
@@ -102,7 +103,7 @@ impl<F: FiniteField> FieldElement<F> {
         unsafe { Self::new_unchecked(difference.add(&(F::MODULUS.and_bool(mask)))) }
     }
 
-    /// Calculates `self - `rhs modulo [`F::MODULUS`](super::FiniteField::MODULUS), storing the result in `self`.
+    /// Calculates `self - rhs` modulo [`F::MODULUS`](super::FiniteField::MODULUS), storing the result in `self`.
     ///
     /// # Constant-timedness
     /// This is a constant-time operation.
@@ -117,6 +118,7 @@ impl<F: FiniteField> FieldElement<F> {
     /// # Constant-timedness
     /// TODO: document constant-timedness
     pub fn mul(&self, rhs: &Self) -> Self {
+        // TODO: use barret reduction instead of division.
         let product = (((self.0.widening_mul(&rhs.0)).div(&F::MODULUS.into())).1).0[..4]
             .try_into()
             .unwrap();

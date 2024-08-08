@@ -1,9 +1,9 @@
 //! Elliptic curve cryptography.
+mod ecdsa;
 mod point;
 mod secp256r1;
-mod ecdsa;
-pub use secp256r1::Secp256r1;
 pub use point::Point;
+pub use secp256r1::Secp256r1;
 
 use crate::finite_field::FiniteField;
 
