@@ -1,6 +1,8 @@
 //! The home to [`UBigInt`].
+
 use super::{BigInt, FromNegErr};
 use core::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
+
 /// An unsigned integer of size `N * 64` bits.
 ///
 /// Internally, [`UBigInt<N>`] is a little-endian `[u64; N]`.
@@ -591,17 +593,36 @@ impl_non_generic!(8);
 impl<const N: usize> Ord for UBigInt<N> {
     // TODO: make this constant-time?
     fn cmp(&self, other: &Self) -> Ordering {
-        for i in (0..N).rev() {
-            match self.0[i].cmp(&other.0[i]) {
-                Ordering::Equal => continue,
-                non_eq => return non_eq,
-            }
+        let overflowed = self.overflowing_sub(other).1;
+
+        if overflowed {
+            return Ordering::Less;
         }
-        Ordering::Equal
+
+        if self.0 == other.0 {
+            return Ordering::Equal;
+        }
+        return Ordering::Greater;
     }
 }
 
 impl<const N: usize> PartialOrd for UBigInt<N> {
+    fn lt(&self, other: &Self) -> bool {
+        self.overflowing_sub(other).1
+    }
+
+    fn le(&self, other: &Self) -> bool {
+        !self.gt(other)
+    }
+
+    fn gt(&self, other: &Self) -> bool {
+        other.overflowing_sub(self).1
+    }
+
+    fn ge(&self, other: &Self) -> bool {
+        !self.lt(other)
+    }
+
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
