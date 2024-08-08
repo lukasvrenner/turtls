@@ -708,13 +708,13 @@ mod tests {
 
     #[test]
     fn add() {
-        let x = UBigInt::from([
+        let x = UBigInt([
             0xfedcba9876543210,
             0x0123456789abcdef,
             0xfedcba9876543210,
             0x0123456789abcdef,
         ]);
-        let y = UBigInt::from([
+        let y = UBigInt([
             0x0123456789abcdef,
             0xfedcba9876543210,
             0x0123456789abcdef,
@@ -722,7 +722,7 @@ mod tests {
         ]);
         assert_eq!(x.add(&y), UBigInt::MAX);
 
-        let x = UBigInt::from([
+        let x = UBigInt([
             0xfedcba9876543211,
             0x0123456789abcdef,
             0xfedcba9876543210,
@@ -733,13 +733,13 @@ mod tests {
 
     #[test]
     fn sub() {
-        let x = UBigInt::from([
+        let x = UBigInt([
             0xfedcba9876543210,
             0x0123456789abcdef,
             0xfedcba9876543210,
             0x0123456789abcdef,
         ]);
-        let y = UBigInt::from([
+        let y = UBigInt([
             0x0123456789abcdef,
             0xfedcba9876543210,
             0x0123456789abcdef,
@@ -747,7 +747,7 @@ mod tests {
         ]);
         assert_eq!(UBigInt::MAX.sub(&x), y);
 
-        let x = UBigInt::from([
+        let x = UBigInt([
             0xfedcba9876543211,
             0x0123456789abcdef,
             0xfedcba9876543210,
@@ -758,19 +758,19 @@ mod tests {
 
     #[test]
     fn widening_mul() {
-        let x = UBigInt::from([
+        let x = UBigInt([
             0x0000000000000000,
             0x0000000000000000,
             0x0000000000000000,
             0x1000000000000000,
         ]);
-        let y = UBigInt::from([
+        let y = UBigInt([
             0x0000000000000000,
             0x0000000000000000,
             0x0000000000010000,
             0x0000000000000000,
         ]);
-        let product = UBigInt::from([
+        let product = UBigInt([
             0x0000000000000000,
             0x0000000000000000,
             0x0000000000000000,
@@ -782,22 +782,22 @@ mod tests {
         ]);
         assert_eq!(x.widening_mul(&y), product);
 
-        let y = UBigInt::from([
+        let y = UBigInt([
             0xfedcba9876543211,
             0x0123456789abcdef,
             0xfedcba9876543210,
             0x0123456789abcdef,
         ]);
         assert_eq!(y.widening_mul(&UBigInt::ONE), y.into());
-        let a = UBigInt::from([0x124924924924924, 0, 0, 0]);
-        let b = UBigInt::from([
+        let a = UBigInt([0x124924924924924, 0, 0, 0]);
+        let b = UBigInt([
             0xfedcba9876543210,
             0x0123456789abcdef,
             0xfedcba9876543210,
             0,
         ]);
         // TODO: make this hex
-        let product = UBigInt::from([
+        let product = UBigInt([
             0x80a670cd733d9a40,
             0x7f584250f1dbea8b,
             0x80a7bdaf0e241574,
@@ -808,7 +808,7 @@ mod tests {
 
     #[test]
     fn div() {
-        let y = UBigInt::from([
+        let y = UBigInt([
             0x0123456789abcdef,
             0xfedcba9876543210,
             0x0123456789abcdef,
@@ -816,32 +816,32 @@ mod tests {
         ]);
         assert_eq!(y.div(&y), (UBigInt::ONE, UBigInt::ZERO));
 
-        let x = UBigInt::from([0, 1, 0, 0]);
-        let quotient = UBigInt::from([
+        let x = UBigInt([0, 1, 0, 0]);
+        let quotient = UBigInt([
             0xfedcba9876543210,
             0x0123456789abcdef,
             0xfedcba9876543210,
             0,
         ]);
-        let remainder = UBigInt::from([0x0123456789abcdef, 0, 0, 0]);
+        let remainder = UBigInt([0x0123456789abcdef, 0, 0, 0]);
         assert_eq!(y.div(&x), (quotient, remainder));
 
         assert_eq!(quotient.div(&y), (UBigInt::ZERO, quotient));
 
-        let a = UBigInt::from([
+        let a = UBigInt([
             0xfedcba9876543210,
             0x0123456789abcdef,
             0xfedcba9876543210,
             0x0123456789abcdef,
         ]);
-        let b = UBigInt::from([
+        let b = UBigInt([
             0xfedcba9876543210,
             0x0123456789abcdef,
             0xfedcba9876543210,
             0,
         ]);
-        let quotient = UBigInt::from([0x124924924924924, 0, 0, 0]);
-        let remainder = UBigInt::from([
+        let quotient = UBigInt([0x124924924924924, 0, 0, 0]);
+        let remainder = UBigInt([
             0x7e3649cb031697d0,
             0x81cb031697cfe364,
             0x7e34fce968301c9b,
@@ -852,13 +852,13 @@ mod tests {
 
     #[test]
     fn widening_shift_left() {
-        let x = UBigInt::from([
+        let x = UBigInt([
             0x0123456789abcdef,
             0xfedcba9876543210,
             0x0123456789abcdef,
             0xfedcba9876543210,
         ]);
-        let shifted = UBigInt::from([
+        let shifted = UBigInt([
             0x3456789abcdef000,
             0xcba9876543210012,
             0x3456789abcdeffed,
@@ -874,14 +874,14 @@ mod tests {
 
     #[test]
     fn left_align() {
-        let mut x = UBigInt::from([
+        let mut x = UBigInt([
             0xfedcba9876543210,
             0x0123456789abcdef,
             0xfedcba9876543210,
             0x0823456789abcdef,
         ]);
         let shift_amount = x.left_align();
-        let aligned = UBigInt::from([
+        let aligned = UBigInt([
             0xedcba98765432100,
             0x123456789abcdeff,
             0xedcba98765432100,
@@ -893,7 +893,7 @@ mod tests {
 
     #[test]
     fn count_digits_fast() {
-        let x = UBigInt::from([
+        let x = UBigInt([
             0x0123456789abcdef,
             0xfedcba9876543210,
             0x0123456789abcdef,
@@ -901,7 +901,7 @@ mod tests {
         ]);
         assert_eq!(x.count_digits_fast(), 4);
 
-        let y = UBigInt::from([
+        let y = UBigInt([
             0x0123456789abcdef,
             0xfedcba9876543210,
             0,
@@ -909,7 +909,7 @@ mod tests {
         ]);
         assert_eq!(y.count_digits_fast(), 4);
 
-        let z = UBigInt::from([
+        let z = UBigInt([
             0x0123456789abcdef,
             0xfedcba9876543210,
             0x0123456789abcdef,
@@ -920,7 +920,7 @@ mod tests {
 
     #[test]
     fn count_digits() {
-        let x = UBigInt::from([
+        let x = UBigInt([
             0x0123456789abcdef,
             0xfedcba9876543210,
             0x0123456789abcdef,
@@ -928,7 +928,7 @@ mod tests {
         ]);
         assert_eq!(x.count_digits(), 4);
 
-        let y = UBigInt::from([
+        let y = UBigInt([
             0x0123456789abcdef,
             0xfedcba9876543210,
             0,
@@ -936,7 +936,7 @@ mod tests {
         ]);
         assert_eq!(y.count_digits(), 4);
 
-        let z = UBigInt::from([
+        let z = UBigInt([
             0x0123456789abcdef,
             0xfedcba9876543210,
             0x0123456789abcdef,

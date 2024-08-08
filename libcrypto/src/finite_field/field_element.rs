@@ -44,7 +44,7 @@ impl<F: FiniteField> FieldElement<F> {
         Ok(unsafe { Self::new_unchecked(int) })
     }
 
-    /// Returns the multiplicative inverse of `self`.
+    /// Returns the modular multiplicative inverse of `self`.
     ///
     /// This value has the property that `self.inverse() * self == 1`
     ///
@@ -65,6 +65,7 @@ impl<F: FiniteField> FieldElement<F> {
             (r, new_r) = (new_r, remainder);
         }
         debug_assert_eq!(r, BigInt::ONE);
+        // TODO: is it better to use a mask for branchlessness?
         if t.is_negative() {
             t.add_assign(&F::MODULUS.into())
         }
@@ -86,9 +87,13 @@ impl<F: FiniteField> FieldElement<F> {
     /// # Constant-timedness
     /// This is a constant-time operation.
     pub fn add(&self, rhs: &Self) -> Self {
-        let mut sum = Self(self.0.add(&rhs.0), PhantomData);
-        // SAFETY: `sub_assign` computes correct results even if `rhs` is `F::MODULUS`.
-        unsafe { sum.sub_assign(&Self::new_unchecked(F::MODULUS)) };
+        let mut sum;
+        // SAFETY: adding a value less than `F::MODULUS` and then performing modular subtraction of
+        // `F::MODULUS` will always be inside the appropriate range.
+        unsafe {
+            sum = Self::new_unchecked(self.0.add(&rhs.0));
+            sum.sub_assign(&Self::new_unchecked(F::MODULUS))
+        };
         sum
     }
 
@@ -175,7 +180,7 @@ mod tests {
     #[test]
     fn inverse() {
         let a = FieldElement::<Secp256r1>(
-            UBigInt::from([
+            UBigInt([
                 0x0123456789abcdef,
                 0xfedcba9876543210,
                 0x0123456789abcdef,
@@ -184,11 +189,11 @@ mod tests {
             PhantomData,
         );
         let inverse = FieldElement(
-            UBigInt::from([
-                0x26df004c195c1bad,
-                0xba2f345d14469232,
-                0xf1fc3784a656a487,
-                0x6f8924011bb0d776,
+            UBigInt([
+                0x5d97c948e23c79c0,
+                0x89c9a8bb5116b562,
+                0xec57bfa67717cf1b,
+                0x840b25e463c7037A,
             ]),
             PhantomData,
         );
@@ -198,7 +203,7 @@ mod tests {
     #[test]
     fn mul() {
         let a = FieldElement::<Secp256r1>(
-            UBigInt::from([
+            UBigInt([
                 0x0123456789abcdef,
                 0xfedcba9876543210,
                 0x0123456789abcdef,
@@ -207,11 +212,11 @@ mod tests {
             PhantomData,
         );
         let inverse = FieldElement(
-            UBigInt::from([
-                0x26df004c195c1bad,
-                0xba2f345d14469232,
-                0xf1fc3784a656a487,
-                0x6f8924011bb0d776,
+            UBigInt([
+                0x5d97c948e23c79c0,
+                0x89c9a8bb5116b562,
+                0xec57bfa67717cf1b,
+                0x840b25e463c7037A,
             ]),
             PhantomData,
         );
