@@ -5,6 +5,8 @@ use crate::big_int::{BigInt, InputTooLargeError, UBigInt};
 use super::FiniteField;
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
 /// An element of the finite field `F`.
+///
+/// All operations are performed modulo [`F::MODULUS`](super::FiniteField::MODULUS).
 pub struct FieldElement<F: FiniteField>(UBigInt<4>, PhantomData<F>);
 
 impl<F: FiniteField> FieldElement<F> {
@@ -19,7 +21,7 @@ impl<F: FiniteField> FieldElement<F> {
         Self(value.div(&F::MODULUS).1, PhantomData)
     }
 
-    /// Creates a new `FieldElement` without checking if `int` is less than `F::MODULUS`.
+    /// Creates a new [`FieldElement`] without checking if `int` is less than [`F::MODULUS`](super::FiniteField::MODULUS).
     ///
     /// # Safety
     /// `int` must be less than `F::MODULUS`. A violation of this will result in undefined
@@ -30,7 +32,7 @@ impl<F: FiniteField> FieldElement<F> {
         Self(int, PhantomData)
     }
 
-    /// Creates a new `FieldElement` from `int`, returning an `Err` if `int >= F::MODULUS`.
+    /// Creates a new `FieldElement` from `int`, returning an `Err` if `int >= [F::MODULUS(super::FiniteField::MODULUS)`.
     ///
     /// This is the safe version of [`Self::new_unchecked()`]
     pub fn try_new(int: UBigInt<4>) -> Result<Self, InputTooLargeError> {
@@ -45,7 +47,7 @@ impl<F: FiniteField> FieldElement<F> {
     ///
     /// This value has the property that `self.inverse() * self == 1`
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// TODO: document constant-timedness
     pub fn inverse(&self) -> Self {
         let mut t = BigInt::ZERO;
@@ -72,15 +74,15 @@ impl<F: FiniteField> FieldElement<F> {
 
     /// Returns the number of digits in `self`, not counting leading zeros
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This function is constant-time.
     pub fn count_digits(&self) -> usize {
         self.0.count_digits()
     }
 
-    /// Returns `self` + `rhs` modulo [`F::MODULUS`].
+    /// Returns `self + rhs` modulo [`F::MODULUS`](super::FiniteField::MODULUS).
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     pub fn add(&self, rhs: &Self) -> Self {
         let mut sum = Self(self.0.add(&rhs.0), PhantomData);
@@ -89,9 +91,9 @@ impl<F: FiniteField> FieldElement<F> {
         sum
     }
 
-    /// Returns `self` - `rhs` modulo [`F::MODULUS`].
+    /// Returns `self - rhs` modulo [`F::MODULUS`](super::FiniteField::MODULUS).
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     pub fn sub(&self, rhs: &Self) -> Self {
         let (difference, mask) = self.0.overflowing_sub(&rhs.0);
@@ -100,9 +102,9 @@ impl<F: FiniteField> FieldElement<F> {
         unsafe { Self::new_unchecked(difference.add(&(F::MODULUS.and_bool(mask)))) }
     }
 
-    /// Calculates `self` - `rhs` modulo [`F::MODULUS`], storing the result in `self`.
+    /// Calculates `self - `rhs modulo [`F::MODULUS`](super::FiniteField::MODULUS), storing the result in `self`.
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     pub fn sub_assign(&mut self, rhs: &Self) {
         let mask = self.0.overflowing_sub_assign(&rhs.0);
@@ -110,9 +112,9 @@ impl<F: FiniteField> FieldElement<F> {
         self.0.add_assign(&(F::MODULUS.and_bool(mask)));
     }
 
-    /// Returns `self` * `rhs` modulo [`F::MODULUS`].
+    /// Returns `self * rhs` modulo [`F::MODULUS`](super::FiniteField::MODULUS).
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// TODO: document constant-timedness
     pub fn mul(&self, rhs: &Self) -> Self {
         let product = (((self.0.widening_mul(&rhs.0)).div(&F::MODULUS.into())).1).0[..4]
@@ -122,28 +124,29 @@ impl<F: FiniteField> FieldElement<F> {
         unsafe { Self::new_unchecked(product) }
     }
 
-    /// Returns `self` / `rhs` modulo [`F::MODULUS`].
+    /// Returns `self / rhs` modulo [`F::MODULUS`](super::FiniteField::MODULUS).
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// TODO: document constant-timedness
     pub fn div(&self, rhs: &Self) -> Self {
         self.mul(&rhs.inverse())
     }
 
+    /// Returns the square of `self` modulo [`F::MODULUS`](super::FiniteField::MODULUS).
     pub fn sqr(&self) -> Self {
-        todo!();
+        self.mul(self)
     }
 
-    /// Calculates the additive inverse of `self` returning the result.
+    /// Returns the modular additive inverse of `self`.
     ///
-    /// The returned value has the property that, when added to `self`, the sum is [`F::ZERO`].
+    /// The returned value has the property that, when added to `self`, the sum is [`F::ZERO`](super::FiniteField::ZERO).
     pub fn neg(&self) -> Self {
         Self::sub(&F::ZERO, self)
     }
 
-    /// Calculates the additive inverse of `self` storing the result in `self`.
+    /// Calculates the modular additive inverse of `self` storing the result in `self`.
     ///
-    /// The returned value has the property that, when added to `self`, the sum is [`F::ZERO`].
+    /// The returned value has the property that, when added to `self`, the sum is [`F::ZERO`](super::FiniteField::ZERO).
     pub fn neg_assign(&mut self) {
         // TODO: can this be made more efficient?
         *self = Self::neg(self);

@@ -63,7 +63,7 @@ impl<const N: usize> BigInt<N> {
 
     /// Returns the number of digits `self` can store.
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     #[allow(clippy::len_without_is_empty)]
     pub const fn len(&self) -> usize {
@@ -74,7 +74,7 @@ impl<const N: usize> BigInt<N> {
     ///
     /// This is the equivalent to multiplying `self` by `-1`.
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     pub fn neg(&self) -> Self {
         Self::ZERO.sub(self)
@@ -84,7 +84,7 @@ impl<const N: usize> BigInt<N> {
     ///
     /// This is the equivalent to multiplying `self` by `-1`.
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     pub fn neg_assign(&mut self) {
         self.not_assign();
@@ -95,7 +95,7 @@ impl<const N: usize> BigInt<N> {
     ///
     /// If overflow occurs, it wraps around.
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     pub fn add_assign(&mut self, rhs: &Self) {
         let overflowed = self.digits.overflowing_add_assign(&rhs.digits);
@@ -106,7 +106,7 @@ impl<const N: usize> BigInt<N> {
     ///
     /// If `self` + `rhs` is greater than `BigInt::MAX`, the addition wraps around.
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     pub fn add(&self, rhs: &Self) -> Self {
         let mut buf = *self;
@@ -118,7 +118,7 @@ impl<const N: usize> BigInt<N> {
     ///
     /// If overflow occurs, it wraps around.
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     pub fn sub_assign(&mut self, rhs: &Self) {
         let overflowed = self.digits.overflowing_sub_assign(&rhs.digits);
@@ -129,7 +129,7 @@ impl<const N: usize> BigInt<N> {
     ///
     /// If overflow occurs, it wraps around.
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     pub fn sub(&self, rhs: &Self) -> Self {
         let mut buf = *self;
@@ -139,7 +139,7 @@ impl<const N: usize> BigInt<N> {
 
     /// Returns `true` if `self` is negative, otherwise `false`
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     #[inline]
     pub fn is_negative(&self) -> bool {
@@ -148,7 +148,7 @@ impl<const N: usize> BigInt<N> {
 
     /// Returns `true` if `self` is positive, otherwise `false`
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     #[inline]
     pub fn is_positive(&self) -> bool {
@@ -157,7 +157,7 @@ impl<const N: usize> BigInt<N> {
 
     /// Converts `self` into its one's compliment
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     pub fn not_assign(&mut self) {
         self.digits.not_assign();
@@ -166,7 +166,7 @@ impl<const N: usize> BigInt<N> {
 
     /// Returns the one's compliment of `self`
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     pub fn not(&self) -> Self {
         let mut buf = *self;
@@ -176,7 +176,7 @@ impl<const N: usize> BigInt<N> {
 
     /// Performs a bitwise `XOR` on `self` and `rhs` and stores the result in `self`.
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     pub fn xor_assign(&mut self, rhs: &Self) {
         self.digits.xor_assign(&rhs.digits);
@@ -185,7 +185,7 @@ impl<const N: usize> BigInt<N> {
 
     /// Performs a bitwise `XOR` on `self` and `rhs` and returns the result.
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     pub fn xor(&self, rhs: &Self) -> Self {
         let mut buf = *self;
@@ -197,7 +197,7 @@ impl<const N: usize> BigInt<N> {
     ///
     /// Note: the returned value will be positive for all input valuess *except* [`Self::MIN`]
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     pub fn abs_assign(&mut self) {
         let temp = *self;
@@ -209,7 +209,7 @@ impl<const N: usize> BigInt<N> {
     ///
     /// Note: the returned value will be positive for all input valuess *except* [`Self::MIN`]
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     pub fn abs(&self) -> Self {
         self.xor(&self.neg())
@@ -224,7 +224,7 @@ macro_rules! impl_big_int {
             /// # Panics
             /// This function will panic if `divisor == Self::ZERO`.
             ///
-            /// # Constant-timedness:
+            /// # Constant-timedness
             /// TODO: document constant-timedness
             pub fn div(&self, rhs: &Self) -> (Self, Self) {
                 let (quotient, remainder) = self.digits.div(&rhs.digits);

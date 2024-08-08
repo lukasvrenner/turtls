@@ -7,6 +7,7 @@ pub use point::Point;
 
 use crate::finite_field::FiniteField;
 
+/// A trait for describining an elliptic curve over a finite field.
 pub trait EllipticCurve: FiniteField {
     const BASE_POINT: Point<Self>;
 }

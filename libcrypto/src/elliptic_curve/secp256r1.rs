@@ -6,7 +6,8 @@ use super::Point;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Default, Hash)]
 pub struct Secp256r1;
-impl FiniteField for Secp256r1 {
+// SAFETY: `Self::MODULUS` is prime.
+unsafe impl FiniteField for Secp256r1 {
     const MODULUS: UBigInt<4> = UBigInt::new([
         0xf3b9cac2fc632551,
         0xbce6faada7179e84,

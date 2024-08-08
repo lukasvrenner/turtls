@@ -1,9 +1,12 @@
 use crate::finite_field::FieldElement;
 
 use super::EllipticCurve;
+/// A point on an elliptic curve.
 #[derive(Clone, Debug, Copy, PartialEq, Eq, Hash)]
 pub struct Point<P: EllipticCurve> {
+    /// The X-coordinate of the point.
     pub x: FieldElement<P>,
+    /// The Y-coordinate of the point.
     pub y: FieldElement<P>,
 }
 

@@ -8,7 +8,7 @@ use core::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
 pub struct UBigInt<const N: usize>(pub [u64; N]);
 
 impl<const N: usize> UBigInt<N> {
-    /// Constructs a new `UBigInt` of length `N` from a little-endian `[u64; N]`
+    /// Constructs a new `UBigInt` of length `N` from a little-endian `[u64; N]`.
     pub const fn new(value: [u64; N]) -> Self {
         Self(value)
     }
@@ -38,7 +38,7 @@ impl<const N: usize> UBigInt<N> {
     ///
     /// If overflow occurs, it wraps around.
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This operation is constant-time.
     pub fn overflowing_sub(&self, rhs: &Self) -> (Self, bool) {
         let mut buf = *self;
@@ -51,7 +51,7 @@ impl<const N: usize> UBigInt<N> {
     ///
     /// If overflow occurs, it wraps around.
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This operation is constant-time.
     pub fn overflowing_sub_assign(&mut self, rhs: &Self) -> bool {
         let mut carry = false;
@@ -67,7 +67,7 @@ impl<const N: usize> UBigInt<N> {
     ///
     /// If overflow occurs, it wraps around.
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This operation is constant-time.
     pub fn overflowing_add(&self, rhs: &Self) -> (Self, bool) {
         let mut buf = *self;
@@ -80,7 +80,7 @@ impl<const N: usize> UBigInt<N> {
     ///
     /// If overflow occurs, it wraps around.
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This operation is constant-time.
     pub fn overflowing_add_assign(&mut self, rhs: &Self) -> bool {
         let mut carry = false;
@@ -95,7 +95,7 @@ impl<const N: usize> UBigInt<N> {
     ///
     /// This is *not* the same as [`Self::len()`].
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This operation is *NOT* constant-time.
     /// If constant-time is needed, use [`Self::count_digits()`].
     ///
@@ -113,7 +113,7 @@ impl<const N: usize> UBigInt<N> {
     ///
     /// This is *not* the same as [`Self::len()`].
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     /// If constant-time is not needed, consider using [`Self::count_digits_fast()`].
     ///
@@ -132,7 +132,7 @@ impl<const N: usize> UBigInt<N> {
     ///
     /// If overflow occurs, it wraps around.
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This operation is constant-time.
     pub fn add(&self, rhs: &Self) -> Self {
         let mut buf = *self;
@@ -144,7 +144,7 @@ impl<const N: usize> UBigInt<N> {
     ///
     /// If overflow occurs, it wraps around.
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This operation is constant-time.
     pub fn add_assign(&mut self, rhs: &Self) {
         let mut carry = false;
@@ -156,7 +156,7 @@ impl<const N: usize> UBigInt<N> {
 
     /// Subtracts `rhs` from `self` and returns the result.
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation
     pub fn sub(&self, rhs: &Self) -> Self {
         let mut buf = *self;
@@ -166,7 +166,7 @@ impl<const N: usize> UBigInt<N> {
 
     /// Subtracts `rhs` from `self` and stores the result in `self`
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation
     pub fn sub_assign(&mut self, rhs: &Self) {
         let mut carry = false;
@@ -178,7 +178,7 @@ impl<const N: usize> UBigInt<N> {
 
     /// Returns `self` if `rhs` is `true`, otherwise `Self::ZERO`.
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     pub fn and_bool(&self, rhs: bool) -> Self {
         let mut buf = *self;
@@ -188,7 +188,7 @@ impl<const N: usize> UBigInt<N> {
 
     /// reasigns `self` to equal `self` if `rhs` is `true`, otherwise `Self::ZERO`.
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     pub fn and_bool_assign(&mut self, rhs: bool) {
         let mask = (rhs as u64).wrapping_neg();
@@ -202,7 +202,7 @@ impl<const N: usize> UBigInt<N> {
     /// This function does not align leading 0-digits; it only considers the ones after the last
     /// leading `0`.
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     pub fn left_align(&mut self) -> u64 {
         let num_digits = self.count_digits();
@@ -214,7 +214,7 @@ impl<const N: usize> UBigInt<N> {
 
     /// Performs a bitshift `rhs % 64` to the right and stores the result in `self`.
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     pub fn shift_right_assign(&mut self, mut rhs: u64) {
         rhs %= 64;
@@ -230,7 +230,7 @@ impl<const N: usize> UBigInt<N> {
 
     /// Performs a bitshift `rhs % 64` to the right and returns the result.
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     pub fn shift_right(&self, rhs: u64) -> Self {
         let mut buf = *self;
@@ -240,7 +240,7 @@ impl<const N: usize> UBigInt<N> {
 
     /// Performs a bitshift `rhs % 64` to the left and stores the result in `self`.
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     pub fn shift_left_assign(&mut self, mut rhs: u64) {
         rhs %= 64;
@@ -256,7 +256,7 @@ impl<const N: usize> UBigInt<N> {
 
     /// Performs a bitshift `rhs` to the right and returns the result.
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     pub fn shift_left(&self, rhs: u64) -> Self {
         let mut buf = *self;
@@ -266,7 +266,7 @@ impl<const N: usize> UBigInt<N> {
 
     /// Converts `self` into its one's compliment.
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     pub fn not_assign(&mut self) {
         for digit in self.0.iter_mut() {
@@ -276,7 +276,7 @@ impl<const N: usize> UBigInt<N> {
 
     /// Returns the one's compliment of `self`
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     pub fn not(&self) -> Self {
         let mut buf = *self;
@@ -286,7 +286,7 @@ impl<const N: usize> UBigInt<N> {
 
     /// Performs a bitwise `XOR` on `self` and `rhs` and stores the result in `self`.
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     pub fn xor_assign(&mut self, rhs: &Self) {
         for (digit, rhs_digit) in self.0.iter_mut().zip(rhs.0) {
@@ -296,7 +296,7 @@ impl<const N: usize> UBigInt<N> {
 
     /// Performs a bitwise `XOR` on `self` and `rhs` and returns the result.
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     pub fn xor(&self, rhs: &Self) -> Self {
         let mut buf = *self;
@@ -306,7 +306,7 @@ impl<const N: usize> UBigInt<N> {
 
     /// Performs a bitwise `AND` on `self` and `rhs` and stores the result in `self`.
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     pub fn and_assign(&mut self, rhs: &Self) {
         for (digit, rhs_digit) in self.0.iter_mut().zip(rhs.0) {
@@ -316,7 +316,7 @@ impl<const N: usize> UBigInt<N> {
 
     /// Performs a bitwise `AND` on `self` and `rhs` and returns the result.
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     pub fn and(&self, rhs: &Self) -> Self {
         let mut buf = *self;
@@ -326,7 +326,7 @@ impl<const N: usize> UBigInt<N> {
 
     /// Performs a bitwise `OR` on `self` and `rhs` and stores the result in `self`.
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     pub fn or_assign(&mut self, rhs: &Self) {
         for (digit, rhs_digit) in self.0.iter_mut().zip(rhs.0) {
@@ -336,7 +336,7 @@ impl<const N: usize> UBigInt<N> {
 
     /// Performs a bitwise `OR` on `self` and `rhs` and returns the result.
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     pub fn or(&self, rhs: &Self) -> Self {
         let mut buf = *self;
@@ -346,7 +346,7 @@ impl<const N: usize> UBigInt<N> {
 
     /// Performs a bitwise `NOR` on `self` and `rhs` and stores the result in `self`.
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     pub fn nor_assign(&mut self, rhs: &Self) {
         for (digit, rhs_digit) in self.0.iter_mut().zip(rhs.0) {
@@ -356,7 +356,7 @@ impl<const N: usize> UBigInt<N> {
 
     /// Performs a bitwise `NOR` on `self` and `rhs` and returns the result.
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     pub fn nor(&self, rhs: &Self) -> Self {
         let mut buf = *self;
@@ -366,7 +366,7 @@ impl<const N: usize> UBigInt<N> {
 
     /// Performs a bitwise `XNOR` on `self` and `rhs` and stores the result in `self`.
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     pub fn xnor_assign(&mut self, rhs: &Self) {
         for (digit, rhs_digit) in self.0.iter_mut().zip(rhs.0) {
@@ -376,7 +376,7 @@ impl<const N: usize> UBigInt<N> {
 
     /// Performs a bitwise `XNOR` on `self` and `rhs` and returns the result.
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     pub fn xnor(&self, rhs: &Self) -> Self {
         let mut buf = *self;
@@ -386,7 +386,7 @@ impl<const N: usize> UBigInt<N> {
 
     /// Performs a bitwise `NAND` on `self` and `rhs` and stores the result in `self`.
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     pub fn nand_assign(&mut self, rhs: &Self) {
         for (digit, rhs_digit) in self.0.iter_mut().zip(rhs.0) {
@@ -396,7 +396,7 @@ impl<const N: usize> UBigInt<N> {
 
     /// Performs a bitwise `NAND` on `self` and `rhs` and returns the result.
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     pub fn nand(&self, rhs: &Self) -> Self {
         let mut buf = *self;
@@ -406,7 +406,7 @@ impl<const N: usize> UBigInt<N> {
 
     /// Returns the number of digits `self` can store.
     ///
-    /// # Constant-timedness:
+    /// # Constant-timedness
     /// This is a constant-time operation.
     #[allow(clippy::len_without_is_empty)]
     pub const fn len(&self) -> usize {
@@ -445,7 +445,7 @@ macro_rules! impl_non_generic {
             ///
             /// The output is twice as large, so overflow never occurs.
             ///
-            /// # Constant-timedness:
+            /// # Constant-timedness
             /// This is a constant-time operation.
             pub fn widening_mul(&self, rhs: &Self) -> UBigInt<{ $n * 2 }> {
                 let mut product = [0u64; $n * 2];
@@ -472,7 +472,7 @@ macro_rules! impl_non_generic {
             ///
             /// The output is 64 bits longer, so ovelflow never occurs.
             ///
-            /// # Constant-timedness:
+            /// # Constant-timedness
             /// This is a constant-time operation.
             pub fn widening_shift_left(&self, mut rhs: u64) -> UBigInt<{ $n + 1 }> {
                 rhs %= 64;
@@ -494,7 +494,7 @@ macro_rules! impl_non_generic {
             /// # Panics
             /// This function will panic if `divisor == Self::ZERO`.
             ///
-            /// # Constant-timedness:
+            /// # Constant-timedness
             /// TODO: document constant-timedness
             pub fn div(&self, rhs: &Self) -> (Self, Self) {
                 assert_ne!(*rhs, Self::ZERO);
@@ -529,7 +529,7 @@ macro_rules! impl_non_generic {
                     let mut partial_quotient =
                         partial_div(snum.0[win_top], snum.0[win_top - 1], d1, d0);
 
-                    // multiply `sdiv` by `q`
+                    // multiply `sdiv` by `partial_quotient`
                     let mut mul_carry = 0;
                     for i in 0..div_len {
                         (temp.0[i], mul_carry) =
