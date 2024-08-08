@@ -51,10 +51,10 @@ impl EllipticCurve for Secp256r1 {
 
     const B: FieldElement<Self> = unsafe {
         FieldElement::new_unchecked(UBigInt([
-            0x5ac635d8aa3a93e7,
-            0xb3ebbd55769886bc,
-            0x651d06b0cc53b0f6,
             0x3bce3c3e27d2604b,
+            0x651d06b0cc53b0f6,
+            0xb3ebbd55769886bc,
+            0x5ac635d8aa3a93e7,
         ]))
     };
 }
