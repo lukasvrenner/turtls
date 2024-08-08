@@ -9,10 +9,10 @@ pub struct Secp256r1;
 // SAFETY: `Self::MODULUS` is prime.
 unsafe impl FiniteField for Secp256r1 {
     const MODULUS: UBigInt<4> = UBigInt::new([
-        0xf3b9cac2fc632551,
-        0xbce6faada7179e84,
         0xffffffffffffffff,
-        0xffffffff00000000,
+        0x00000000ffffffff,
+        0x0000000000000000,
+        0xffffffff00000001,
     ]);
 
     // SAFETY: `UBigInt::ONE` is less than `Self::MODULUS`
@@ -38,5 +38,23 @@ impl EllipticCurve for Secp256r1 {
                 0x4fe342e2fe1a7f9b,
             ])),
         }
+    };
+
+    const A: FieldElement<Self> = unsafe {
+        FieldElement::new_unchecked(UBigInt([
+            0xfffffffffffffffc,
+            0x00000000ffffffff,
+            0x0000000000000000,
+            0xffffffff00000001,
+        ]))
+    };
+
+    const B: FieldElement<Self> = unsafe {
+        FieldElement::new_unchecked(UBigInt([
+            0x5ac635d8aa3a93e7,
+            0xb3ebbd55769886bc,
+            0x651d06b0cc53b0f6,
+            0x3bce3c3e27d2604b,
+        ]))
     };
 }
