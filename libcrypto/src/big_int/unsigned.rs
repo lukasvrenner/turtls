@@ -19,10 +19,25 @@ impl<const N: usize> UBigInt<N> {
 
     /// The zero value of [`UBigInt<N>`]
     ///
-    /// Note: this has the same value as [`UBigInt<N>::MIN`].
+    /// # Examples
+    /// ```
+    /// use libcrypto::big_int::UBigInt;
+    ///
+    /// assert_eq!(UBigInt::<4>::ZERO, UBigInt::MIN);
+    /// assert_eq!(UBigInt::<4>::ZERO.count_digits(), 0);
+    /// ```
+    ///
+    /// This has the same value as [`UBigInt<N>::MIN`].
     pub const ZERO: Self = Self([u64::MIN; N]);
 
     /// The maximum value representable by [`UBigInt<N>`].
+    ///
+    /// # Examples
+    /// ```
+    /// use libcrypto::big_int::UBigInt;
+    ///
+    /// assert_eq!(UBigInt::<4>::MAX.count_digits(), 4);
+    /// ```
     pub const MAX: Self = Self([u64::MAX; N]);
 
     /// The minimum value representable by [`UBigInt<N>`].
@@ -121,6 +136,15 @@ impl<const N: usize> UBigInt<N> {
     /// This is a constant-time operation.
     /// If constant-time is not needed, consider using [`Self::count_digits_fast()`].
     ///
+    /// # Examples
+    /// ```
+    /// use libcrypto::big_int::UBigInt;
+    ///
+    /// let large_int = UBigInt([0x0123456789abcdef, 0xfedcba9876543210, 0x0, 0x0]);
+    ///
+    /// assert_eq!(large_int.count_digits(), 2);
+    /// ```
+    ///
     /// Note: this function has not yet been benchmarked. It may not actually be any slower.
     pub fn count_digits(&self) -> usize {
         let mut num_digts = 0;
@@ -136,8 +160,17 @@ impl<const N: usize> UBigInt<N> {
     ///
     /// If overflow occurs, it wraps around.
     ///
+    /// # Examples
+    /// ```
+    /// use libcrypto::big_int::UBigInt;
+    ///
+    /// assert_eq!(UBigInt::<4>::ZERO.add(&UBigInt::ONE), UBigInt::ONE);
+    /// assert_eq!(UBigInt::<4>::MAX.add(&UBigInt::ONE), UBigInt::ZERO);
+    /// ```
+    ///
     /// # Constant-timedness
     /// This operation is constant-time.
+    ///
     pub fn add(&self, rhs: &Self) -> Self {
         let mut buf = *self;
         buf.add_assign(rhs);
@@ -147,6 +180,19 @@ impl<const N: usize> UBigInt<N> {
     /// Adds `self` and `rhs` and stores the result in `self`
     ///
     /// If overflow occurs, it wraps around.
+    ///
+    /// # Examples
+    /// ```
+    /// use libcrypto::big_int::UBigInt;
+    /// let mut zero: UBigInt<4> = UBigInt::ZERO;
+    /// let mut max: UBigInt<4> = UBigInt::MAX;
+    ///
+    /// zero.add_assign(&UBigInt::ONE);
+    /// max.add_assign(&UBigInt::ONE);
+    ///
+    /// assert_eq!(zero, UBigInt::ONE);
+    /// assert_eq!(max, UBigInt::ZERO);
+    /// ```
     ///
     /// # Constant-timedness
     /// This operation is constant-time.
@@ -160,6 +206,14 @@ impl<const N: usize> UBigInt<N> {
 
     /// Subtracts `rhs` from `self` and returns the result.
     ///
+    /// # Examples
+    /// ```
+    /// use libcrypto::big_int::UBigInt;
+    ///
+    /// assert_eq!(UBigInt::<4>::ONE.sub(&UBigInt::ONE), UBigInt::ZERO);
+    /// assert_eq!(UBigInt::<4>::ZERO.sub(&UBigInt::ONE), UBigInt::MAX);
+    /// ```
+    ///
     /// # Constant-timedness
     /// This is a constant-time operation
     pub fn sub(&self, rhs: &Self) -> Self {
@@ -169,6 +223,19 @@ impl<const N: usize> UBigInt<N> {
     }
 
     /// Subtracts `rhs` from `self` and stores the result in `self`
+    ///
+    /// # Examples
+    /// ```
+    /// use libcrypto::big_int::UBigInt;
+    /// let mut one: UBigInt<4> = UBigInt::ONE;
+    /// let mut zero: UBigInt<4> = UBigInt::ZERO;
+    ///
+    /// one.sub_assign(&UBigInt::ONE);
+    /// zero.sub_assign(&UBigInt::ONE);
+    ///
+    /// assert_eq!(one, UBigInt::ZERO);
+    /// assert_eq!(zero, UBigInt::MAX);
+    /// ```
     ///
     /// # Constant-timedness
     /// This is a constant-time operation
@@ -409,6 +476,14 @@ impl<const N: usize> UBigInt<N> {
     }
 
     /// Returns the number of digits `self` can store.
+    ///
+    /// # Examples
+    /// ```
+    /// use libcrypto::big_int::UBigInt;
+    ///
+    /// assert_eq!(UBigInt::<4>::ZERO.len(), 4);
+    /// assert_eq!(UBigInt::<3>::MAX.len(), 3);
+    /// ```
     ///
     /// # Constant-timedness
     /// This is a constant-time operation.
