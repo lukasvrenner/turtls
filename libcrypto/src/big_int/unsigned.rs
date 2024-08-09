@@ -11,6 +11,8 @@ pub struct UBigInt<const N: usize>(pub [u64; N]);
 
 impl<const N: usize> UBigInt<N> {
     /// Constructs a new `UBigInt` of length `N` from a little-endian `[u64; N]`.
+    ///
+    /// This is the same as `Self(value)`
     pub const fn new(value: [u64; N]) -> Self {
         Self(value)
     }
@@ -18,17 +20,17 @@ impl<const N: usize> UBigInt<N> {
     /// The zero value of [`UBigInt<N>`]
     ///
     /// Note: this has the same value as [`UBigInt<N>::MIN`].
-    pub const ZERO: Self = Self::new([u64::MIN; N]);
+    pub const ZERO: Self = Self([u64::MIN; N]);
 
     /// The maximum value representable by [`UBigInt<N>`].
-    pub const MAX: Self = Self::new([u64::MAX; N]);
+    pub const MAX: Self = Self([u64::MAX; N]);
 
     /// The minimum value representable by [`UBigInt<N>`].
     ///
     /// This has the same value as [`UBigInt<N>::ZERO`].
     pub const MIN: Self = Self::ZERO;
 
-    /// A `UBigInt` with value 1
+    /// A `UBigInt` with value 1.
     pub const ONE: Self = {
         let mut one = Self::ZERO;
         one.0[0] = 1;
@@ -630,7 +632,7 @@ impl<const N: usize> PartialOrd for UBigInt<N> {
 
 impl<const N: usize> From<[u64; N]> for UBigInt<N> {
     fn from(value: [u64; N]) -> Self {
-        Self::new(value)
+        Self(value)
     }
 }
 
