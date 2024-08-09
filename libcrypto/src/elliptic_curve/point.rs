@@ -4,13 +4,28 @@ use super::EllipticCurve;
 /// A point on an elliptic curve.
 #[derive(Clone, Debug, Copy, PartialEq, Eq, Hash)]
 pub struct Point<P: EllipticCurve> {
-    /// The X-coordinate of the point.
-    pub x: FieldElement<P>,
-    /// The Y-coordinate of the point.
-    pub y: FieldElement<P>,
+    x: FieldElement<P>,
+    y: FieldElement<P>,
 }
 
 impl<P: EllipticCurve> Point<P> {
+
+    pub fn x(&self) -> &FieldElement<P> {
+        &self.x
+    }
+
+    pub fn y(&self) -> &FieldElement<P> {
+        &self.y
+    }
+
+    /// Creates a new [`Point`] without verifying that it is on the curve specified b `P`.
+    ///
+    /// # Safety
+    /// The point must be on the curve. If the point isn't on the curve, it will result in
+    /// undefined behavior.
+    pub const unsafe fn new_unchecked(x: FieldElement<P>, y: FieldElement<P>) -> Self {
+        Self { x, y }
+    }
     /// Multiplies a [`Point`] by a [`FieldElement`]
     pub fn mul_scalar(&self, scalar: FieldElement<P>) -> Self {
         todo!()

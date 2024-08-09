@@ -13,9 +13,9 @@ pub fn generate_signature<C: EllipticCurve>(
 
     let new_point = C::BASE_POINT.mul_scalar(secret_num);
 
-    let s = inverse.mul(&(hash.add(&(new_point.x.mul(&key)))));
+    let s = inverse.mul(&(hash.add(&(new_point.x().mul(&key)))));
 
     // TODO: destroy inverse
 
-    (new_point.x, s)
+    (*new_point.x(), s)
 }
