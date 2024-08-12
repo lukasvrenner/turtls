@@ -9,7 +9,6 @@ pub struct Point<P: EllipticCurve> {
 }
 
 impl<P: EllipticCurve> Point<P> {
-
     pub fn x(&self) -> &FieldElement<P> {
         &self.x
     }
@@ -40,20 +39,16 @@ impl<P: EllipticCurve> Point<P> {
     }
 
     /// Adds `self` and `rhs`, returning the result.
-    ///
-    /// # Panics
-    /// This function will panic if `self.0 == rhs.0`. That is, when they have the same
-    /// x-coordinate.
     pub fn add(&self, rhs: &Self) -> Self {
         // TODO: use `assign` variants to avoid extra duplications
-        let lambda = rhs.y.sub(&self.y).div(&rhs.x.sub(&self.x));
+        let lambda = self.calc_lamba(rhs);
         let x = lambda.sqr().sub(&self.x).sub(&rhs.x);
         let y = lambda.mul(&self.x.sub(&rhs.x)).sub(&self.y);
         Self { x, y }
     }
 
     pub fn add_assign(&mut self, rhs: &Self) {
-        todo!();
+        *self = self.add(rhs);
     }
 
     pub fn neg(&self) -> Self {
@@ -64,5 +59,12 @@ impl<P: EllipticCurve> Point<P> {
 
     pub fn neg_assign(&mut self) {
         self.y.neg_assign();
+    }
+
+    fn calc_lamba(&self, other: &Self) -> FieldElement<P> {
+        if self == other {
+            todo!()
+        }
+        other.y.sub(&self.y).div(&other.x.sub(&self.x))
     }
 }

@@ -24,7 +24,7 @@ unsafe impl FiniteField for Secp256r1 {
 
 impl EllipticCurve for Secp256r1 {
     const BASE_POINT: Point<Self> = unsafe {
-        Point::new_unchecked (
+        Point::new_unchecked(
             FieldElement::new_unchecked(UBigInt([
                 0xf4a13945d898c296,
                 0x77037d812deb33a0,
@@ -58,7 +58,7 @@ impl EllipticCurve for Secp256r1 {
         ]))
     };
 
-    const N: FieldElement<Self> = unsafe {
+    const ORDER: FieldElement<Self> = unsafe {
         FieldElement::new_unchecked(UBigInt([
             0x5ac635d8aa3a93e7,
             0xb3ebbd55769886bc,

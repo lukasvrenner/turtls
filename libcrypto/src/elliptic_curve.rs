@@ -20,5 +20,5 @@ pub trait EllipticCurve: FiniteField {
     /// The constant-term coefficient of the curve.
     const B: FieldElement<Self>;
 
-    const N: FieldElement<Self>;
+    const ORDER: FieldElement<Self>;
 }

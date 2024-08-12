@@ -679,7 +679,7 @@ impl<const N: usize> Ord for UBigInt<N> {
         if self.0 == other.0 {
             return Ordering::Equal;
         }
-        return Ordering::Greater;
+        Ordering::Greater
     }
 }
 

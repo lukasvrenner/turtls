@@ -12,7 +12,7 @@ pub struct FieldElement<F: FiniteField>(UBigInt<4>, PhantomData<F>);
 impl<F: FiniteField> FieldElement<F> {
     /// Creates a new `FieldElement` from `value`.
     ///
-    /// If `value` is greater than `F::MODULUS`, it is properly reduced.
+    /// If `value` is greater than [`F::MODULUS`](super::FiniteField::MODULUS), it is properly reduced.
     ///
     /// Because it always performs a division operation, this function is much slower than a simple
     /// type conversion. If higher performance, at the cost of falibility, is necessary, use
@@ -131,6 +131,11 @@ impl<F: FiniteField> FieldElement<F> {
         unsafe { Self::new_unchecked(product) }
     }
 
+    /// Multiplies `self` and `rhs` modulo [`F::MODULUS`](super::FiniteField::MODULUS) and stores the result in `self`.
+    pub fn mul_assign(&mut self, rhs: &Self) {
+        *self = self.mul(rhs);
+    }
+
     /// Returns `self / rhs` modulo [`F::MODULUS`](super::FiniteField::MODULUS).
     ///
     /// # Constant-timedness
@@ -144,6 +149,11 @@ impl<F: FiniteField> FieldElement<F> {
         self.mul(self)
     }
 
+    /// Squares `self` module [`F::MODULUS`](super::FiniteField::MODULUS) and stores the result of `self`.
+    pub fn sqr_assign(&mut self) {
+        *self = self.sqr();
+    }
+
     /// Returns the modular additive inverse of `self`.
     ///
     /// The returned value has the property that, when added to `self`, the sum is [`F::ZERO`](super::FiniteField::ZERO).
@@ -151,12 +161,12 @@ impl<F: FiniteField> FieldElement<F> {
         Self::sub(&F::ZERO, self)
     }
 
-    /// Calculates the modular additive inverse of `self` storing the result in `self`.
+    /// Calculates the modular additive inverse of `self` and stores the result in `self`.
     ///
     /// The returned value has the property that, when added to `self`, the sum is [`F::ZERO`](super::FiniteField::ZERO).
     pub fn neg_assign(&mut self) {
         // TODO: can this be made more efficient?
-        *self = Self::neg(self);
+        *self = self.neg();
     }
 }
 
