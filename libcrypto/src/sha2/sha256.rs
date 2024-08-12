@@ -79,29 +79,27 @@ pub fn sha256(msg: &[u8]) -> [u8; HASH_SIZE] {
         0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab,
         0x5be0cd19,
     ];
-    msg
-        // TODO: use `array_chunks` once stabilized
-        .chunks_exact(BLOCK_SIZE)
+    // TODO: use `array_chunks` once stabilized
+    let mut chunks = msg.chunks_exact(BLOCK_SIZE);
+    chunks.by_ref()
         // we can safely unwrap because `key_chunk` is guaranteed to have a length of `BLOCK_SIZE`
         .map(|block| be_bytes_to_u32_array(block.try_into().unwrap()))
         .for_each(|block| update_hash(&mut hash, &block));
 
-    // let padding_size = BLOCK_SIZE - (msg.len() % BLOCK_SIZE);
-    let msg_excess = &msg[msg.len() - (msg.len() % BLOCK_SIZE)..];
+    let remainder = chunks.remainder();
     let mut last_block = [0u8; BLOCK_SIZE];
-    last_block[..msg_excess.len()].copy_from_slice(msg_excess);
+    last_block[..remainder.len()].copy_from_slice(remainder);
 
     // we can write here unconditionally because the excess must be less than `BLOCK_SIZE`
-    last_block[msg_excess.len()] = 0x80;
-    if msg_excess.len() < BLOCK_SIZE - 9 {
+    last_block[remainder.len()] = 0x80;
+    if remainder.len() < BLOCK_SIZE - 9 {
         last_block[BLOCK_SIZE - 8..].copy_from_slice(&(msg.len() as u64 * 8).to_be_bytes());
-        update_hash(&mut hash, &be_bytes_to_u32_array(&last_block));
     } else {
         update_hash(&mut hash, &be_bytes_to_u32_array(&last_block));
-        let mut extra_block = [0u8; BLOCK_SIZE];
-        extra_block[BLOCK_SIZE - 8..].copy_from_slice(&(msg.len() as u64 * 8).to_be_bytes());
-        update_hash(&mut hash, &be_bytes_to_u32_array(&extra_block));
+        last_block = [0u8; BLOCK_SIZE];
+        last_block[BLOCK_SIZE - 8..].copy_from_slice(&(msg.len() as u64 * 8).to_be_bytes());
     }
+    update_hash(&mut hash, &be_bytes_to_u32_array(&last_block));
 
     to_be_bytes_from_hash(hash)
 }

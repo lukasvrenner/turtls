@@ -140,30 +140,29 @@ pub fn sha512(msg: &[u8]) -> [u8; HASH_SIZE] {
         0x1f83d9abfb41bd6b,
         0x5be0cd19137e2179,
     ];
-    msg
-        // TODO: use `array_chunks` once stabilized
-        .chunks_exact(BLOCK_SIZE)
+    // TODO: use `array_chunks` once stabilized
+    let mut chunks = msg.chunks_exact(BLOCK_SIZE);
+    chunks.by_ref()
         // we can safely unwrap because `block` is guaranteed to have a length of
         // `BLOCK_SIZE`
         .map(|block| be_bytes_to_u64_array(block.try_into().unwrap()))
         .for_each(|block| update_hash(&mut hash, &block));
 
-    // let padding_size = BLOCK_SIZE - (msg.len() % BLOCK_SIZE);
-    let msg_excess = &msg[msg.len() - (msg.len() % BLOCK_SIZE)..];
+    let remainder = chunks.remainder();
     let mut last_block = [0u8; BLOCK_SIZE];
-    last_block[..msg_excess.len()].copy_from_slice(msg_excess);
+    last_block[..remainder.len()].copy_from_slice(remainder);
 
-    // we can write here unconditionally because the excess must be less than `BLOCK_SIZE`
-    last_block[msg_excess.len()] = 0x80;
-    if msg_excess.len() < BLOCK_SIZE - 17 {
+    // we can safely write here because the excess must be less than `BLOCK_SIZE`
+    last_block[remainder.len()] = 0x80;
+
+    if remainder.len() < BLOCK_SIZE - 17 {
         last_block[BLOCK_SIZE - 16..].copy_from_slice(&(msg.len() as u128 * 8).to_be_bytes());
-        update_hash(&mut hash, &be_bytes_to_u64_array(&last_block));
     } else {
         update_hash(&mut hash, &be_bytes_to_u64_array(&last_block));
-        let mut extra_block = [0u8; BLOCK_SIZE];
-        extra_block[BLOCK_SIZE - 16..].copy_from_slice(&(msg.len() as u128 * 8).to_be_bytes());
-        update_hash(&mut hash, &be_bytes_to_u64_array(&extra_block));
+        last_block = [0u8; BLOCK_SIZE];
+        last_block[BLOCK_SIZE - 16..].copy_from_slice(&(msg.len() as u128 * 8).to_be_bytes());
     }
+    update_hash(&mut hash, &be_bytes_to_u64_array(&last_block));
 
     to_be_bytes_from_hash(hash)
 }
@@ -261,5 +260,6 @@ mod tests {
             0x54, 0xec, 0x63, 0x12, 0x38, 0xca, 0x34, 0x45,
         ];
         assert_eq!(hash, super::sha512(msg));
+        // TODO: make more exaustive tests
     }
 }

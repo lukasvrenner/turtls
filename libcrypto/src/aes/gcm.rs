@@ -297,34 +297,40 @@ impl<C: aes_core::AesCipher> Gcm<C> {
         let mut tag = 0u128;
 
         // TODO: use `array_chunks` once stabilized
-        for block in add_data.chunks_exact(aes_core::BLOCK_SIZE) {
+        let mut chunks = add_data.chunks_exact(aes_core::BLOCK_SIZE);
+
+        // use by_ref so we can access the remainder after.
+        for block in chunks.by_ref() {
             // we can safely unwrap because `block` is guaranteed to have a length of
             // `aes_core::BLOCK_SIZE`
             add_block(&mut tag, block.try_into().unwrap(), self.h);
+
         }
 
         let last_block = {
-            let end = add_data.len() % aes_core::BLOCK_SIZE;
+            let remainder = chunks.remainder();
             // TODO: consider using uninitialized array
             let mut last_block = [0u8; aes_core::BLOCK_SIZE];
-            last_block[..end].copy_from_slice(&add_data[add_data.len() - end..]);
+            last_block[..remainder.len()].copy_from_slice(remainder);
             last_block
         };
 
         add_block(&mut tag, last_block, self.h);
 
         // TODO: use `array_chunks` once stabilized
-        for block in cipher_text.chunks_exact(aes_core::BLOCK_SIZE) {
+        let mut chunks = cipher_text.chunks_exact(aes_core::BLOCK_SIZE);
+
+        for block in chunks.by_ref() {
             // we can safely unwrap because `block` is guaranteed to have a length of
             // `aes_core::BLOCK_SIZE`
             add_block(&mut tag, block.try_into().unwrap(), self.h);
         }
 
         let last_block = {
-            let end = cipher_text.len() % aes_core::BLOCK_SIZE;
+            let remainder = chunks.remainder();
             // TODO: consider using uninitialized array
             let mut last_block = [0u8; aes_core::BLOCK_SIZE];
-            last_block[..end].copy_from_slice(&cipher_text[cipher_text.len() - end..]);
+            last_block[..remainder.len()].copy_from_slice(remainder);
             last_block
         };
 
@@ -360,6 +366,7 @@ fn gf_2to128_mul(a: u128, b: u128) -> u128 {
 }
 
 /// A helper function for g_hash()
+#[inline]
 fn add_block(tag: &mut u128, block: [u8; aes_core::BLOCK_SIZE], h: u128) {
     *tag ^= u128::from_be_bytes(block);
     *tag = gf_2to128_mul(*tag, h);
