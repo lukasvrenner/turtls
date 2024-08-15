@@ -294,7 +294,7 @@ impl<C: aes_core::AesCipher> Gcm<C> {
         add_data: &[u8],
         counter: &[u8; aes_core::BLOCK_SIZE],
     ) -> [u8; aes_core::BLOCK_SIZE] {
-        let mut tag = 0u128;
+        let mut tag = 0;
 
         // TODO: use `array_chunks` once stabilized
         let mut chunks = add_data.chunks_exact(aes_core::BLOCK_SIZE);
@@ -304,13 +304,12 @@ impl<C: aes_core::AesCipher> Gcm<C> {
             // we can safely unwrap because `block` is guaranteed to have a length of
             // `aes_core::BLOCK_SIZE`
             add_block(&mut tag, block.try_into().unwrap(), self.h);
-
         }
 
         let last_block = {
             let remainder = chunks.remainder();
             // TODO: consider using uninitialized array
-            let mut last_block = [0u8; aes_core::BLOCK_SIZE];
+            let mut last_block = [0; aes_core::BLOCK_SIZE];
             last_block[..remainder.len()].copy_from_slice(remainder);
             last_block
         };
@@ -329,7 +328,7 @@ impl<C: aes_core::AesCipher> Gcm<C> {
         let last_block = {
             let remainder = chunks.remainder();
             // TODO: consider using uninitialized array
-            let mut last_block = [0u8; aes_core::BLOCK_SIZE];
+            let mut last_block = [0; aes_core::BLOCK_SIZE];
             last_block[..remainder.len()].copy_from_slice(remainder);
             last_block
         };
@@ -347,8 +346,6 @@ impl<C: aes_core::AesCipher> Gcm<C> {
 }
 
 /// Multiplication in GF(2^128)
-///
-/// Cannot overflow
 fn gf_2to128_mul(a: u128, b: u128) -> u128 {
     let mut product = 0;
     let mut temp = a;
