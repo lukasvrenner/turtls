@@ -1,5 +1,6 @@
 //! A software implementation of SHA-256.
 
+
 const BLOCK_SIZE: usize = 64;
 const HASH_SIZE: usize = 32;
 
@@ -75,7 +76,7 @@ const fn little_sigma_1(x: u32) -> u32 {
 /// assert_eq!(sha2::sha256(message), hash);
 /// ```
 pub fn sha256(msg: &[u8]) -> [u8; HASH_SIZE] {
-    let mut hash: [u32; HASH_SIZE / 4] = [
+    let mut hash: [u32; HASH_SIZE / size_of::<u32>()] = [
         0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab,
         0x5be0cd19,
     ];
@@ -94,7 +95,7 @@ pub fn sha256(msg: &[u8]) -> [u8; HASH_SIZE] {
     // we can safely write here because the excess must be less than `BLOCK_SIZE`
     last_block[remainder.len()] = 0x80;
 
-    // does the last word fit without adding an extra block?
+    // does the length info fit without adding an extra block?
     if remainder.len() < BLOCK_SIZE - size_of::<u64>() {
         last_block[BLOCK_SIZE - size_of::<u64>()..]
             .copy_from_slice(&(msg.len() as u64 * 8).to_be_bytes());
@@ -152,7 +153,7 @@ fn update_hash(
     hash[7] = hash[7].wrapping_add(h);
 }
 
-fn be_bytes_to_u32_array(bytes: &[u8; BLOCK_SIZE]) -> [u32; BLOCK_SIZE / 4] {
+fn be_bytes_to_u32_array(bytes: &[u8; BLOCK_SIZE]) -> [u32; BLOCK_SIZE / size_of::<u32>()] {
     // TODO: consider using uninitialized array
     let mut as_u32 = [0u32; BLOCK_SIZE / 4];
     // TODO: use `array_chunks` once stabilized

@@ -130,7 +130,7 @@ const fn little_sigma_1(x: u64) -> u64 {
 /// assert_eq!(sha2::sha512(message), hash);
 /// ```
 pub fn sha512(msg: &[u8]) -> [u8; HASH_SIZE] {
-    let mut hash: [u64; HASH_SIZE / 8] = [
+    let mut hash: [u64; HASH_SIZE / size_of::<u64>()] = [
         0x6a09e667f3bcc908,
         0xbb67ae8584caa73b,
         0x3c6ef372fe94f82b,
@@ -155,7 +155,7 @@ pub fn sha512(msg: &[u8]) -> [u8; HASH_SIZE] {
     // we can safely write here because the excess must be less than `BLOCK_SIZE`
     last_block[remainder.len()] = 0x80;
 
-    // does the last word fit without adding an extra block?
+    // does the length info fit without adding an extra block?
     if remainder.len() < BLOCK_SIZE - size_of::<u128>() {
         last_block[BLOCK_SIZE - size_of::<u128>()..]
             .copy_from_slice(&(msg.len() as u128 * 8).to_be_bytes());
