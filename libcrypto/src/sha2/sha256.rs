@@ -81,34 +81,40 @@ pub fn sha256(msg: &[u8]) -> [u8; HASH_SIZE] {
     ];
     // TODO: use `array_chunks` once stabilized
     let mut chunks = msg.chunks_exact(BLOCK_SIZE);
-    chunks.by_ref()
-        // we can safely unwrap because `key_chunk` is guaranteed to have a length of `BLOCK_SIZE`
+    chunks
+        .by_ref()
+        // we can safely unwrap because `block` has a compile-time known length.
         .map(|block| be_bytes_to_u32_array(block.try_into().unwrap()))
         .for_each(|block| update_hash(&mut hash, &block));
 
     let remainder = chunks.remainder();
-    let mut last_block = [0u8; BLOCK_SIZE];
+    let mut last_block = [0; BLOCK_SIZE];
     last_block[..remainder.len()].copy_from_slice(remainder);
 
-    // we can write here unconditionally because the excess must be less than `BLOCK_SIZE`
+    // we can safely write here because the excess must be less than `BLOCK_SIZE`
     last_block[remainder.len()] = 0x80;
-    if remainder.len() < BLOCK_SIZE - 9 {
-        last_block[BLOCK_SIZE - 8..].copy_from_slice(&(msg.len() as u64 * 8).to_be_bytes());
+
+    // does the last word fit without adding an extra block?
+    if remainder.len() < BLOCK_SIZE - size_of::<u64>() {
+        last_block[BLOCK_SIZE - size_of::<u64>()..]
+            .copy_from_slice(&(msg.len() as u64 * 8).to_be_bytes());
     } else {
         update_hash(&mut hash, &be_bytes_to_u32_array(&last_block));
-        last_block = [0u8; BLOCK_SIZE];
-        last_block[BLOCK_SIZE - 8..].copy_from_slice(&(msg.len() as u64 * 8).to_be_bytes());
+        last_block = [0; BLOCK_SIZE];
+        last_block[BLOCK_SIZE - size_of::<u64>()..]
+            .copy_from_slice(&(msg.len() as u64 * 8).to_be_bytes());
     }
+
     update_hash(&mut hash, &be_bytes_to_u32_array(&last_block));
 
     to_be_bytes_from_hash(hash)
 }
 
-/// Updates `hash` with the next block (`next_block`).
-///
-/// Numbers are represented big-endian.
-fn update_hash(hash: &mut [u32; HASH_SIZE / 4], next_block: &[u32; BLOCK_SIZE / 4]) {
-    let mut message_schedule = [0u32; 64];
+fn update_hash(
+    hash: &mut [u32; HASH_SIZE / size_of::<u32>()],
+    next_block: &[u32; BLOCK_SIZE / size_of::<u32>()],
+) {
+    let mut message_schedule = [0; 64];
     message_schedule[..next_block.len()].copy_from_slice(next_block);
 
     for i in 16..message_schedule.len() {
