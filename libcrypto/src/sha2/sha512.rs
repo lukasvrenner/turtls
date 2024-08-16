@@ -141,14 +141,14 @@ pub fn sha512(msg: &[u8]) -> [u8; HASH_SIZE] {
         0x5be0cd19137e2179,
     ];
     // TODO: use `array_chunks` once stabilized
-    let mut chunks = msg.chunks_exact(BLOCK_SIZE);
+    let chunks = msg.chunks_exact(BLOCK_SIZE);
+    let remainder = chunks.remainder();
+
     chunks
-        .by_ref()
         // we can safely unwrap because `block` has a compile-time known length.
         .map(|block| be_bytes_to_u64_array(block.try_into().unwrap()))
         .for_each(|block| update_hash(&mut hash, &block));
 
-    let remainder = chunks.remainder();
     let mut last_block = [0; BLOCK_SIZE];
     last_block[..remainder.len()].copy_from_slice(remainder);
 
