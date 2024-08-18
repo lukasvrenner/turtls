@@ -297,14 +297,7 @@ impl<C: aes_core::AesCipher> Gcm<C> {
         let mut tag = 0;
 
         // TODO: use `array_chunks` once stabilized
-        let mut chunks = add_data.chunks_exact(aes_core::BLOCK_SIZE);
-
-        // use by_ref so we can access the remainder after.
-        for block in chunks.by_ref() {
-            // we can safely unwrap because `block` is guaranteed to have a length of
-            // `aes_core::BLOCK_SIZE`
-            add_block(&mut tag, block.try_into().unwrap(), self.h);
-        }
+        let chunks = add_data.chunks_exact(aes_core::BLOCK_SIZE);
 
         let last_block = {
             let remainder = chunks.remainder();
@@ -313,17 +306,19 @@ impl<C: aes_core::AesCipher> Gcm<C> {
             last_block[..remainder.len()].copy_from_slice(remainder);
             last_block
         };
+
+        // use by_ref so we can access the remainder after.
+        for block in chunks {
+            // we can safely unwrap because `block` is guaranteed to have a length of
+            // `aes_core::BLOCK_SIZE`
+            add_block(&mut tag, block.try_into().unwrap(), self.h);
+        }
+
 
         add_block(&mut tag, last_block, self.h);
 
         // TODO: use `array_chunks` once stabilized
-        let mut chunks = cipher_text.chunks_exact(aes_core::BLOCK_SIZE);
-
-        for block in chunks.by_ref() {
-            // we can safely unwrap because `block` is guaranteed to have a length of
-            // `aes_core::BLOCK_SIZE`
-            add_block(&mut tag, block.try_into().unwrap(), self.h);
-        }
+        let chunks = cipher_text.chunks_exact(aes_core::BLOCK_SIZE);
 
         let last_block = {
             let remainder = chunks.remainder();
@@ -332,6 +327,13 @@ impl<C: aes_core::AesCipher> Gcm<C> {
             last_block[..remainder.len()].copy_from_slice(remainder);
             last_block
         };
+
+        for block in chunks {
+            // we can safely unwrap because `block` is guaranteed to have a length of
+            // `aes_core::BLOCK_SIZE`
+            add_block(&mut tag, block.try_into().unwrap(), self.h);
+        }
+
 
         add_block(&mut tag, last_block, self.h);
 
