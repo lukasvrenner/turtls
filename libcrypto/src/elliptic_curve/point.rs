@@ -30,14 +30,6 @@ impl<P: EllipticCurve> Point<P> {
         todo!()
     }
 
-    pub fn double(&self) -> Self {
-        todo!();
-    }
-
-    pub fn double_assign(&mut self) {
-        todo!();
-    }
-
     /// Adds `self` and `rhs`, returning the result.
     pub fn add(&self, rhs: &Self) -> Self {
         // TODO: use `assign` variants to avoid extra duplications

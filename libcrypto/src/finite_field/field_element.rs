@@ -108,7 +108,7 @@ impl<F: FiniteField> FieldElement<F> {
         unsafe { Self::new_unchecked(difference.add(&(F::MODULUS.and_bool(mask)))) }
     }
 
-    /// Calculates `self - rhs` modulo [`F::MODULUS`](super::FiniteField::MODULUS), storing the result in `self`.
+    /// Sets self to `self - rhs` modulo [`F::MODULUS`](super::FiniteField::MODULUS).
     ///
     /// # Constant-timedness
     /// This is a constant-time operation.
@@ -131,7 +131,7 @@ impl<F: FiniteField> FieldElement<F> {
         unsafe { Self::new_unchecked(product) }
     }
 
-    /// Multiplies `self` and `rhs` modulo [`F::MODULUS`](super::FiniteField::MODULUS) and stores the result in `self`.
+    /// Sets `self` to `self * rhs` modulo [`F::MODULUS`](super::FiniteField::MODULUS).
     pub fn mul_assign(&mut self, rhs: &Self) {
         *self = self.mul(rhs);
     }
@@ -161,7 +161,7 @@ impl<F: FiniteField> FieldElement<F> {
         Self::sub(&F::ZERO, self)
     }
 
-    /// Calculates the modular additive inverse of `self` and stores the result in `self`.
+    /// Sets `self` to the modular additive inverse of `self`.
     ///
     /// The returned value has the property that, when added to `self`, the sum is [`F::ZERO`](super::FiniteField::ZERO).
     pub fn neg_assign(&mut self) {

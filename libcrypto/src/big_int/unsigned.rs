@@ -1,6 +1,6 @@
 //! The home to [`UBigInt`].
 
-use super::{BigInt, FromNegErr};
+use super::{carry_mul, BigInt, FromNegErr};
 use core::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
 
 /// An unsigned integer of size `N * 64` bits.
@@ -114,11 +114,11 @@ impl<const N: usize> UBigInt<N> {
     ///
     /// This is *not* the same as [`Self::len()`].
     ///
+    /// Note: this function has not yet been benchmarked. It may not actually be any faster.
+    ///
     /// # Constant-timedness
     /// This operation is *NOT* constant-time.
     /// If constant-time is needed, use [`Self::count_digits()`].
-    ///
-    /// Note: this function has not yet been benchmarked. It may not actually be any faster.
     pub fn count_digits_fast(&self) -> usize {
         for (count, digit) in self.0.iter().rev().enumerate() {
             if *digit != 0 {
@@ -132,10 +132,6 @@ impl<const N: usize> UBigInt<N> {
     ///
     /// This is *not* the same as [`Self::len()`].
     ///
-    /// # Constant-timedness
-    /// This is a constant-time operation.
-    /// If constant-time is not needed, consider using [`Self::count_digits_fast()`].
-    ///
     /// # Examples
     /// ```
     /// use libcrypto::big_int::UBigInt;
@@ -146,6 +142,10 @@ impl<const N: usize> UBigInt<N> {
     /// ```
     ///
     /// Note: this function has not yet been benchmarked. It may not actually be any slower.
+    ///
+    /// # Constant-timedness
+    /// This is a constant-time operation.
+    /// If constant-time is not needed, consider using [`Self::count_digits_fast()`].
     pub fn count_digits(&self) -> usize {
         let mut num_digts = 0;
         let mut digit_encounterd = false;
@@ -156,7 +156,7 @@ impl<const N: usize> UBigInt<N> {
         num_digts
     }
 
-    /// Adds `self` and `rhs` and returns the result.
+    /// Returns `self + rhs`, wrapping on overflow.
     ///
     /// If overflow occurs, it wraps around.
     ///
@@ -169,17 +169,14 @@ impl<const N: usize> UBigInt<N> {
     /// ```
     ///
     /// # Constant-timedness
-    /// This operation is constant-time.
-    ///
+    /// This is a constant-time operation.
     pub fn add(&self, rhs: &Self) -> Self {
         let mut buf = *self;
         buf.add_assign(rhs);
         buf
     }
 
-    /// Adds `self` and `rhs` and stores the result in `self`
-    ///
-    /// If overflow occurs, it wraps around.
+    /// Sets `self` to `self + rhs`, wrapping on overflow.
     ///
     /// # Examples
     /// ```
@@ -195,7 +192,7 @@ impl<const N: usize> UBigInt<N> {
     /// ```
     ///
     /// # Constant-timedness
-    /// This operation is constant-time.
+    /// This is a constant-time operation.
     pub fn add_assign(&mut self, rhs: &Self) {
         let mut carry = false;
         for i in 0..N {
@@ -204,7 +201,39 @@ impl<const N: usize> UBigInt<N> {
         }
     }
 
-    /// Subtracts `rhs` from `self` and returns the result.
+    /// Sets `self` to `self * digit`, wrapping on overflow.
+    ///
+    /// # Constant-timedness
+    /// This is a constant-time operation.
+    pub fn mul_digit_assign(&mut self, digit: u64) {
+        let mut carry = 0;
+        for i in self.0.iter_mut() {
+            (*i, carry) = carry_mul(*i, digit, carry);
+        }
+    }
+
+    /// Returns `self * digit`, wrapping on overflow.
+    pub fn mul_digit(&self, digit: u64) -> Self {
+        let mut buf = *self;
+        buf.mul_digit_assign(digit);
+        buf
+    }
+
+    pub fn overflowing_mul_digit(&self, digit: u64) -> (Self, u64) {
+        let mut buf = *self;
+        let overflow = buf.overflowing_mul_digit_assign(digit);
+        (buf, overflow)
+    }
+
+    pub fn overflowing_mul_digit_assign(&mut self, digit: u64) -> u64 {
+        let mut carry = 0;
+        for i in self.0.iter_mut() {
+            (*i, carry) = carry_mul(*i, digit, carry);
+        }
+        carry
+    }
+
+    /// Returns `self - rhs`, wrapping on overflow.
     ///
     /// # Examples
     /// ```
@@ -222,7 +251,7 @@ impl<const N: usize> UBigInt<N> {
         buf
     }
 
-    /// Subtracts `rhs` from `self` and stores the result in `self`
+    /// Sets `self` to `self - rhs`, wrapping on overflow.
     ///
     /// # Examples
     /// ```
