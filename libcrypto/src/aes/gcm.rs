@@ -307,13 +307,11 @@ impl<C: aes_core::AesCipher> Gcm<C> {
             last_block
         };
 
-        // use by_ref so we can access the remainder after.
         for block in chunks {
             // we can safely unwrap because `block` is guaranteed to have a length of
             // `aes_core::BLOCK_SIZE`
             add_block(&mut tag, block.try_into().unwrap(), self.h);
         }
-
 
         add_block(&mut tag, last_block, self.h);
 
@@ -333,7 +331,6 @@ impl<C: aes_core::AesCipher> Gcm<C> {
             // `aes_core::BLOCK_SIZE`
             add_block(&mut tag, block.try_into().unwrap(), self.h);
         }
-
 
         add_block(&mut tag, last_block, self.h);
 
