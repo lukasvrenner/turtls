@@ -150,9 +150,9 @@ pub fn sha512(msg: &[u8]) -> [u8; HASH_SIZE] {
         .for_each(|block| update_hash(&mut hash, &block));
 
     let mut last_block = [0; BLOCK_SIZE];
+    // we can safely write here because the excess must be less than `BLOCK_SIZE`
     last_block[..remainder.len()].copy_from_slice(remainder);
 
-    // we can safely write here because the excess must be less than `BLOCK_SIZE`
     last_block[remainder.len()] = 0x80;
 
     // does the length info fit without adding an extra block?
