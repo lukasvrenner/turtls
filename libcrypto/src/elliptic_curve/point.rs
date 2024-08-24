@@ -44,9 +44,7 @@ impl<P: EllipticCurve> Point<P> {
     }
 
     pub fn neg(&self) -> Self {
-        let mut buf = *self;
-        buf.neg_assign();
-        buf
+        Self { x: self.x, y: self.y.neg() }
     }
 
     pub fn neg_assign(&mut self) {
