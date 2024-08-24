@@ -45,7 +45,7 @@ impl<const N: usize> UBigInt<N> {
     /// This has the same value as [`UBigInt<N>::ZERO`].
     pub const MIN: Self = Self::ZERO;
 
-    /// A `UBigInt` with value 1.
+    /// A [`UBigInt`] with value `1`.
     pub const ONE: Self = {
         let mut one = Self::ZERO;
         one.0[0] = 1;
@@ -549,9 +549,7 @@ macro_rules! impl_non_generic {
     ($n:literal) => {
         impl UBigInt<$n> {
             const _POSITIVE_N: () = assert!($n > 0);
-            /// Multiplies `self` and `rhs`.
-            ///
-            /// The output is twice as large, so overflow never occurs.
+            /// Calculates `self * rhs`, widening the output to avoid overflow.
             ///
             /// # Constant-timedness
             /// This is a constant-time operation.
@@ -576,7 +574,7 @@ macro_rules! impl_non_generic {
                 product.into()
             }
 
-            /// Left-shifts `self` `rhs % 64` bits.
+            /// Left-shifts `self` by `rhs % 64` bits.
             ///
             /// The output is 64 bits longer, so ovelflow never occurs.
             ///
@@ -597,10 +595,10 @@ macro_rules! impl_non_generic {
                 expanded.into()
             }
 
-            /// Divides `self` by `rhs`, returning the quotient and the remainder.
+            /// Calculates `self / rhs`, returning the quotient and the remainder.
             ///
             /// # Panics
-            /// This function will panic if `divisor == Self::ZERO`.
+            /// This function will panic if `divisor` equals `Self::ZERO`.
             ///
             /// # Constant-timedness
             /// TODO: document constant-timedness
