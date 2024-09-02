@@ -326,7 +326,9 @@ const fn s_box(byte: u8) -> u8 {
 #[inline]
 fn sub_word(word: u32) -> u32 {
     // endianness doesn't matter so long as byte order is maintained
-    u32::from_ne_bytes(word.to_ne_bytes().map(s_box))
+    let mut as_bytes = word.to_ne_bytes();
+    as_bytes.iter_mut().for_each(|byte| *byte = s_box(*byte));
+    u32::from_ne_bytes(as_bytes)
 }
 
 #[inline]
