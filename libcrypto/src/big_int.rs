@@ -25,8 +25,7 @@ impl core::fmt::Display for InputTooLargeError {
     }
 }
 
-// TODO: uncomment the following line once stabilized
-// impl core::error::Error for InputTooLargeError {};
+impl core::error::Error for InputTooLargeError {}
 
 /// The error that is returned when converting a negative [`BigInt`] into a [`UBigInt`].
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -38,8 +37,7 @@ impl core::fmt::Display for FromNegErr {
     }
 }
 
-// TODO: uncomment the following line once stabilized
-// impl core::error::Error for FromNegErr {};
+impl core::error::Error for FromNegErr {}
 
 const fn carry_add(x: u64, y: u64, carry: bool) -> (u64, bool) {
     let (sum1, overflowed1) = x.overflowing_add(y);

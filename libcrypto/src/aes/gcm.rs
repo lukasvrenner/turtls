@@ -68,8 +68,7 @@ impl core::fmt::Display for BadData {
     }
 }
 
-// TODO: uncomment the following line once stabilized
-// impl core::error::Error for BadData {}
+impl core::error::Error for BadData {}
 
 /// A type that allows for authenticated
 /// encryption and decryption in GCM via AES.
