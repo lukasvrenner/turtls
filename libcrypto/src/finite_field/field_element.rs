@@ -3,11 +3,31 @@ use core::marker::PhantomData;
 use crate::big_int::{BigInt, InputTooLargeError, UBigInt};
 
 use super::FiniteField;
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
 /// An element of the finite field `F`.
 ///
 /// All operations are performed modulo [`F::MODULUS`](super::FiniteField::MODULUS).
+#[derive(Debug, Eq, PartialOrd, Ord)]
 pub struct FieldElement<F: FiniteField>(UBigInt<4>, PhantomData<F>);
+
+impl<T: FiniteField> Clone for FieldElement<T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+impl<T: FiniteField> Copy for FieldElement<T> { }
+
+
+impl<F: FiniteField> PartialEq for FieldElement<F> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+//impl<F: FiniteField + ?Sized> PartialEq for &FieldElement<F> {
+//    fn eq(&self, other: &Self) -> bool {
+//        self.0 == other.0
+//    }
+//}
 
 impl<F: FiniteField> FieldElement<F> {
     /// Creates a new `FieldElement` from `value`.

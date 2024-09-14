@@ -285,7 +285,7 @@ fn sub_bytes(state: &mut [u8; BLOCK_SIZE]) {
 #[inline]
 fn shift_rows(state: &mut [u8; BLOCK_SIZE]) {
     // TODO: consider using uninitialized array
-    let mut auxiliary = [0u8; 4];
+    let mut auxiliary = [0; 4];
     for row in 0..4 {
         for col in 0..4 {
             auxiliary[col] = state[col * 4 + row];
@@ -309,7 +309,7 @@ fn mix_columns(state: &mut [u8; BLOCK_SIZE]) {
         let auxiliary: [u8; 4] = col.try_into().unwrap();
 
         for row in 0..4 {
-            let mut byte = 0u8;
+            let mut byte = 0;
             for i in 0..4 {
                 byte ^= MULT_GF_2_TO_8[mult_matrix[row][i]][auxiliary[i] as usize];
             }

@@ -2,18 +2,24 @@ use crate::finite_field::FieldElement;
 
 use super::EllipticCurve;
 /// A point on an elliptic curve.
-#[derive(Clone, Debug, Copy, PartialEq, Eq, Hash)]
-pub struct Point<P: EllipticCurve> {
-    x: FieldElement<P>,
-    y: FieldElement<P>,
+#[derive(Clone, Debug, Copy, Eq)]
+pub struct Point<F: EllipticCurve> {
+    x: FieldElement<F>,
+    y: FieldElement<F>,
 }
 
-impl<P: EllipticCurve> Point<P> {
-    pub fn x(&self) -> &FieldElement<P> {
+impl<F: EllipticCurve> PartialEq for Point<F> {
+    fn eq(&self, other: &Self) -> bool {
+        self.x == other.x && self.y == other.y
+    }
+}
+
+impl<F: EllipticCurve> Point<F> {
+    pub fn x(&self) -> &FieldElement<F> {
         &self.x
     }
 
-    pub fn y(&self) -> &FieldElement<P> {
+    pub fn y(&self) -> &FieldElement<F> {
         &self.y
     }
 
@@ -22,11 +28,11 @@ impl<P: EllipticCurve> Point<P> {
     /// # Safety
     /// The point must be on the curve. If the point isn't on the curve, it will result in
     /// undefined behavior.
-    pub const unsafe fn new_unchecked(x: FieldElement<P>, y: FieldElement<P>) -> Self {
+    pub const unsafe fn new_unchecked(x: FieldElement<F>, y: FieldElement<F>) -> Self {
         Self { x, y }
     }
     /// Multiplies a [`Point`] by a [`FieldElement`]
-    pub fn mul_scalar(&self, scalar: FieldElement<P>) -> Self {
+    pub fn mul_scalar(&self, scalar: FieldElement<F>) -> Self {
         todo!()
     }
 
@@ -54,7 +60,7 @@ impl<P: EllipticCurve> Point<P> {
         self.y.neg_assign();
     }
 
-    fn calc_lamba(&self, other: &Self) -> FieldElement<P> {
+    fn calc_lamba(&self, other: &Self) -> FieldElement<F> {
         if self == other {
             todo!()
         }
