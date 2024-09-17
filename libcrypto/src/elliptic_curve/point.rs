@@ -39,7 +39,7 @@ impl<F: EllipticCurve> Point<F> {
     /// Adds `self` and `rhs`, returning the result.
     pub fn add(&self, rhs: &Self) -> Self {
         // TODO: use `assign` variants to avoid extra duplications
-        let lambda = self.calc_lamba(rhs);
+        let lambda = rhs.y.sub(&self.y).div(&rhs.x.sub(&self.x));
         let x = lambda.sqr().sub(&self.x).sub(&rhs.x);
         let y = lambda.mul(&self.x.sub(&rhs.x)).sub(&self.y);
         Self { x, y }
@@ -47,6 +47,14 @@ impl<F: EllipticCurve> Point<F> {
 
     pub fn add_assign(&mut self, rhs: &Self) {
         *self = self.add(rhs);
+    }
+
+    pub fn double(&self) -> Self {
+        todo!()
+    }
+
+    pub fn double_assign(&mut self) {
+        *self = self.double();
     }
 
     pub fn neg(&self) -> Self {
@@ -58,12 +66,5 @@ impl<F: EllipticCurve> Point<F> {
 
     pub fn neg_assign(&mut self) {
         self.y.neg_assign();
-    }
-
-    fn calc_lamba(&self, other: &Self) -> FieldElement<F> {
-        if self == other {
-            todo!()
-        }
-        other.y.sub(&self.y).div(&other.x.sub(&self.x))
     }
 }
