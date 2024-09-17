@@ -12,7 +12,7 @@ use crate::big_int::UBigInt;
 /// Using a non-prime number will result in undefined behavior.
 pub unsafe trait FiniteField
 where
-    Self: Sized
+    Self: Sized,
 {
     /// The modulus used to define the finite field.
     ///

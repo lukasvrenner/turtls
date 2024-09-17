@@ -14,8 +14,7 @@ impl<T: FiniteField> Clone for FieldElement<T> {
         *self
     }
 }
-impl<T: FiniteField> Copy for FieldElement<T> { }
-
+impl<T: FiniteField> Copy for FieldElement<T> {}
 
 impl<F: FiniteField> PartialEq for FieldElement<F> {
     fn eq(&self, other: &Self) -> bool {
