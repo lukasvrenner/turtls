@@ -1,6 +1,6 @@
 use crate::finite_field::FieldElement;
 
-use super::{EllipticCurve, ProjectivePoint};
+use super::{super::EllipticCurve, Point, ProjectivePoint};
 /// A point on an elliptic curve in affine representation.
 #[derive(Clone, Debug, Copy, Eq, PartialEq)]
 pub struct AffinePoint<C: EllipticCurve> {
@@ -36,41 +36,70 @@ impl<C: EllipticCurve> AffinePoint<C> {
         Self { x, y }
     }
 
-    /// Multiplies a [`Point`] by a [`FieldElement`]
-    pub fn mul_scalar(&self, scalar: FieldElement<C>) -> Self {
-        todo!()
-    }
+    ///// Multiplies a [`Point`] by a [`FieldElement`]
+    //pub fn mul_scalar(&self, scalar: FieldElement<C>) -> Self {
+    //    todo!()
+    //}
+    //
+    /////// Adds `self` and `rhs`, returning the result.
+    ////pub fn add(&self, rhs: &Self) -> Self {
+    ////}
+    //
+    ///// Adds `rhs` to `self`.
+    //pub fn add_assign(&mut self, rhs: &Self) {
+    //    *self = self.add(rhs);
+    //}
+    //
+    //pub fn double(&self) -> Self {
+    //    todo!()
+    //}
+    //
+    //pub fn double_assign(&mut self) {
+    //    *self = self.double();
+    //}
 
-    /// Adds `self` and `rhs`, returning the result.
-    pub fn add(&self, rhs: &Self) -> Self {
-        // TODO: use `assign` variants to avoid extra duplications
+    //pub fn neg(&self) -> Self {
+    //    Self {
+    //        x: self.x,
+    //        y: self.y.neg(),
+    //    }
+    //}
+    //
+    //pub fn neg_assign(&mut self) {
+    //    self.y.neg_assign();
+    //}
+}
+
+impl<C: EllipticCurve> Point for AffinePoint<C> {
+    fn add(&self, rhs: &Self) -> Self {
         let lambda = rhs.y.sub(&self.y).div(&rhs.x.sub(&self.x));
-        let x = lambda.sqr().sub(&self.x).sub(&rhs.x);
-        let y = lambda.mul(&self.x.sub(&rhs.x)).sub(&self.y);
+
+        let mut x = lambda.sqr();
+        x.sub_assign(&self.x);
+        x.sub_assign(&rhs.x);
+
+        let mut y = lambda.mul(&self.x.sub(&rhs.x));
+        y.sub_assign(&self.y);
         Self { x, y }
     }
 
-    pub fn add_assign(&mut self, rhs: &Self) {
-        *self = self.add(rhs);
-    }
-
-    pub fn double(&self) -> Self {
-        todo!()
-    }
-
-    pub fn double_assign(&mut self) {
-        *self = self.double();
-    }
-
-    pub fn neg(&self) -> Self {
+    fn neg(&self) -> Self {
         Self {
             x: self.x,
             y: self.y.neg(),
         }
     }
 
-    pub fn neg_assign(&mut self) {
+    fn neg_assign(&mut self) {
         self.y.neg_assign();
+    }
+
+    fn double(&self) -> Self {
+        todo!();
+    }
+
+    fn double_assign(&mut self) {
+        todo!();
     }
 }
 

@@ -1,12 +1,12 @@
-use super::{AffinePoint, EllipticCurve};
+use super::{super::EllipticCurve, AffinePoint, Point};
 use crate::finite_field::FieldElement;
 
 /// A point on [`EllipticCurve`] `C` in projective representation.
 #[derive(Clone, Debug, Copy, Eq, PartialEq)]
 pub struct ProjectivePoint<C: EllipticCurve> {
-    pub(super) x: FieldElement<C>,
-    pub(super) y: FieldElement<C>,
-    pub(super) z: FieldElement<C>,
+    x: FieldElement<C>,
+    y: FieldElement<C>,
+    z: FieldElement<C>,
 }
 
 impl<C: EllipticCurve> ProjectivePoint<C> {
@@ -26,6 +26,20 @@ impl<C: EllipticCurve> ProjectivePoint<C> {
         z: FieldElement<C>,
     ) -> Self {
         Self { x, y, z }
+    }
+}
+
+impl<C: EllipticCurve> Point for ProjectivePoint<C> {
+    fn add(&self, rhs: &Self) -> Self {
+        todo!()
+    }
+
+    fn double(&self) -> Self {
+        todo!()
+    }
+
+    fn neg(&self) -> Self {
+        todo!()
     }
 }
 

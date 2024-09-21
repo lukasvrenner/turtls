@@ -1,11 +1,11 @@
 //! Elliptic curve cryptography.
-mod affine_point;
-mod ecdsa;
-mod projective_point;
+pub mod ecdsa;
+mod point;
 mod secp256r1;
 
-pub use affine_point::AffinePoint;
-pub use projective_point::ProjectivePoint;
+pub use point::affine::AffinePoint;
+pub use point::projective::ProjectivePoint;
+pub use point::Point;
 pub use secp256r1::Secp256r1;
 
 use crate::finite_field::{FieldElement, FiniteField};

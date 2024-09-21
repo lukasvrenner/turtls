@@ -14,12 +14,6 @@ unsafe impl FiniteField for Secp256r1 {
         0x0000000000000000,
         0xffffffff00000001,
     ]);
-
-    // SAFETY: `UBigInt::ONE` is less than `Self::MODULUS`
-    const ONE: FieldElement<Self> = unsafe { FieldElement::new_unchecked(UBigInt::ONE) };
-
-    // SAFETY: `UBigInt::ZERO` is less than `Self::MODULUS`
-    const ZERO: FieldElement<Self> = unsafe { FieldElement::new_unchecked(UBigInt::ZERO) };
 }
 
 impl EllipticCurve for Secp256r1 {
