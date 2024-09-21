@@ -1,8 +1,11 @@
 //! Elliptic curve cryptography.
+mod affine_point;
 mod ecdsa;
-mod point;
+mod projective_point;
 mod secp256r1;
-pub use point::Point;
+
+pub use affine_point::AffinePoint;
+pub use projective_point::ProjectivePoint;
 pub use secp256r1::Secp256r1;
 
 use crate::finite_field::{FieldElement, FiniteField};
@@ -12,7 +15,7 @@ use crate::finite_field::{FieldElement, FiniteField};
 /// The curve is defined by the equation `Y^2 = X^3 + A*X + B`.
 pub trait EllipticCurve: FiniteField {
     /// The generator point used for elliptic-curve cryptography.
-    const BASE_POINT: Point<Self>;
+    const BASE_POINT: AffinePoint<Self>;
 
     /// The linear-term coefficient of the curve.
     const A: FieldElement<Self>;
