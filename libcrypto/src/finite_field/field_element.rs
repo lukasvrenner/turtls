@@ -112,6 +112,14 @@ impl<F: FiniteField> FieldElement<F> {
         sum
     }
 
+    pub fn double(&self) -> Self {
+        self.add(&self)
+    }
+
+    pub fn double_assign(&mut self) {
+        todo!();
+    }
+
     /// Returns `self - rhs` modulo [`F::MODULUS`](super::FiniteField::MODULUS).
     ///
     /// # Constant-timedness

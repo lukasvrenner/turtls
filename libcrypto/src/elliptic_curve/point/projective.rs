@@ -20,7 +20,7 @@ impl<C: EllipticCurve> ProjectivePoint<C> {
     /// Creates a new `ProjectivePoint` along the curve.
     /// # Safety
     /// The point must be on the curve.
-    pub const unsafe fn new_unsafe(
+    pub const unsafe fn new_unchecked(
         x: FieldElement<C>,
         y: FieldElement<C>,
         z: FieldElement<C>,
@@ -31,7 +31,41 @@ impl<C: EllipticCurve> ProjectivePoint<C> {
 
 impl<C: EllipticCurve> Point for ProjectivePoint<C> {
     fn add(&self, rhs: &Self) -> Self {
-        todo!()
+        let u_2 = self.y.mul(&rhs.z);
+        let u = {
+            let mut u_1 = rhs.y.mul(&self.z);
+            u_1.sub_assign(&u_2);
+            u_1
+        };
+
+        let v_2 = self.x.mul(&rhs.z);
+        let v = {
+            let mut v_1 = rhs.x.mul(&self.z);
+            v_1.sub_assign(&v_2);
+            v_1
+        };
+        let v_sqr = v.sqr();
+        let v_cube = v_sqr.mul(&v);
+        // TODO: name this something better
+        let v_2_v_sqr = v_sqr.mul(&v_2);
+
+        let w = self.z.sub(&rhs.z);
+
+        let a = {
+            let mut a = u.sqr();
+            a.mul_assign(&w);
+            a.sub_assign(&v_cube);
+            a.sub_assign(&v_2_v_sqr.double());
+            a
+        };
+        let x = v.mul(&a);
+        let y = {
+            let mut y = u.mul(&v_2_v_sqr.sub(&a));
+            y.sub_assign(&v_cube.mul(&u_2));
+            y
+        };
+        let z = v_cube.mul(&w);
+        unsafe { Self::new_unchecked(x, y, z) }
     }
 
     fn double(&self) -> Self {
