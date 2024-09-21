@@ -113,7 +113,7 @@ impl<F: FiniteField> FieldElement<F> {
     }
 
     pub fn double(&self) -> Self {
-        self.add(&self)
+        self.add(self)
     }
 
     pub fn double_assign(&mut self) {
