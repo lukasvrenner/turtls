@@ -143,7 +143,7 @@ impl<F: FiniteField> FieldElement<F> {
     /// TODO: document constant-timedness
     pub fn mul(&self, rhs: &Self) -> Self {
         // TODO: use barret reduction instead of division.
-        let product = (((self.0.widening_mul(&rhs.0)).div(&F::MODULUS.into())).1).0[..4]
+        let product = (((self.0.widening_mul(&rhs.0)).div(&F::MODULUS.resize())).1).0[..4]
             .try_into()
             .unwrap();
 

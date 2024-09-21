@@ -520,6 +520,14 @@ impl<const N: usize> UBigInt<N> {
     pub const fn len(&self) -> usize {
         N
     }
+
+    /// Resizes a `UBigInt<N>` to a `UBigInt<O>`, truncating most significant bits if necessary.
+    pub fn resize<const O: usize>(self) -> UBigInt<O> {
+        let min = core::cmp::min(O, N);
+        let mut new = UBigInt([0; O]);
+        new.0[..min].copy_from_slice(&self.0[..min]);
+        new
+    }
 }
 
 // TODO: figure out what this does to see if it can be simplified
@@ -758,36 +766,6 @@ impl<const N: usize> Default for UBigInt<N> {
     }
 }
 
-// TODO: uncomment this line once `where` clauses are supported for const-generics
-//impl<const N: usize, const O: usize> From<UBigInt<O>> for UBigInt<N> {
-//    fn from(value: UBigInt<O>) -> Self {
-//        let mut output = Self::ZERO;
-//        let min = core::cmp::min(N, O);
-//        output.0[..min].copy_from_slice(&value.0[..min]);
-//        output
-//    }
-//}
-
-impl From<UBigInt<9>> for UBigInt<4> {
-    fn from(value: UBigInt<9>) -> Self {
-        Self(value.0[..4].try_into().unwrap())
-    }
-}
-
-impl From<UBigInt<8>> for UBigInt<4> {
-    fn from(value: UBigInt<8>) -> Self {
-        Self(value.0[..4].try_into().unwrap())
-    }
-}
-
-impl From<UBigInt<4>> for UBigInt<8> {
-    fn from(value: UBigInt<4>) -> Self {
-        let mut output = Self::ZERO;
-        output.0[..4].copy_from_slice(&value.0);
-        output
-    }
-}
-
 impl<const N: usize> TryFrom<&[u64]> for UBigInt<N> {
     type Error = core::array::TryFromSliceError;
     fn try_from(value: &[u64]) -> Result<Self, Self::Error> {
@@ -892,7 +870,7 @@ mod tests {
             0xfedcba9876543210,
             0x0123456789abcdef,
         ]);
-        assert_eq!(y.widening_mul(&UBigInt::ONE), y.into());
+        assert_eq!(y.widening_mul(&UBigInt::ONE), y.resize());
         let a = UBigInt([0x124924924924924, 0, 0, 0]);
         let b = UBigInt([
             0xfedcba9876543210,
@@ -907,7 +885,7 @@ mod tests {
             0x80a7bdaf0e241574,
             81985529216486895,
         ]);
-        assert_eq!(UBigInt::<4>::from(a.widening_mul(&b)), product);
+        assert_eq!(a.widening_mul(&b).resize(), product);
     }
 
     #[test]
