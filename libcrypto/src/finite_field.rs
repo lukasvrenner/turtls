@@ -8,8 +8,7 @@ use crate::big_int::UBigInt;
 /// A trait for describing a finite field.
 ///
 /// # Safety
-/// [`Self::MODULUS`] *MUST* be prime.
-/// Using a non-prime number will result in undefined behavior.
+/// `MODULUS` *MUST* be prime.
 pub unsafe trait FiniteField
 where
     Self: Sized,
@@ -24,8 +23,8 @@ where
     const MIN: FieldElement<Self> = Self::ZERO;
 
     /// The field element of value `0`.
-    const ZERO: FieldElement<Self>;
+    const ZERO: FieldElement<Self> = unsafe { FieldElement::new_unchecked(UBigInt::ZERO) };
 
     /// The field element of value `1`.
-    const ONE: FieldElement<Self>;
+    const ONE: FieldElement<Self> = unsafe { FieldElement::new_unchecked(UBigInt::ONE) };
 }

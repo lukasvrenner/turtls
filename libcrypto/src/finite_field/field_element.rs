@@ -6,7 +6,7 @@ use super::FiniteField;
 /// An element of the finite field `F`.
 ///
 /// All operations are performed modulo [`F::MODULUS`](super::FiniteField::MODULUS).
-#[derive(Debug, Eq, PartialOrd, Ord)]
+#[derive(Debug, Eq, PartialOrd, Ord, PartialEq)]
 pub struct FieldElement<F: FiniteField>(UBigInt<4>, PhantomData<F>);
 
 impl<T: FiniteField> Clone for FieldElement<T> {
@@ -15,18 +15,6 @@ impl<T: FiniteField> Clone for FieldElement<T> {
     }
 }
 impl<T: FiniteField> Copy for FieldElement<T> {}
-
-impl<F: FiniteField> PartialEq for FieldElement<F> {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
-    }
-}
-
-//impl<F: FiniteField + ?Sized> PartialEq for &FieldElement<F> {
-//    fn eq(&self, other: &Self) -> bool {
-//        self.0 == other.0
-//    }
-//}
 
 impl<F: FiniteField> FieldElement<F> {
     /// Creates a new `FieldElement` from `value`.
@@ -61,6 +49,14 @@ impl<F: FiniteField> FieldElement<F> {
         };
         // SAFETY: we already checked to guarantee that `int` is less than `F::MODULUS`.
         Ok(unsafe { Self::new_unchecked(int) })
+    }
+
+    pub fn inner(&self) -> &UBigInt<4> {
+        &self.0
+    }
+
+    pub fn into_inner(self) -> UBigInt<4> {
+        self.0
     }
 
     /// Returns the modular multiplicative inverse of `self`.
