@@ -3,6 +3,7 @@ pub mod ecdsa;
 mod point;
 mod secp256r1;
 
+use crate::big_int::UBigInt;
 pub use point::affine::AffinePoint;
 pub use point::projective::ProjectivePoint;
 pub use point::Point;
@@ -23,5 +24,8 @@ pub trait EllipticCurve: FiniteField {
     /// The constant-term coefficient of the curve.
     const B: FieldElement<Self>;
 
-    const ORDER: FieldElement<Self>;
+    /// The number of points along the curve.
+    ///
+    /// This is the number `BASE_POINT` must be multiplied by to return to `BASE_POINT`.
+    const ORDER: UBigInt<4>;
 }
