@@ -108,3 +108,28 @@ impl<C: EllipticCurve> From<ProjectivePoint<C>> for AffinePoint<C> {
         value.as_affine()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::elliptic_curve::{EllipticCurve, Point, Secp256r1};
+
+    #[test]
+    fn add() {
+        todo!();
+    }
+
+    #[test]
+    fn double() {
+        todo!();
+    }
+
+    #[test]
+    fn mul_scalar() {
+        assert_eq!(
+            Secp256r1::BASE_POINT.mul_scalar(&Secp256r1::ORDER),
+            Secp256r1::BASE_POINT
+        );
+
+        todo!();
+    }
+}
