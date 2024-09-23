@@ -35,39 +35,6 @@ impl<C: EllipticCurve> AffinePoint<C> {
     pub const unsafe fn new_unchecked(x: FieldElement<C>, y: FieldElement<C>) -> Self {
         Self { x, y }
     }
-
-    ///// Multiplies a [`Point`] by a [`FieldElement`]
-    //pub fn mul_scalar(&self, scalar: FieldElement<C>) -> Self {
-    //    todo!()
-    //}
-    //
-    /////// Adds `self` and `rhs`, returning the result.
-    ////pub fn add(&self, rhs: &Self) -> Self {
-    ////}
-    //
-    ///// Adds `rhs` to `self`.
-    //pub fn add_assign(&mut self, rhs: &Self) {
-    //    *self = self.add(rhs);
-    //}
-    //
-    //pub fn double(&self) -> Self {
-    //    todo!()
-    //}
-    //
-    //pub fn double_assign(&mut self) {
-    //    *self = self.double();
-    //}
-
-    //pub fn neg(&self) -> Self {
-    //    Self {
-    //        x: self.x,
-    //        y: self.y.neg(),
-    //    }
-    //}
-    //
-    //pub fn neg_assign(&mut self) {
-    //    self.y.neg_assign();
-    //}
 }
 
 impl<C: EllipticCurve> Point for AffinePoint<C> {
@@ -111,8 +78,6 @@ impl<C: EllipticCurve> From<ProjectivePoint<C>> for AffinePoint<C> {
 
 #[cfg(test)]
 mod tests {
-    use crate::elliptic_curve::{EllipticCurve, Point, Secp256r1};
-
     #[test]
     fn add() {
         todo!();
