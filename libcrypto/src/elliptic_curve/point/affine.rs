@@ -24,7 +24,7 @@ impl<C: EllipticCurve> AffinePoint<C> {
         // TODO: is there a better way to do this?
 
         // # SAFETY: The projective value is still on the curve.
-        unsafe { ProjectivePoint::new_unchecked(self.x, self.y, C::ONE) }
+        unsafe { ProjectivePoint::new_unchecked(self.x, self.y, FieldElement::ONE) }
     }
 
     /// Creates a new [`Point`] without verifying that it is on the curve specified b `P`.

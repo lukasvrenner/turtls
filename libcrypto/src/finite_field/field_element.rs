@@ -17,6 +17,12 @@ impl<T: FiniteField> Clone for FieldElement<T> {
 impl<T: FiniteField> Copy for FieldElement<T> {}
 
 impl<F: FiniteField> FieldElement<F> {
+
+    // SAFETY: `FiniteField` implementors guarantee that `ZERO` is in the field.
+    pub const ZERO: Self = unsafe { Self::new_unchecked(UBigInt::ZERO) };
+
+    // SAFETY: `FiniteField` implementors guarantee that `ONE` is in the field.
+    pub const ONE: Self = unsafe { Self::new_unchecked(UBigInt::ONE) };
     /// Creates a new `FieldElement` from `value`.
     ///
     /// If `value` is greater than [`F::MODULUS`](super::FiniteField::MODULUS), it is properly reduced.
@@ -179,7 +185,7 @@ impl<F: FiniteField> FieldElement<F> {
     ///
     /// The returned value has the property that, when added to `self`, the sum is [`F::ZERO`](super::FiniteField::ZERO).
     pub fn neg(&self) -> Self {
-        Self::sub(&F::ZERO, self)
+        Self::sub(&Self::ZERO, self)
     }
 
     /// Sets `self` to the modular additive inverse of `self`.
@@ -206,7 +212,6 @@ mod tests {
 
     use super::FieldElement;
     use crate::elliptic_curve::Secp256r1;
-    use crate::finite_field::FiniteField;
 
     #[test]
     fn inverse() {
@@ -229,7 +234,7 @@ mod tests {
             PhantomData,
         );
         assert_eq!(a.inverse(), inverse);
-        assert_eq!(Secp256r1::ONE.inverse(), Secp256r1::ONE);
+        assert_eq!(FieldElement::<Secp256r1>::ONE.inverse(), FieldElement::ONE);
         let a = FieldElement::<Secp256r1>(
             UBigInt([
                 0x1001039120910903,
@@ -239,7 +244,7 @@ mod tests {
             ]),
             PhantomData,
         );
-        assert_eq!(a.inverse().mul(&a), Secp256r1::ONE);
+        assert_eq!(a.inverse().mul(&a), FieldElement::ONE);
     }
 
     #[test]
@@ -262,6 +267,6 @@ mod tests {
             ]),
             PhantomData,
         );
-        assert_eq!(a.mul(&inverse), Secp256r1::ONE);
+        assert_eq!(a.mul(&inverse), FieldElement::ONE);
     }
 }

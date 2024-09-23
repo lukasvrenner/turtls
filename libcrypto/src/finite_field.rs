@@ -20,11 +20,5 @@ where
     const MODULUS: UBigInt<4>;
 
     /// The smallest value in the finite field.
-    const MIN: FieldElement<Self> = Self::ZERO;
-
-    /// The field element of value `0`.
-    const ZERO: FieldElement<Self> = unsafe { FieldElement::new_unchecked(UBigInt::ZERO) };
-
-    /// The field element of value `1`.
-    const ONE: FieldElement<Self> = unsafe { FieldElement::new_unchecked(UBigInt::ONE) };
+    const MIN: FieldElement<Self> = FieldElement::ZERO;
 }

@@ -570,14 +570,11 @@ macro_rules! impl_non_generic {
                         let result = super::carry_mul(self.0[i], rhs.0[j], carry);
                         let (sum, mut overflowed) = product[i + j].overflowing_add(result.0);
                         product[i + j] = sum;
-                        //for k in (i + j)..($n * 2) {
-                        //    (product[k], overflowed) = product[k].overflowing_add(overflowed as u64)
-                        //}
+                        for k in (i + j + 1)..($n * 2) {
+                            (product[k], overflowed) = product[k].overflowing_add(overflowed as u64)
+                        }
                         // TODO: can this overflow?
-                        product[i + j + 1] += overflowed as u64;
                         carry = result.1;
-                        //let temp = product[i + j];
-                        //(product[i + j], carry) = super::carry_mul(self.0[i], rhs.0[j], carry);
                         //product[i + j]
                     }
                     product[i + rhs.len()] = carry;
