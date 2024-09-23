@@ -75,7 +75,7 @@ impl<F: FiniteField> FieldElement<F> {
             let (quotient, remainder) = r.div(&new_r);
             (t, new_t) = (
                 new_t,
-                t.sub(&BigInt::<4>::from(quotient.widening_mul(&new_t))),
+                t.sub(&quotient.widening_mul(&new_t).resize()),
             );
             (r, new_r) = (new_r, remainder);
         }
@@ -85,8 +85,9 @@ impl<F: FiniteField> FieldElement<F> {
             t.add_assign(&F::MODULUS.into())
         }
         debug_assert!(t.is_positive());
+        debug_assert!(t.digits < F::MODULUS);
         // TODO: is it better to use safe or unsafe version?
-        Self::try_new(t.digits).unwrap()
+        unsafe { Self::new_unchecked(t.digits) }
     }
 
     /// Returns the number of digits in `self`, not counting leading zeros
@@ -147,10 +148,7 @@ impl<F: FiniteField> FieldElement<F> {
     /// TODO: document constant-timedness
     pub fn mul(&self, rhs: &Self) -> Self {
         // TODO: use barret reduction instead of division.
-        let product = (((self.0.widening_mul(&rhs.0)).div(&F::MODULUS.resize())).1).0[..4]
-            .try_into()
-            .unwrap();
-
+        let product = self.0.widening_mul(&rhs.0).div(&F::MODULUS.resize()).1.resize();
         unsafe { Self::new_unchecked(product) }
     }
 
@@ -231,6 +229,17 @@ mod tests {
             PhantomData,
         );
         assert_eq!(a.inverse(), inverse);
+        assert_eq!(Secp256r1::ONE.inverse(), Secp256r1::ONE);
+        let a = FieldElement::<Secp256r1>(
+            UBigInt([
+                0x1001039120910903,
+                0x12012ae213030aef,
+                0x0,
+                0xfedcba9876543210,
+            ]),
+            PhantomData,
+        );
+        assert_eq!(a.inverse().mul(&a), Secp256r1::ONE);
     }
 
     #[test]

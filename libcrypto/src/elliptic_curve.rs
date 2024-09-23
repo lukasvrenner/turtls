@@ -24,8 +24,5 @@ pub trait EllipticCurve: FiniteField {
     /// The constant-term coefficient of the curve.
     const B: FieldElement<Self>;
 
-    /// The number of points along the curve.
-    ///
-    /// This is the number `BASE_POINT` must be multiplied by to return to `BASE_POINT`.
     const ORDER: UBigInt<4>;
 }

@@ -214,6 +214,10 @@ impl<const N: usize> BigInt<N> {
     pub fn abs(&self) -> Self {
         self.xor(&self.neg())
     }
+
+    pub fn resize<const O: usize>(self) -> BigInt<O> {
+        BigInt { digits: self.digits.resize(), is_negative: self.is_negative }
+    }
 }
 
 macro_rules! impl_big_int {
@@ -304,15 +308,6 @@ impl<const N: usize> From<UBigInt<N>> for BigInt<N> {
             digits: value,
             is_negative: false,
         }
-    }
-}
-
-impl From<BigInt<8>> for BigInt<4> {
-    fn from(value: BigInt<8>) -> Self {
-        let mut output = Self::ZERO;
-        output.digits.0.copy_from_slice(&value.digits.0[..4]);
-        output.is_negative = value.is_negative;
-        output
     }
 }
 
