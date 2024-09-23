@@ -244,7 +244,16 @@ mod tests {
             ]),
             PhantomData,
         );
-        assert_eq!(a.inverse().mul(&a), FieldElement::ONE);
+        let inverse = FieldElement(
+            UBigInt([
+                0xaaa905c8ae9acf5c,
+                0x11b236a5fb747f65,
+                0x6dcf21026cf56b29,
+                0x75713d3a63705199,
+            ]),
+            PhantomData,
+        );
+        assert_eq!(inverse.mul(&a), FieldElement::ONE);
     }
 
     #[test]
@@ -264,6 +273,26 @@ mod tests {
                 0x89c9a8bb5116b562,
                 0xec57bfa67717cf1b,
                 0x840b25e463c7037A,
+            ]),
+            PhantomData,
+        );
+        assert_eq!(a.mul(&inverse), FieldElement::ONE);
+
+        let inverse = FieldElement(
+            UBigInt([
+                0xaaa905c8ae9acf5c,
+                0x11b236a5fb747f65,
+                0x6dcf21026cf56b29,
+                0x75713d3a63705199,
+            ]),
+            PhantomData,
+        );
+        let a = FieldElement::<Secp256r1>(
+            UBigInt([
+                0x1001039120910903,
+                0x12012ae213030aef,
+                0x0,
+                0xfedcba9876543210,
             ]),
             PhantomData,
         );
