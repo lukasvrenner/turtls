@@ -125,11 +125,6 @@ mod tests {
 
     #[test]
     fn mul_scalar() {
-        assert_eq!(
-            Secp256r1::BASE_POINT.mul_scalar(&Secp256r1::ORDER),
-            Secp256r1::BASE_POINT
-        );
-
         todo!();
     }
 }

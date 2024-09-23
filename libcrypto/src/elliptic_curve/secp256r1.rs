@@ -53,9 +53,9 @@ impl EllipticCurve for Secp256r1 {
     };
 
     const ORDER: UBigInt<4> = UBigInt([
-        0x5ac635d8aa3a93e7,
-        0xb3ebbd55769886bc,
-        0x651d06b0cc53b0f6,
-        0x3bce3c3e27d2604b,
+        0xf3b9cac2fc632551,
+        0xbce6faada7179e84,
+        0xffffffffffffffff,
+        0xffffffff00000000,
     ]);
 }
