@@ -567,10 +567,11 @@ macro_rules! impl_non_generic {
                     let mut carry = 0;
                     for j in 0..rhs.len() {
                         // TODO: use libcore carry_mul once stabilized
-                        let result = super::carry_mul(self.0[i], rhs.0[j], carry);
-                        let (sum, overflowed) = product[i + j].overflowing_add(result.0);
+                        let partial_product;
+                        (partial_product, carry) = super::carry_mul(self.0[i], rhs.0[j], carry);
+                        let (sum, overflowed) = product[i + j].overflowing_add(partial_product);
                         product[i + j] = sum;
-                        carry = result.1 + overflowed as u64;
+                        carry += overflowed as u64;
                     }
                     product[i + rhs.len()] = carry;
                 }
