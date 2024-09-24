@@ -155,6 +155,7 @@ impl<F: FiniteField> FieldElement<F> {
     pub fn mul(&self, rhs: &Self) -> Self {
         // TODO: use barret reduction instead of division.
         let product = self.0.widening_mul(&rhs.0).div(&F::MODULUS.resize()).1.resize();
+        //debug_assert!(product < F::MODULUS)
         unsafe { Self::new_unchecked(product) }
     }
 
@@ -239,7 +240,7 @@ mod tests {
             UBigInt([
                 0x1001039120910903,
                 0x12012ae213030aef,
-                0x0,
+                0x0000000000000000,
                 0xfedcba9876543210,
             ]),
             PhantomData,
@@ -253,7 +254,8 @@ mod tests {
             ]),
             PhantomData,
         );
-        assert_eq!(inverse.mul(&a), FieldElement::ONE);
+        assert_eq!(a.inverse(), inverse);
+        assert_eq!(inverse.inverse(), a);
     }
 
     #[test]
@@ -291,11 +293,12 @@ mod tests {
             UBigInt([
                 0x1001039120910903,
                 0x12012ae213030aef,
-                0x0,
+                0x0000000000000000,
                 0xfedcba9876543210,
             ]),
             PhantomData,
         );
         assert_eq!(a.mul(&inverse), FieldElement::ONE);
+        assert_eq!(inverse.mul(&a), FieldElement::ONE);
     }
 }
