@@ -1,6 +1,6 @@
 use crate::finite_field::FieldElement;
 
-use super::{super::EllipticCurve, ProjectivePoint};
+use super::{super::EllipticCurve, AffineInfinity, ProjectivePoint};
 /// A point on an elliptic curve in affine representation.
 #[derive(Clone, Debug, Copy, Eq, PartialEq)]
 pub struct AffinePoint<C: EllipticCurve> {
@@ -67,8 +67,9 @@ impl<C: EllipticCurve> AffinePoint<C> {
     }
 }
 
-impl<C: EllipticCurve> From<ProjectivePoint<C>> for AffinePoint<C> {
-    fn from(value: ProjectivePoint<C>) -> Self {
-        value.as_affine()
+impl<C: EllipticCurve> TryFrom<ProjectivePoint<C>> for AffinePoint<C> {
+    type Error = AffineInfinity;
+    fn try_from(value: ProjectivePoint<C>) -> Result<AffinePoint<C>, Self::Error> {
+        value.as_affine().ok_or(AffineInfinity)
     }
 }

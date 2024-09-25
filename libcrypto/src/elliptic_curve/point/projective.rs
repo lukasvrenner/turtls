@@ -16,10 +16,12 @@ impl<C: EllipticCurve> ProjectivePoint<C> {
         z: FieldElement::ZERO,
     };
     /// Converts `self` into its affine representation.
-    pub fn as_affine(self) -> AffinePoint<C> {
+    pub fn as_affine(self) -> Option<AffinePoint<C>> {
+        // TODO: only check z coordinate?
+        if self == Self::POINT_AT_INF { return None; }
         let z_inv = self.z.inverse();
 
-        unsafe { AffinePoint::new_unchecked(self.x.mul(&z_inv), self.y.mul(&z_inv)) }
+        unsafe { Some(AffinePoint::new_unchecked(self.x.mul(&z_inv), self.y.mul(&z_inv))) }
     }
 
     /// Creates a new `ProjectivePoint` along the curve.
@@ -261,7 +263,7 @@ mod tests {
             ]))
         };
         let old_point = unsafe { AffinePoint::new_unchecked(x, y) }.as_projective();
-        let point = Secp256r1::BASE_POINT.as_projective().add(&old_point).as_affine();
+        let point = Secp256r1::BASE_POINT.as_projective().add(&old_point).as_affine().unwrap();
         let x = unsafe {
             FieldElement::new_unchecked(UBigInt([
                 0xfb41661bc6e7fd6c,
@@ -285,7 +287,7 @@ mod tests {
 
     #[test]
     fn double() {
-        let point = Secp256r1::BASE_POINT.as_projective().double().as_affine();
+        let point = Secp256r1::BASE_POINT.as_projective().double().as_affine().unwrap();
         let x = unsafe {
             FieldElement::new_unchecked(UBigInt([
                 0xa60b48fc47669978,
@@ -310,8 +312,10 @@ mod tests {
     fn mul_scalar() {
         let point = Secp256r1::BASE_POINT
             .as_projective()
-            .mul_scalar(UBigInt::ONE);
-        assert_eq!(point.as_affine(), Secp256r1::BASE_POINT);
+            .mul_scalar(UBigInt::ONE)
+            .as_affine()
+            .unwrap();
+        assert_eq!(point, Secp256r1::BASE_POINT);
         let scalar = UBigInt::from(112233445566778899);
         let x = unsafe {
             FieldElement::new_unchecked(UBigInt([
@@ -333,7 +337,8 @@ mod tests {
         let point = Secp256r1::BASE_POINT
             .as_projective()
             .mul_scalar(scalar)
-            .as_affine();
+            .as_affine()
+            .unwrap();
         assert_eq!(point, product)
     }
 }

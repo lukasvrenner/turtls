@@ -11,7 +11,7 @@ use crate::big_int::UBigInt;
 /// `MODULUS` *MUST* be prime.
 pub unsafe trait FiniteField
 where
-    Self: Sized + PartialEq + Copy + Clone,
+    Self: Sized + PartialEq + Copy + Clone + core::fmt::Debug,
 {
     /// The modulus used to define the finite field.
     ///

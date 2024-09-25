@@ -61,9 +61,15 @@ impl<F: FiniteField> FieldElement<F> {
     ///
     /// This value has the property that `self.inverse() * self == 1`
     ///
+    /// # Panics
+    /// This function panics if `self` is `FieldElement::ZERO` in debug mode.
+    ///
+    /// In release mode, `FieldElement::ZERO.inverse()` returns `FieldElement::ZERO`.
     /// # Constant-timedness
     /// TODO: document constant-timedness
     pub fn inverse(&self) -> Self {
+        debug_assert_ne!(self, &Self::ZERO);
+        debug_assert!(self.0 < F::MODULUS);
         let mut t = BigInt::ZERO;
         let mut new_t = BigInt::ONE;
         let mut r: BigInt<4> = F::MODULUS.into();
