@@ -1,4 +1,4 @@
-use super::{EllipticCurve, Point};
+use super::EllipticCurve;
 use crate::big_int::UBigInt;
 use crate::finite_field::FieldElement;
 
@@ -11,7 +11,10 @@ pub fn generate_signature<C: EllipticCurve>(
     let hash: FieldElement<C> = FieldElement::new(UBigInt::<4>::from_be_bytes(hash_func(msg)));
     let inverse = secret_num.inverse();
 
-    let new_point = C::BASE_POINT.mul_scalar(secret_num.inner());
+    let new_point = C::BASE_POINT
+        .as_projective()
+        .mul_scalar(secret_num.into_inner())
+        .as_affine();
 
     let s = inverse.mul(&(hash.add(&(new_point.x().mul(&key)))));
 

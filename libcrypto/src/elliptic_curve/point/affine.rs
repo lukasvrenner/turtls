@@ -1,6 +1,6 @@
 use crate::finite_field::FieldElement;
 
-use super::{super::EllipticCurve, Point, ProjectivePoint};
+use super::{super::EllipticCurve, ProjectivePoint};
 /// A point on an elliptic curve in affine representation.
 #[derive(Clone, Debug, Copy, Eq, PartialEq)]
 pub struct AffinePoint<C: EllipticCurve> {
@@ -35,10 +35,7 @@ impl<C: EllipticCurve> AffinePoint<C> {
     pub const unsafe fn new_unchecked(x: FieldElement<C>, y: FieldElement<C>) -> Self {
         Self { x, y }
     }
-}
-
-impl<C: EllipticCurve> Point for AffinePoint<C> {
-    fn add(&self, rhs: &Self) -> Self {
+    pub fn add(&self, rhs: &Self) -> Self {
         let lambda = rhs.y.sub(&self.y).div(&rhs.x.sub(&self.x));
 
         let mut x = lambda.sqr();
@@ -50,22 +47,22 @@ impl<C: EllipticCurve> Point for AffinePoint<C> {
         Self { x, y }
     }
 
-    fn neg(&self) -> Self {
+    pub fn neg(&self) -> Self {
         Self {
             x: self.x,
             y: self.y.neg(),
         }
     }
 
-    fn neg_assign(&mut self) {
+    pub fn neg_assign(&mut self) {
         self.y.neg_assign();
     }
 
-    fn double(&self) -> Self {
+    pub fn double(&self) -> Self {
         todo!();
     }
 
-    fn double_assign(&mut self) {
+    pub fn double_assign(&mut self) {
         todo!();
     }
 }
@@ -73,23 +70,5 @@ impl<C: EllipticCurve> Point for AffinePoint<C> {
 impl<C: EllipticCurve> From<ProjectivePoint<C>> for AffinePoint<C> {
     fn from(value: ProjectivePoint<C>) -> Self {
         value.as_affine()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn add() {
-        todo!();
-    }
-
-    #[test]
-    fn double() {
-        todo!();
-    }
-
-    #[test]
-    fn mul_scalar() {
-        todo!();
     }
 }

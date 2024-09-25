@@ -6,7 +6,6 @@ mod secp256r1;
 use crate::big_int::UBigInt;
 pub use point::affine::AffinePoint;
 pub use point::projective::ProjectivePoint;
-pub use point::Point;
 pub use secp256r1::Secp256r1;
 
 use crate::finite_field::{FieldElement, FiniteField};

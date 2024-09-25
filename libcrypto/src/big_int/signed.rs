@@ -216,7 +216,10 @@ impl<const N: usize> BigInt<N> {
     }
 
     pub fn resize<const O: usize>(self) -> BigInt<O> {
-        BigInt { digits: self.digits.resize(), is_negative: self.is_negative }
+        BigInt {
+            digits: self.digits.resize(),
+            is_negative: self.is_negative,
+        }
     }
 }
 
