@@ -49,6 +49,11 @@ impl<C: EllipticCurve> ProjectivePoint<C> {
             return *self;
         }
         if self == &rhs.neg() { return Self::POINT_AT_INF; }
+
+        if self == rhs {
+            // SAFETY: self isn't POINT_AT_INF
+            return unsafe { self.double_unchecked() }
+        }
         // SAFETY: we just checked that neither point is POINT_AT_INF and that they aren't the
         // negative of eachother.
         unsafe { Self::add_unchecked(self, rhs) }
@@ -59,7 +64,7 @@ impl<C: EllipticCurve> ProjectivePoint<C> {
     ///
     /// # Safety:
     /// Neither `self` nor `rhs` can be [`ProjectivePoint::POINT_AT_INF`].
-    /// Additionally, `rhs` cannot be the negative of `self`.
+    /// Additionally, `rhs` cannot be `self` or the negative of `self`.
     pub unsafe fn add_unchecked(&self, rhs: &Self) -> Self {
         let u_2 = self.y.mul(&rhs.z);
         let u = {
@@ -100,7 +105,7 @@ impl<C: EllipticCurve> ProjectivePoint<C> {
 
     /// # Safety:
     /// Neither `self` nor `rhs` can be [`ProjectivePoint::POINT_AT_INF`].
-    /// Additionally, `rhs` cannot be the negative of `self`.
+    /// Additionally, `rhs` cannot be `self` or the negative of `self`.
     pub unsafe fn add_assign_unchecked(&mut self, rhs: &Self) {
         // SAFETY: the caller guarantees that neither point is POINT_AT_INF.
         *self = unsafe { self.add_unchecked(rhs) };
@@ -117,6 +122,14 @@ impl<C: EllipticCurve> ProjectivePoint<C> {
         if self == &rhs.neg() {
             *self = Self::POINT_AT_INF;
         }
+        if self == rhs {
+            // SAFETY: self isn't POINT_AT_INF
+            unsafe { self.double_assign_unchecked() }
+            return;
+        }
+        // SAFETY: we just checked that neither point is POINT_AT_INF and that they aren't the
+        // negative of eachother.
+        unsafe { self.add_assign_unchecked(rhs) };
     }
 
     pub fn double(&self) -> Self {
