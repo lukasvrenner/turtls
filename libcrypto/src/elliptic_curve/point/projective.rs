@@ -128,7 +128,7 @@ impl<C: EllipticCurve> ProjectivePoint<C> {
     }
 
     /// # Safety:
-    /// Neither `self` nor `rhs` can be [`ProjectivePoint::POINT_AT_INF`].
+    /// `self` cannot be [`ProjectivePoint::POINT_AT_INF`].
     pub unsafe fn double_unchecked(&self) -> Self {
         todo!()
     }
@@ -141,7 +141,7 @@ impl<C: EllipticCurve> ProjectivePoint<C> {
     }
 
     /// # Safety:
-    /// Neither `self` nor `rhs` can be [`ProjectivePoint::POINT_AT_INF`].
+    /// `self` cannot be [`ProjectivePoint::POINT_AT_INF`].
     pub unsafe fn double_assign_unchecked(&mut self) {
         todo!();
     }
@@ -154,16 +154,20 @@ impl<C: EllipticCurve> ProjectivePoint<C> {
         self.y.neg_assign();
     }
 
+    // TODO: make an unchecked and checked version
     pub fn mul_scalar(&self, mut scalar: UBigInt<4>) -> Self {
-        // TODO: can we avoid POINT_AT_INF and use add_assign_unchecked by prereducing scalar until
-        // addition actually occurs?
+        // TODO: can we avoid POINT_AT_INF and use add_assign_unchecked() and double_assign_unchecked()
+        // by prereducing scalar until addition actually occurs? On top of minor performance
+        // improvements, this would allow the return of the Point trait.
         let mut result = Self::POINT_AT_INF;
         let mut temp = *self;
         while scalar != UBigInt::ZERO {
-            if scalar.0[0] & 1 != 0 {
-                result.add_assign(&temp);
+            if scalar.0[0] & 1 == 0 {
+                temp.add_assign(&result);
+                result.double();
             }
-            unsafe { temp.double_assign_unchecked() };
+            result.add_assign(&temp);
+            temp.double_assign();
             scalar.shift_right_assign(1);
         }
         result
