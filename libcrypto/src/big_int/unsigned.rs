@@ -201,6 +201,18 @@ impl<const N: usize> UBigInt<N> {
         }
     }
 
+    pub fn double(&self) -> Self {
+        self.add(self)
+    }
+
+    pub fn double_assign(&mut self) {
+        let mut carry = false;
+        for i in 0..N {
+            // TODO: use core implementation once stabilized
+            (self.0[i], carry) = super::carry_add(self.0[i], self.0[i], carry);
+        }
+    }
+
     /// Sets `self` to `self * digit`, wrapping on overflow.
     ///
     /// # Constant-timedness

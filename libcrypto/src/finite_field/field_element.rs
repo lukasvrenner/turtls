@@ -108,12 +108,22 @@ impl<F: FiniteField> FieldElement<F> {
         sum
     }
 
+    pub fn add_assign(&mut self, rhs: &Self) {
+        unsafe {
+            self.0.add_assign(&rhs.0);
+            self.sub_assign(&Self::new_unchecked(F::MODULUS));
+        }
+    }
+
     pub fn double(&self) -> Self {
         self.add(self)
     }
 
     pub fn double_assign(&mut self) {
-        todo!();
+        unsafe {
+            self.0.double_assign();
+            self.sub_assign(&Self::new_unchecked(F::MODULUS));
+        }
     }
 
     /// Returns `self - rhs` modulo [`F::MODULUS`](super::FiniteField::MODULUS).
@@ -156,6 +166,23 @@ impl<F: FiniteField> FieldElement<F> {
     /// Sets `self` to `self * rhs` modulo [`F::MODULUS`](super::FiniteField::MODULUS).
     pub fn mul_assign(&mut self, rhs: &Self) {
         *self = self.mul(rhs);
+    }
+
+    pub fn mul_digit_assign(&mut self, digit: u64) {
+        let mut carry = 0;
+        for i in 0..self.0.len() {
+            (self.0.0[i], carry) = crate::big_int::carry_mul(self.0.0[i], digit, carry);
+        }
+        self.0.div_assign(&F::MODULUS);
+    }
+
+    pub fn mul_digit(&self, digit: u64) -> Self {
+        let mut carry = 0;
+        let mut buf = UBigInt::ZERO;
+        for i in 0..self.0.len() {
+            (buf.0[i], carry) = crate::big_int::carry_mul(self.0.0[i], digit, carry);
+        }
+        Self::new(buf)
     }
 
     /// Returns `self / rhs` modulo [`F::MODULUS`](super::FiniteField::MODULUS).

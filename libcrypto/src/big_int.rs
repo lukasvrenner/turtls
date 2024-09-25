@@ -39,18 +39,18 @@ impl core::fmt::Display for FromNegErr {
 
 impl core::error::Error for FromNegErr {}
 
-const fn carry_add(x: u64, y: u64, carry: bool) -> (u64, bool) {
+pub(crate) const fn carry_add(x: u64, y: u64, carry: bool) -> (u64, bool) {
     let (sum1, overflowed1) = x.overflowing_add(y);
     let (sum2, overflowed2) = sum1.overflowing_add(carry as u64);
     (sum2, overflowed1 || overflowed2)
 }
 
-const fn carry_mul(x: u64, y: u64, carry: u64) -> (u64, u64) {
+pub(crate) const fn carry_mul(x: u64, y: u64, carry: u64) -> (u64, u64) {
     let product = x as u128 * y as u128 + carry as u128;
     (product as u64, (product >> 64) as u64)
 }
 
-const fn carry_sub(x: u64, y: u64, carry: bool) -> (u64, bool) {
+pub(crate) const fn carry_sub(x: u64, y: u64, carry: bool) -> (u64, bool) {
     let (diff1, overflowed1) = x.overflowing_sub(y);
     let (diff2, overflowed2) = diff1.overflowing_sub(carry as u64);
     (diff2, overflowed1 || overflowed2)

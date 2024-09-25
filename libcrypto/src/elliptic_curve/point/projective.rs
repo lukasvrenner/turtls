@@ -2,20 +2,12 @@ use super::{super::EllipticCurve, AffinePoint};
 use crate::{big_int::UBigInt, finite_field::FieldElement};
 
 /// A point on [`EllipticCurve`] `C` in projective representation.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub struct ProjectivePoint<C: EllipticCurve> {
     x: FieldElement<C>,
     y: FieldElement<C>,
     z: FieldElement<C>,
 }
-
-impl<C: EllipticCurve> Clone for ProjectivePoint<C> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-impl<C: EllipticCurve> Copy for ProjectivePoint<C> {}
 
 impl<C: EllipticCurve> ProjectivePoint<C> {
     pub const POINT_AT_INF: Self = Self {
@@ -143,7 +135,51 @@ impl<C: EllipticCurve> ProjectivePoint<C> {
     /// # Safety:
     /// `self` cannot be [`ProjectivePoint::POINT_AT_INF`].
     pub unsafe fn double_unchecked(&self) -> Self {
-        todo!()
+        let w = {
+            let mut three_x_sqr = self.x.sqr();
+            three_x_sqr.mul_digit_assign(3);
+
+            let mut w = self.z.sqr();
+            w.mul_assign(&C::A);
+            w.add_assign(&three_x_sqr);
+            w
+        };
+        let s = self.y.mul(&self.z);
+
+        // TODO: only reduce once?
+        let eight_s_sqr = {
+            let mut temp = s.sqr();
+            temp.mul_digit_assign(8);
+            temp
+        };
+        let b = {
+            let mut b = self.x.mul(&self.y);
+            b.mul_assign(&s);
+            b
+        };
+        let h = {
+            let mut h = w.sqr();
+            h.sub_assign(&b.mul_digit(8));
+            h
+        };
+        let x = {
+            let mut x = h.mul(&s);
+            x.double_assign();
+            x
+        };
+        let y = {
+            let mut temp = self.y.sqr();
+            // TODO: only reduce once?
+            temp.mul_assign(&eight_s_sqr);
+
+            let mut y = b.mul_digit(4);
+            y.sub_assign(&h);
+            y.mul_assign(&w);
+            y.sub_assign(&temp);
+            y
+        };
+        let z = eight_s_sqr.mul(&s);
+        Self { x, y, z }
     }
 
     pub fn double_assign(&mut self) {
@@ -156,7 +192,7 @@ impl<C: EllipticCurve> ProjectivePoint<C> {
     /// # Safety:
     /// `self` cannot be [`ProjectivePoint::POINT_AT_INF`].
     pub unsafe fn double_assign_unchecked(&mut self) {
-        todo!();
+        *self = unsafe { self.double_unchecked() }
     }
 
     pub fn neg(&self) -> Self {
