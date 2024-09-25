@@ -6,18 +6,10 @@ use super::FiniteField;
 /// An element of the finite field `F`.
 ///
 /// All operations are performed modulo [`F::MODULUS`](super::FiniteField::MODULUS).
-#[derive(Debug, Eq, PartialOrd, Ord, PartialEq)]
+#[derive(Debug, Eq, PartialOrd, Ord, PartialEq, Clone, Copy)]
 pub struct FieldElement<F: FiniteField>(UBigInt<4>, PhantomData<F>);
 
-impl<T: FiniteField> Clone for FieldElement<T> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-impl<T: FiniteField> Copy for FieldElement<T> {}
-
 impl<F: FiniteField> FieldElement<F> {
-
     // SAFETY: `FiniteField` implementors guarantee that `ZERO` is in the field.
     pub const ZERO: Self = unsafe { Self::new_unchecked(UBigInt::ZERO) };
 
@@ -79,10 +71,7 @@ impl<F: FiniteField> FieldElement<F> {
 
         while new_r != BigInt::ZERO {
             let (quotient, remainder) = r.div(&new_r);
-            (t, new_t) = (
-                new_t,
-                t.sub(&quotient.widening_mul(&new_t).resize()),
-            );
+            (t, new_t) = (new_t, t.sub(&quotient.widening_mul(&new_t).resize()));
             (r, new_r) = (new_r, remainder);
         }
         debug_assert_eq!(r, BigInt::ONE);
@@ -154,7 +143,12 @@ impl<F: FiniteField> FieldElement<F> {
     /// TODO: document constant-timedness
     pub fn mul(&self, rhs: &Self) -> Self {
         // TODO: use barret reduction instead of division.
-        let product = self.0.widening_mul(&rhs.0).div(&F::MODULUS.resize()).1.resize();
+        let product = self
+            .0
+            .widening_mul(&rhs.0)
+            .div(&F::MODULUS.resize())
+            .1
+            .resize();
         //debug_assert!(product < F::MODULUS)
         unsafe { Self::new_unchecked(product) }
     }
@@ -186,7 +180,7 @@ impl<F: FiniteField> FieldElement<F> {
     ///
     /// The returned value has the property that, when added to `self`, the sum is [`F::ZERO`](super::FiniteField::ZERO).
     pub fn neg(&self) -> Self {
-        Self::sub(&Self::ZERO, self)
+        Self::ZERO.sub(self)
     }
 
     /// Sets `self` to the modular additive inverse of `self`.
