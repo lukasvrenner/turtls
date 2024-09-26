@@ -274,10 +274,10 @@ mod tests {
         };
         let y = unsafe {
             FieldElement::new_unchecked(UBigInt([
-                    0x9A79B127A27D5032,
-                    0xD82AB036384FB83D,
-                    0x374B06CE1A64A2EC,
-                0x8734640C4998FF7E,
+                0x9a79b127a27d5032,
+                0xd82ab036384fb83d,
+                0x374b06ce1a64a2ec,
+                0x8734640c4998ff7e,
             ]))
         };
         let sum = unsafe { AffinePoint::new_unchecked(x, y) };

@@ -67,28 +67,34 @@ class Secp256r1:
             return self
 
         if self.neg() == rhs:
-            print("got None")
             return None
 
         if self != rhs:
             slope = div(sub(rhs.y, self.y), sub(rhs.x, self.x))
+            print(slope)
         else:
             slope = unimplemented()
-        print(slope)
 
         x = sqr(slope)
         x = sub(x, self.x)
         x = sub(x, rhs.x)
 
-        y = mul(slope, sub(self.x, rhs.x))
-
+        y = mul(slope, sub(self.x, x))
         y = sub(y, self.y)
         return Secp256r1(x, y)
 
     def double(self):
         self.add(self)
 
+    def __eq__(self, other):
+        if not isinstance(other, Secp256r1):
+            return NotImplemented
+        return self.x == other.x and self.y == other.y
+
 
 BASE_POINT = Secp256r1(0x6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296, 0x4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5)
 K_2 = Secp256r1(0x7cf27b188d034f7e8a52380304b51ac3c08969e277f21b35a60b48fc47669978, 0x07775510db8ed040293d9ac69f7430dbba7dade63ce982299e04b79d227873d1)
-print(K_2.add(BASE_POINT))
+K_3 = Secp256r1(0x5ecbe4d1a6330a44c8f7ef951d4bf165e6c6b721efada985fb41661bc6e7fd6c, 0x8734640c4998ff7e374b06ce1a64a2ecd82ab036384fb83d9a79b127a27d5032)
+TRY_K_3 = K_2.add(BASE_POINT)
+print(TRY_K_3)
+assert(TRY_K_3 == K_3)
