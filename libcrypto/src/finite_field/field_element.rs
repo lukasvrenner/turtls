@@ -6,8 +6,20 @@ use super::FiniteField;
 /// An element of the finite field `F`.
 ///
 /// All operations are performed modulo [`F::MODULUS`](super::FiniteField::MODULUS).
-#[derive(Debug, Eq, PartialOrd, Ord, PartialEq, Clone, Copy)]
+#[derive(Eq, PartialOrd, Ord, PartialEq, Clone, Copy)]
 pub struct FieldElement<F: FiniteField>(UBigInt<4>, PhantomData<F>);
+
+impl<F: FiniteField> core::fmt::Display for FieldElement<F> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        core::fmt::Display::fmt(&self.0, f)
+    }
+}
+
+impl<F: FiniteField> core::fmt::Debug for FieldElement<F> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        core::fmt::Display::fmt(&self, f)
+    }
+}
 
 impl<F: FiniteField> FieldElement<F> {
     // SAFETY: `FiniteField` implementors guarantee that `ZERO` is in the field.

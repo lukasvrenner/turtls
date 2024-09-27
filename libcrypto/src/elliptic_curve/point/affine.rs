@@ -2,10 +2,34 @@ use crate::finite_field::FieldElement;
 
 use super::{super::EllipticCurve, AffineInfinity, ProjectivePoint};
 /// A point on an elliptic curve in affine representation.
-#[derive(Clone, Debug, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 pub struct AffinePoint<C: EllipticCurve> {
     x: FieldElement<C>,
     y: FieldElement<C>,
+}
+
+impl<C: EllipticCurve> core::fmt::Display for AffinePoint<C> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str("(")?;
+        core::fmt::Display::fmt(&self.x, f)?;
+
+        f.write_str(", ")?;
+        core::fmt::Display::fmt(&self.y, f)?;
+        f.write_str(")")?;
+        Ok(())
+    }
+}
+
+impl<C: EllipticCurve> core::fmt::Debug for AffinePoint<C> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str(concat!(stringify!(AffinePoint), " { x: "))?;
+        core::fmt::Debug::fmt(&self.x, f)?;
+
+        f.write_str(", y: ")?;
+        core::fmt::Display::fmt(&self.y, f)?;
+        f.write_str(" }")?;
+        Ok(())
+    }
 }
 
 impl<C: EllipticCurve> AffinePoint<C> {
@@ -36,12 +60,12 @@ impl<C: EllipticCurve> AffinePoint<C> {
         Self { x, y }
     }
     pub fn add(&self, rhs: &Self) -> Self {
-        let lambda = rhs.y.sub(&self.y).div(&rhs.x.sub(&self.x));
-        let mut x = lambda.sqr();
+        let slope = rhs.y.sub(&self.y).div(&rhs.x.sub(&self.x));
+        let mut x = slope.sqr();
         x.sub_assign(&self.x);
         x.sub_assign(&rhs.x);
 
-        let mut y = lambda.mul(&self.x.sub(&x));
+        let mut y = slope.mul(&self.x.sub(&x));
         y.sub_assign(&self.y);
         Self { x, y }
     }
@@ -97,8 +121,11 @@ mod tests {
                 0x07775510db8ed040,
             ]))
         };
-        let old_point = unsafe { AffinePoint::new_unchecked(x, y) };
-        let point = Secp256r1::BASE_POINT.add(&old_point);
+        let k_2 = unsafe { AffinePoint::new_unchecked(x, y) };
+
+        //let sum = k_2.add(&Secp256r1::BASE_POINT);
+        let also_sum = Secp256r1::BASE_POINT.add(&k_2);
+
         let x = unsafe {
             FieldElement::new_unchecked(UBigInt([
                 0xfb41661bc6e7fd6c,
@@ -115,7 +142,8 @@ mod tests {
                 0x8734640c4998ff7e,
             ]))
         };
-        let sum = unsafe { AffinePoint::new_unchecked(x, y) };
-        assert_eq!(point, sum);
+        let k_3 = unsafe { AffinePoint::new_unchecked(x, y) };
+        assert_eq!(also_sum, k_3);
+        //assert_eq!(sum, k_3);
     }
 }

@@ -6,8 +6,40 @@ use core::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
 /// An unsigned integer of size `N * 64` bits.
 ///
 /// Internally, [`UBigInt<N>`] is a little-endian `[u64; N]`.
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct UBigInt<const N: usize>(pub [u64; N]);
+
+impl<const N: usize> core::fmt::Display for UBigInt<N> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        core::fmt::LowerHex::fmt(&self, f)
+    }
+}
+
+impl<const N: usize> core::fmt::LowerHex for UBigInt<N> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        for i in self.0.iter().rev() {
+
+            write!(f, "{:#016x}", i)?
+        }
+        Ok(())
+    }
+}
+
+impl<const N: usize> core::fmt::UpperHex for UBigInt<N> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        for i in self.0.iter().rev() {
+
+            write!(f, "{:#016X}", i)?
+        }
+        Ok(())
+    }
+}
+
+impl<const N: usize> core::fmt::Debug for UBigInt<N> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        core::fmt::Display::fmt(&self, f)
+    }
+}
 
 impl<const N: usize> UBigInt<N> {
     /// Constructs a new `UBigInt` of length `N` from a little-endian `[u64; N]`.
