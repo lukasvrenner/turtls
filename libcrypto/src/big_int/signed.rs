@@ -152,7 +152,7 @@ impl<const N: usize> BigInt<N> {
     /// This is a constant-time operation.
     #[inline]
     pub fn is_positive(&self) -> bool {
-        !self.is_negative && *self != Self::ZERO
+        !self.is_negative & (self.digits != UBigInt::ZERO)
     }
 
     /// Converts `self` into its one's compliment
@@ -238,8 +238,8 @@ macro_rules! impl_big_int {
                 let quotient = Self {
                     digits: quotient,
                     is_negative: (self.is_negative ^ rhs.is_negative)
-                        && *self != Self::ZERO
-                        && *rhs != Self::ZERO,
+                        & (*self != Self::ZERO)
+                        & (*rhs != Self::ZERO),
                 };
                 let remainder = Self {
                     digits: remainder,
@@ -261,8 +261,8 @@ macro_rules! impl_big_int {
                 BigInt::<{ $n * 2 }> {
                     digits: product,
                     is_negative: (self.is_negative ^ !rhs.is_negative)
-                        && *self != Self::ZERO
-                        && *rhs != Self::ZERO,
+                        & (*self != Self::ZERO)
+                        & (*rhs != Self::ZERO),
                 }
             }
         }
@@ -364,5 +364,25 @@ mod tests {
             BigInt::ZERO
         );
         assert_eq!(BigInt::<4>::ZERO.widening_mul(&BigInt::ONE), BigInt::ZERO);
+    }
+
+    #[test]
+    fn is_positive() {
+        assert!(BigInt::<4>::MAX.is_positive());
+        assert!(BigInt::<4>::ONE.is_positive());
+
+        assert!(!BigInt::<4>::ZERO.is_positive());
+        assert!(!BigInt::<4>::MIN.is_positive());
+        assert!(!BigInt::<4>::NEG_ONE.is_positive());
+    }
+
+    #[test]
+    fn is_negative() {
+        assert!(BigInt::<4>::MIN.is_negative());
+        assert!(BigInt::<4>::NEG_ONE.is_negative());
+
+        assert!(!BigInt::<4>::ZERO.is_negative());
+        assert!(!BigInt::<4>::MAX.is_negative());
+        assert!(!BigInt::<4>::ONE.is_negative());
     }
 }
