@@ -17,7 +17,7 @@ impl<F: FiniteField> core::fmt::Display for FieldElement<F> {
 
 impl<F: FiniteField> core::fmt::Debug for FieldElement<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        core::fmt::Display::fmt(&self, f)
+        core::fmt::Debug::fmt(&self.0, f)
     }
 }
 

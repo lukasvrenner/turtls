@@ -26,7 +26,7 @@ impl<C: EllipticCurve> core::fmt::Debug for AffinePoint<C> {
         core::fmt::Debug::fmt(&self.x, f)?;
 
         f.write_str(", y: ")?;
-        core::fmt::Display::fmt(&self.y, f)?;
+        core::fmt::Debug::fmt(&self.y, f)?;
         f.write_str(" }")?;
         Ok(())
     }
@@ -60,7 +60,9 @@ impl<C: EllipticCurve> AffinePoint<C> {
         Self { x, y }
     }
     pub fn add(&self, rhs: &Self) -> Self {
-        let slope = rhs.y.sub(&self.y).div(&rhs.x.sub(&self.x));
+        let y_diff = rhs.y.sub(&self.y);
+        let x_diff = rhs.x.sub(&self.x);
+        let slope = y_diff.div(&x_diff);
         let mut x = slope.sqr();
         x.sub_assign(&self.x);
         x.sub_assign(&rhs.x);
