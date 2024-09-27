@@ -28,6 +28,7 @@ impl<const N: usize> core::fmt::LowerHex for UBigInt<N> {
 
 impl<const N: usize> core::fmt::UpperHex for UBigInt<N> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str("0x")?;
         for i in self.0.iter().rev() {
 
             write!(f, "{:016X}", i)?
