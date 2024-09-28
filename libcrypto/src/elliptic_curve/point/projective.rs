@@ -10,14 +10,25 @@ pub struct ProjectivePoint<C: EllipticCurve> {
 }
 
 impl<C: EllipticCurve> ProjectivePoint<C> {
+    /// The point at infinity.
+    ///
+    /// Note: this is not necessarily the same as `self.is_infinity()`
     pub const POINT_AT_INF: Self = Self {
         x: FieldElement::ZERO,
         y: FieldElement::ONE,
         z: FieldElement::ZERO,
     };
+
+    /// Returns `true` if `self` is the point at infinity and `false` otherwise.
+    ///
+    /// Note: this is not necessarily the same as `self == POINT_AT_INF`.
+    pub fn is_infinity(&self) -> bool {
+        self.z == FieldElement::ZERO
+    }
+
     /// Converts `self` into its affine representation.
     pub fn as_affine(self) -> Option<AffinePoint<C>> {
-        if self.z == FieldElement::ZERO {
+        if self.is_infinity() {
             return None;
         }
         let z_inv = self.z.inverse();
@@ -30,7 +41,7 @@ impl<C: EllipticCurve> ProjectivePoint<C> {
         }
     }
 
-    /// Creates a new `ProjectivePoint` along the curve.
+    /// Creates a new [`ProjectivePoint`] along the curve.
     /// # Safety
     /// The point must be on the curve.
     pub const unsafe fn new_unchecked(
@@ -41,32 +52,30 @@ impl<C: EllipticCurve> ProjectivePoint<C> {
         Self { x, y, z }
     }
 
+    /// Adds `self` and `rhs`, returning the other point if either point is infinity.
+    ///
+    /// Generally, use this method instead of [`add_fast`]. If, however, it is guaranteed that neither
+    /// point is infinity, consider using [`add_fast`].
+    ///
+    /// [`add_fast`]: ProjectivePoint::add_fast
     pub fn add(&self, rhs: &Self) -> Self {
-        if self == &Self::POINT_AT_INF {
+        if self.is_infinity() {
             return *rhs;
         }
-        if rhs == &Self::POINT_AT_INF {
+        if rhs.is_infinity() {
             return *self;
         }
-        if self == &rhs.neg() {
-            return Self::POINT_AT_INF;
-        }
-
-        if self == rhs {
-            // SAFETY: self isn't POINT_AT_INF
-            return unsafe { self.double_unchecked() };
-        }
-        // SAFETY: we just checked that neither point is POINT_AT_INF and that they aren't the
-        // negative of eachother.
-        unsafe { Self::add_unchecked(self, rhs) }
+        Self::add_fast(self, rhs)
     }
 
-    /// Adds `self` and `rhs`, assuming neither are [`ProjectivePoint::POINT_AT_INF`].
+    /// Adds `self` and `rhs`, returning [`POINT_AT_INF`] if either point is infinity.
     ///
-    /// # Safety:
-    /// Neither `self` nor `rhs` can be [`ProjectivePoint::POINT_AT_INF`].
-    /// Additionally, `rhs` cannot be `self` or the negative of `self`.
-    pub unsafe fn add_unchecked(&self, rhs: &Self) -> Self {
+    /// Generally, use [`add`] instead of this method. If, however, it is guaranteed that neither
+    /// point is infinity, consider using this method.
+    ///
+    /// [`add`]: ProjectivePoint::add
+    /// [`POINT_AT_INF`]: ProjectivePoint::POINT_AT_INF
+    pub fn add_fast(&self, rhs: &Self) -> Self {
         let u_2 = self.y.mul(&rhs.z);
         let u = {
             let mut u_1 = rhs.y.mul(&self.z);
@@ -104,12 +113,10 @@ impl<C: EllipticCurve> ProjectivePoint<C> {
         unsafe { Self::new_unchecked(x, y, z) }
     }
 
-    /// # Safety:
-    /// Neither `self` nor `rhs` can be [`ProjectivePoint::POINT_AT_INF`].
-    /// Additionally, `rhs` cannot be `self` or the negative of `self`.
-    pub unsafe fn add_assign_unchecked(&mut self, rhs: &Self) {
+
+    pub fn add_assign_fast(&mut self, rhs: &Self) {
         // SAFETY: the caller guarantees that neither point is POINT_AT_INF.
-        *self = unsafe { self.add_unchecked(rhs) };
+        *self = self.add_fast(rhs);
     }
 
     pub fn add_assign(&mut self, rhs: &Self) {
@@ -130,7 +137,7 @@ impl<C: EllipticCurve> ProjectivePoint<C> {
         }
         // SAFETY: we just checked that neither point is POINT_AT_INF and that they aren't the
         // negative of eachother.
-        unsafe { self.add_assign_unchecked(rhs) };
+        self.add_assign_fast(rhs);
     }
 
     pub fn double(&self) -> Self {
@@ -250,7 +257,7 @@ impl<C: EllipticCurve> From<AffinePoint<C>> for ProjectivePoint<C> {
 mod tests {
     use super::EllipticCurve;
     use crate::big_int::UBigInt;
-    use crate::elliptic_curve::{AffinePoint, Secp256r1};
+    use crate::elliptic_curve::{AffinePoint, ProjectivePoint, Secp256r1};
     use crate::finite_field::FieldElement;
 
     // test values from http://point-at-infinity.org/ecc/nisttv
@@ -275,7 +282,6 @@ mod tests {
         };
         // Secp256r1::BASE_POINT * 2
         let k_2 = unsafe { AffinePoint::new_unchecked(x, y) }.as_projective();
-
 
         let x = unsafe {
             FieldElement::new_unchecked(UBigInt([
@@ -302,6 +308,63 @@ mod tests {
 
         let also_sum = Secp256r1::BASE_POINT.as_projective().add(&k_2).as_affine();
         assert_eq!(also_sum, Some(k_3));
+    }
+
+    #[test]
+    fn add_fast() {
+        let x = unsafe {
+            FieldElement::new_unchecked(UBigInt([
+                0xa60b48fc47669978,
+                0xc08969e277f21b35,
+                0x8a52380304b51ac3,
+                0x7cf27b188d034f7e,
+            ]))
+        };
+        let y = unsafe {
+            FieldElement::new_unchecked(UBigInt([
+                0x9e04b79d227873d1,
+                0xba7dade63ce98229,
+                0x293d9ac69f7430db,
+                0x07775510db8ed040,
+            ]))
+        };
+        // Secp256r1::BASE_POINT * 2
+        let k_2 = unsafe { AffinePoint::new_unchecked(x, y) }.as_projective();
+
+        let x = unsafe {
+            FieldElement::new_unchecked(UBigInt([
+                0xfb41661bc6e7fd6c,
+                0xe6c6b721efada985,
+                0xc8f7ef951d4bf165,
+                0x5ecbe4d1a6330a44,
+            ]))
+        };
+
+        let y = unsafe {
+            FieldElement::new_unchecked(UBigInt([
+                0x9a79b127a27d5032,
+                0xd82ab036384fb83d,
+                0x374b06ce1a64a2ec,
+                0x8734640c4998ff7e,
+            ]))
+        };
+        // Secp256r1::BASE_POINT * 3
+        let k_3 = unsafe { AffinePoint::new_unchecked(x, y) };
+
+        let sum = k_2
+            .add_fast(&Secp256r1::BASE_POINT.as_projective())
+            .as_affine();
+        assert_eq!(sum, Some(k_3));
+
+        let inf = Secp256r1::BASE_POINT
+            .as_projective()
+            .add_fast(&ProjectivePoint::POINT_AT_INF)
+            .as_affine();
+        assert_eq!(inf, None);
+
+        let inf = k_3.as_projective().neg().add_fast(&k_3.as_projective()).as_affine();
+        assert_eq!(inf, None);
+
     }
 
     #[test]
