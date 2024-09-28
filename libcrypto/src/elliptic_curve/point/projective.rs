@@ -248,12 +248,12 @@ impl<C: EllipticCurve> From<AffinePoint<C>> for ProjectivePoint<C> {
 
 #[cfg(test)]
 mod tests {
-    // test values from http://point-at-infinity.org/ecc/nisttv
-
     use super::EllipticCurve;
     use crate::big_int::UBigInt;
     use crate::elliptic_curve::{AffinePoint, Secp256r1};
     use crate::finite_field::FieldElement;
+
+    // test values from http://point-at-infinity.org/ecc/nisttv
 
     #[test]
     fn add() {
@@ -273,11 +273,11 @@ mod tests {
                 0x07775510db8ed040,
             ]))
         };
-        let old_point = unsafe { AffinePoint::new_unchecked(x, y) }.as_projective();
-        let point = Secp256r1::BASE_POINT
-            .as_projective()
-            .add(&old_point)
-            .as_affine();
+        // Secp256r1::BASE_POINT * 2
+        let k_2 = unsafe { AffinePoint::new_unchecked(x, y) }.as_projective();
+
+        let sum = Secp256r1::BASE_POINT.as_projective().add(&k_2).as_affine();
+
         let x = unsafe {
             FieldElement::new_unchecked(UBigInt([
                 0xfb41661bc6e7fd6c,
@@ -286,6 +286,7 @@ mod tests {
                 0x5ecbe4d1a6330a44,
             ]))
         };
+
         let y = unsafe {
             FieldElement::new_unchecked(UBigInt([
                 0x9a79b127a27d5032,
@@ -294,16 +295,15 @@ mod tests {
                 0x8734640c4998ff7e,
             ]))
         };
-        let sum = unsafe { AffinePoint::new_unchecked(x, y) };
-        assert_eq!(point, Some(sum));
+        // Secp256r1::BASE_POINT * 3
+        let k_3 = unsafe { AffinePoint::new_unchecked(x, y) };
+
+        assert_eq!(sum, Some(k_3));
     }
 
     #[test]
     fn double() {
-        let point = Secp256r1::BASE_POINT
-            .as_projective()
-            .double()
-            .as_affine();
+        let point = Secp256r1::BASE_POINT.as_projective().double().as_affine();
         let x = unsafe {
             FieldElement::new_unchecked(UBigInt([
                 0xa60b48fc47669978,
@@ -330,8 +330,11 @@ mod tests {
             .as_projective()
             .mul_scalar(UBigInt::ONE)
             .as_affine();
+
         assert_eq!(point, Some(Secp256r1::BASE_POINT));
+
         let scalar = UBigInt::from(112233445566778899);
+
         let x = unsafe {
             FieldElement::new_unchecked(UBigInt([
                 0x22795513aeaab82f,
@@ -340,6 +343,7 @@ mod tests {
                 0x339150844ec15234,
             ]))
         };
+
         let y = unsafe {
             FieldElement::new_unchecked(UBigInt([
                 0xb1c14ddfdc8ec1b2,
@@ -348,11 +352,14 @@ mod tests {
                 0x5ada38b674336a21,
             ]))
         };
+
         let product = unsafe { AffinePoint::new_unchecked(x, y) };
+
         let point = Secp256r1::BASE_POINT
             .as_projective()
             .mul_scalar(scalar)
             .as_affine();
+
         assert_eq!(point, Some(product))
     }
 }
