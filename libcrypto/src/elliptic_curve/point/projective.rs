@@ -85,7 +85,7 @@ impl<C: EllipticCurve> ProjectivePoint<C> {
         // TODO: name this something better
         let v_2_v_sqr = v_sqr.mul(&v_2);
 
-        let w = self.z.sub(&rhs.z);
+        let w = self.z.mul(&rhs.z);
 
         let a = {
             let mut a = u.sqr();
@@ -276,7 +276,6 @@ mod tests {
         // Secp256r1::BASE_POINT * 2
         let k_2 = unsafe { AffinePoint::new_unchecked(x, y) }.as_projective();
 
-        let sum = Secp256r1::BASE_POINT.as_projective().add(&k_2).as_affine();
 
         let x = unsafe {
             FieldElement::new_unchecked(UBigInt([
@@ -298,7 +297,11 @@ mod tests {
         // Secp256r1::BASE_POINT * 3
         let k_3 = unsafe { AffinePoint::new_unchecked(x, y) };
 
+        let sum = k_2.add(&Secp256r1::BASE_POINT.as_projective()).as_affine();
         assert_eq!(sum, Some(k_3));
+
+        let also_sum = Secp256r1::BASE_POINT.as_projective().add(&k_2).as_affine();
+        assert_eq!(also_sum, Some(k_3));
     }
 
     #[test]
