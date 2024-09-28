@@ -76,7 +76,6 @@ class Affine:
             x_diff = sub(rhs.x, self.x)
             slope = div(sub(rhs.y, self.y), sub(rhs.x, self.x))
         else:
-            # breakpoint()
             slope = mul(self.x, self.x)
             slope = mul(slope, 3)
             slope = add(slope, A)
@@ -120,6 +119,13 @@ class Projective:
         return Affine(mul(self.x, inv), mul(self.y, inv))
 
     def add(self, rhs):
+        if self == None:
+            return rhs
+        if rhs == None:
+            return self
+        if rhs == neg(self):
+            return None
+
         u_1 = mul(rhs.y, self.z)
         u_2 = mul(self.y, rhs.z)
         v_1 = mul(rhs.x, self.z)
@@ -143,6 +149,8 @@ class Projective:
 
         z = mul(v_cube, w)
         return Projective(x, y, z)
+
+    def double(self, rhs):
 
 
 # secp256r1
