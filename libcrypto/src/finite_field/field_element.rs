@@ -116,17 +116,17 @@ impl<F: FiniteField> FieldElement<F> {
     /// This is a constant-time operation.
     pub fn add(&self, rhs: &Self) -> Self {
         let mut sum;
-        let mask;
-        // SAFETY: adding a value less than `F::MODULUS` and then performing modular subtraction of
-        // `F::MODULUS` will always be inside the appropriate range.
+        let mut mask;
         (sum, mask) = self.0.overflowing_add(&rhs.0);
-        sum.sub_assign(&F::MODULUS.and_bool(mask));
+        mask ^= sum.overflowing_sub_assign(&F::MODULUS);
+        sum.add_assign(&F::MODULUS.and_bool(mask));
         unsafe { Self::new_unchecked(sum) }
     }
 
     pub fn add_assign(&mut self, rhs: &Self) {
-        let mask = self.0.overflowing_add_assign(&rhs.0);
-        self.0.sub_assign(&F::MODULUS.and_bool(mask));
+        let mut mask = self.0.overflowing_add_assign(&rhs.0);
+        mask ^= self.0.overflowing_sub_assign(&F::MODULUS);
+        self.0.add_assign(&F::MODULUS.and_bool(mask));
     }
 
     pub fn double(&self) -> Self {
@@ -383,7 +383,7 @@ mod tests {
 
     #[test]
     fn add_assign() {
-        let a = FieldElement(
+        let sum = FieldElement(
             UBigInt([
                 0xcbb6406837bf51f5,
                 0x2bce33576b315ece,
@@ -413,7 +413,7 @@ mod tests {
             PhantomData,
         );
         b.add_assign(&diff);
-        assert_eq!(a, b);
+        assert_eq!(sum, b);
     }
 
     #[test]
