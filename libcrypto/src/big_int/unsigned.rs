@@ -746,6 +746,7 @@ macro_rules! impl_non_generic {
 
 impl_non_generic!(4);
 impl_non_generic!(8);
+impl_non_generic!(5);
 
 impl<const N: usize> Ord for UBigInt<N> {
     // TODO: make this constant-time?

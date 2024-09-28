@@ -61,13 +61,7 @@ impl<C: EllipticCurve> AffinePoint<C> {
     }
     pub fn add(&self, rhs: &Self) -> Self {
         let slope = rhs.y.sub(&self.y).div(&rhs.x.sub(&self.x));
-        let mut x = slope.sqr();
-        x.sub_assign(&self.x);
-        x.sub_assign(&rhs.x);
-
-        let mut y = slope.mul(&self.x.sub(&x));
-        y.sub_assign(&self.y);
-        Self { x, y }
+        self.third_point_on_line(rhs, &slope)
     }
 
     pub fn neg(&self) -> Self {
@@ -82,11 +76,28 @@ impl<C: EllipticCurve> AffinePoint<C> {
     }
 
     pub fn double(&self) -> Self {
-        todo!();
+        let slope = {
+            let mut slope = self.x.sqr();
+            slope.mul_digit_assign(3);
+            slope.add_assign(&C::A);
+            let tmp = self.y.double();
+            slope.div(&tmp)
+        };
+        self.third_point_on_line(self, &slope)
     }
 
     pub fn double_assign(&mut self) {
         todo!();
+    }
+
+    fn third_point_on_line(&self, other: &Self, slope: &FieldElement<C>) -> Self {
+        let mut x = slope.sqr();
+        x.sub_assign(&self.x);
+        x.sub_assign(&other.x);
+
+        let mut y = slope.mul(&self.x.sub(&x));
+        y.sub_assign(&self.y);
+        Self { x, y }
     }
 }
 
@@ -102,6 +113,8 @@ mod tests {
     use super::*;
     use crate::big_int::UBigInt;
     use crate::elliptic_curve::Secp256r1;
+
+    // test values from http://point-at-infinity.org/ecc/nisttv
 
     #[test]
     fn add() {
@@ -121,10 +134,8 @@ mod tests {
                 0x07775510db8ed040,
             ]))
         };
+        // Secp256r1::BASE_POINT * 2
         let k_2 = unsafe { AffinePoint::new_unchecked(x, y) };
-
-        let sum = k_2.add(&Secp256r1::BASE_POINT);
-        let also_sum = Secp256r1::BASE_POINT.add(&k_2);
 
         let x = unsafe {
             FieldElement::new_unchecked(UBigInt([
@@ -142,8 +153,38 @@ mod tests {
                 0x8734640c4998ff7e,
             ]))
         };
+        // Secp256r1::BASE_POINT * 3
         let k_3 = unsafe { AffinePoint::new_unchecked(x, y) };
-        assert_eq!(also_sum, k_3);
+
+        let sum = k_2.add(&Secp256r1::BASE_POINT);
         assert_eq!(sum, k_3);
+
+        let also_sum = Secp256r1::BASE_POINT.add(&k_2);
+        assert_eq!(also_sum, k_3);
+    }
+
+    #[test]
+    fn double() {
+        let x = unsafe {
+            FieldElement::new_unchecked(UBigInt([
+                0xa60b48fc47669978,
+                0xc08969e277f21b35,
+                0x8a52380304b51ac3,
+                0x7cf27b188d034f7e,
+            ]))
+        };
+        let y = unsafe {
+            FieldElement::new_unchecked(UBigInt([
+                0x9e04b79d227873d1,
+                0xba7dade63ce98229,
+                0x293d9ac69f7430db,
+                0x07775510db8ed040,
+            ]))
+        };
+        // Secp256r1::BASE_POINT * 2
+        let k_2 = unsafe { AffinePoint::new_unchecked(x, y) };
+
+        let sum = Secp256r1::BASE_POINT.double();
+        assert_eq!(sum, k_2);
     }
 }

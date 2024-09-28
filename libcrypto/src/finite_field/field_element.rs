@@ -116,20 +116,17 @@ impl<F: FiniteField> FieldElement<F> {
     /// This is a constant-time operation.
     pub fn add(&self, rhs: &Self) -> Self {
         let mut sum;
+        let mask;
         // SAFETY: adding a value less than `F::MODULUS` and then performing modular subtraction of
         // `F::MODULUS` will always be inside the appropriate range.
-        unsafe {
-            sum = Self::new_unchecked(self.0.add(&rhs.0));
-            sum.sub_assign(&Self::new_unchecked(F::MODULUS))
-        };
-        sum
+        (sum, mask) = self.0.overflowing_add(&rhs.0);
+        sum.sub_assign(&F::MODULUS.and_bool(mask));
+        unsafe { Self::new_unchecked(sum) }
     }
 
     pub fn add_assign(&mut self, rhs: &Self) {
-        unsafe {
-            self.0.add_assign(&rhs.0);
-            self.sub_assign(&Self::new_unchecked(F::MODULUS));
-        }
+        let mask = self.0.overflowing_add_assign(&rhs.0);
+        self.0.sub_assign(&F::MODULUS.and_bool(mask));
     }
 
     pub fn double(&self) -> Self {
@@ -186,20 +183,17 @@ impl<F: FiniteField> FieldElement<F> {
     }
 
     pub fn mul_digit_assign(&mut self, digit: u64) {
-        let mut carry = 0;
-        for i in 0..self.0.len() {
-            (self.0 .0[i], carry) = crate::big_int::carry_mul(self.0 .0[i], digit, carry);
-        }
-        self.0.div_assign(&F::MODULUS);
+        *self = self.mul_digit(digit)
     }
 
     pub fn mul_digit(&self, digit: u64) -> Self {
         let mut carry = 0;
-        let mut buf = UBigInt::ZERO;
+        let mut buf = UBigInt::<5>::ZERO;
         for i in 0..self.0.len() {
             (buf.0[i], carry) = crate::big_int::carry_mul(self.0 .0[i], digit, carry);
         }
-        Self::new(buf)
+        buf.0[buf.len() - 1] = carry;
+        unsafe { Self::new_unchecked(buf.div(&F::MODULUS.resize()).1.resize()) }
     }
 
     /// Returns `self / rhs` modulo [`F::MODULUS`](super::FiniteField::MODULUS).
@@ -338,6 +332,88 @@ mod tests {
         );
         assert_eq!(a.mul(&inverse), FieldElement::ONE);
         assert_eq!(inverse.mul(&a), FieldElement::ONE);
+    }
+
+    #[test]
+    fn add() {
+        let a = FieldElement(
+            UBigInt([
+                0xcbb6406837bf51f5,
+                0x2bce33576b315ece,
+                0x8ee7eb4a7c0f9e16,
+                0x4fe342e2fe1a7f9b,
+            ]),
+            PhantomData,
+        );
+
+        let b = FieldElement::<Secp256r1>(
+            UBigInt([
+                0x9e04b79d227873d1,
+                0xba7dade63ce98229,
+                0x293d9ac69f7430db,
+                0x07775510db8ed040,
+            ]),
+            PhantomData,
+        );
+
+        let diff = FieldElement(
+            UBigInt([
+                0x2db188cb1546de24,
+                0x715085712e47dca5,
+                0x65aa5083dc9b6d3a,
+                0x486bedd2228baf5b,
+            ]),
+            PhantomData,
+        );
+        assert_eq!(b.add(&diff), a);
+        assert_eq!(diff.add(&b), a);
+
+        let diff_2 = FieldElement(
+            UBigInt([
+                0xd24e7734eab921db,
+                0x8eaf7a8fd1b8235a,
+                0x9a55af7c236492c5,
+                0xb794122cdd7450a5,
+            ]),
+            PhantomData,
+        );
+        assert_eq!(a.add(&diff_2), b);
+        assert_eq!(diff_2.add(&a), b);
+    }
+
+    #[test]
+    fn add_assign() {
+        let a = FieldElement(
+            UBigInt([
+                0xcbb6406837bf51f5,
+                0x2bce33576b315ece,
+                0x8ee7eb4a7c0f9e16,
+                0x4fe342e2fe1a7f9b,
+            ]),
+            PhantomData,
+        );
+
+        let mut b = FieldElement::<Secp256r1>(
+            UBigInt([
+                0x9e04b79d227873d1,
+                0xba7dade63ce98229,
+                0x293d9ac69f7430db,
+                0x07775510db8ed040,
+            ]),
+            PhantomData,
+        );
+
+        let diff = FieldElement(
+            UBigInt([
+                0x2db188cb1546de24,
+                0x715085712e47dca5,
+                0x65aa5083dc9b6d3a,
+                0x486bedd2228baf5b,
+            ]),
+            PhantomData,
+        );
+        b.add_assign(&diff);
+        assert_eq!(a, b);
     }
 
     #[test]
