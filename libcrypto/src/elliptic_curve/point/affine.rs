@@ -123,7 +123,7 @@ mod tests {
         };
         let k_2 = unsafe { AffinePoint::new_unchecked(x, y) };
 
-        //let sum = k_2.add(&Secp256r1::BASE_POINT);
+        let sum = k_2.add(&Secp256r1::BASE_POINT);
         let also_sum = Secp256r1::BASE_POINT.add(&k_2);
 
         let x = unsafe {
@@ -144,6 +144,6 @@ mod tests {
         };
         let k_3 = unsafe { AffinePoint::new_unchecked(x, y) };
         assert_eq!(also_sum, k_3);
-        //assert_eq!(sum, k_3);
+        assert_eq!(sum, k_3);
     }
 }
