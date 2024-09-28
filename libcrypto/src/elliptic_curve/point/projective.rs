@@ -132,25 +132,13 @@ impl<C: EllipticCurve> ProjectivePoint<C> {
         }
         if self == rhs {
             // SAFETY: self isn't POINT_AT_INF
-            unsafe { self.double_assign_unchecked() }
+            unsafe { self.double_assign() }
             return;
         }
-        // SAFETY: we just checked that neither point is POINT_AT_INF and that they aren't the
-        // negative of eachother.
         self.add_assign_fast(rhs);
     }
 
     pub fn double(&self) -> Self {
-        if self == &Self::POINT_AT_INF {
-            return Self::POINT_AT_INF;
-        }
-        // SAFETY: we just checked that neither point is POINT_AT_INF.
-        unsafe { self.double_unchecked() }
-    }
-
-    /// # Safety:
-    /// `self` cannot be [`ProjectivePoint::POINT_AT_INF`].
-    pub unsafe fn double_unchecked(&self) -> Self {
         let w = {
             let mut three_x_sqr = self.x.sqr();
             three_x_sqr.mul_digit_assign(3);
@@ -199,16 +187,7 @@ impl<C: EllipticCurve> ProjectivePoint<C> {
     }
 
     pub fn double_assign(&mut self) {
-        if self == &Self::POINT_AT_INF {
-            return;
-        }
-        unsafe { self.double_assign_unchecked() }
-    }
-
-    /// # Safety:
-    /// `self` cannot be [`ProjectivePoint::POINT_AT_INF`].
-    pub unsafe fn double_assign_unchecked(&mut self) {
-        *self = unsafe { self.double_unchecked() }
+        *self = self.double()
     }
 
     pub fn neg(&self) -> Self {
