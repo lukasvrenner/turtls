@@ -19,7 +19,6 @@ impl<const N: usize> core::fmt::LowerHex for UBigInt<N> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_str("0x")?;
         for i in self.0.iter().rev() {
-
             write!(f, "{:016x}", i)?
         }
         Ok(())
@@ -30,7 +29,6 @@ impl<const N: usize> core::fmt::UpperHex for UBigInt<N> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_str("0x")?;
         for i in self.0.iter().rev() {
-
             write!(f, "{:016X}", i)?
         }
         Ok(())
@@ -38,10 +36,9 @@ impl<const N: usize> core::fmt::UpperHex for UBigInt<N> {
 }
 
 impl<const N: usize> core::fmt::Debug for UBigInt<N> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_str("{ ")?;
         for i in self.0 {
-
             write!(f, "{:016x}, ", i)?
         }
         f.write_str("}")?;

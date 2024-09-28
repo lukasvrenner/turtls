@@ -16,7 +16,7 @@ impl<F: FiniteField> core::fmt::Display for FieldElement<F> {
 }
 
 impl<F: FiniteField> core::fmt::Debug for FieldElement<F> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         core::fmt::Debug::fmt(&self.0, f)
     }
 }
@@ -81,7 +81,6 @@ impl<F: FiniteField> FieldElement<F> {
     /// TODO: document constant-timedness
     pub fn inverse(&self) -> Self {
         debug_assert_ne!(self, &Self::ZERO);
-        debug_assert!(self.0 < F::MODULUS);
         let mut t = BigInt::ZERO;
         let mut new_t = BigInt::ONE;
         let mut r: BigInt<4> = F::MODULUS.into();
@@ -189,7 +188,7 @@ impl<F: FiniteField> FieldElement<F> {
     pub fn mul_digit_assign(&mut self, digit: u64) {
         let mut carry = 0;
         for i in 0..self.0.len() {
-            (self.0.0[i], carry) = crate::big_int::carry_mul(self.0.0[i], digit, carry);
+            (self.0 .0[i], carry) = crate::big_int::carry_mul(self.0 .0[i], digit, carry);
         }
         self.0.div_assign(&F::MODULUS);
     }
@@ -198,7 +197,7 @@ impl<F: FiniteField> FieldElement<F> {
         let mut carry = 0;
         let mut buf = UBigInt::ZERO;
         for i in 0..self.0.len() {
-            (buf.0[i], carry) = crate::big_int::carry_mul(self.0.0[i], digit, carry);
+            (buf.0[i], carry) = crate::big_int::carry_mul(self.0 .0[i], digit, carry);
         }
         Self::new(buf)
     }
@@ -349,7 +348,9 @@ mod tests {
                 0x2bce33576b315ece,
                 0x8ee7eb4a7c0f9e16,
                 0x4fe342e2fe1a7f9b,
-        ]), PhantomData,);
+            ]),
+            PhantomData,
+        );
 
         let b = FieldElement::<Secp256r1>(
             UBigInt([
@@ -367,7 +368,9 @@ mod tests {
                 0x715085712e47dca5,
                 0x65aa5083dc9b6d3a,
                 0x486bedd2228baf5b,
-        ]), PhantomData,);
+            ]),
+            PhantomData,
+        );
 
         let diff_2 = FieldElement(
             UBigInt([
@@ -375,7 +378,9 @@ mod tests {
                 0x8eaf7a8fd1b8235a,
                 0x9a55af7c236492c5,
                 0xb794122cdd7450a5,
-        ]), PhantomData,);
+            ]),
+            PhantomData,
+        );
 
         assert_eq!(a.sub(&b), diff);
         assert_eq!(b.sub(&a), diff_2);
@@ -389,7 +394,9 @@ mod tests {
                 0x715085712e47dca5,
                 0x65aa5083dc9b6d3a,
                 0x486bedd2228baf5b,
-        ]), PhantomData,);
+            ]),
+            PhantomData,
+        );
 
         let b = FieldElement(
             UBigInt([
@@ -397,7 +404,9 @@ mod tests {
                 0x8eaf7a8fd1b8235a,
                 0x9a55af7c236492c5,
                 0xb794122cdd7450a5,
-        ]), PhantomData,);
+            ]),
+            PhantomData,
+        );
         assert_eq!(a.neg(), b);
 
         let c = FieldElement::<Secp256r1>(
@@ -421,7 +430,6 @@ mod tests {
         );
 
         assert_eq!(c.neg(), d);
-
     }
 
     #[test]
@@ -452,7 +460,9 @@ mod tests {
                 0x715085712e47dca5,
                 0x65aa5083dc9b6d3a,
                 0x486bedd2228baf5b,
-        ]), PhantomData,);
+            ]),
+            PhantomData,
+        );
 
         let d = FieldElement(
             UBigInt([

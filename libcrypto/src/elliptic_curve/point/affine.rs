@@ -60,9 +60,7 @@ impl<C: EllipticCurve> AffinePoint<C> {
         Self { x, y }
     }
     pub fn add(&self, rhs: &Self) -> Self {
-        let y_diff = rhs.y.sub(&self.y);
-        let x_diff = rhs.x.sub(&self.x);
-        let slope = y_diff.div(&x_diff);
+        let slope = rhs.y.sub(&self.y).div(&rhs.x.sub(&self.x));
         let mut x = slope.sqr();
         x.sub_assign(&self.x);
         x.sub_assign(&rhs.x);

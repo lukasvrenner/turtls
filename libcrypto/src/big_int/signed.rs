@@ -237,9 +237,9 @@ macro_rules! impl_big_int {
                 let (quotient, remainder) = self.digits.div(&rhs.digits);
                 let quotient = Self {
                     digits: quotient,
-                    is_negative: (self.is_negative ^ rhs.is_negative)
-                        & (*self != Self::ZERO)
-                        & (*rhs != Self::ZERO),
+                    is_negative: (self.is_negative() ^ rhs.is_negative())
+                        & (self != &Self::ZERO)
+                        & (rhs != &Self::ZERO),
                 };
                 let remainder = Self {
                     digits: remainder,
@@ -260,9 +260,9 @@ macro_rules! impl_big_int {
                 let product = self.digits.widening_mul(&rhs.digits);
                 BigInt::<{ $n * 2 }> {
                     digits: product,
-                    is_negative: (self.is_negative ^ !rhs.is_negative)
-                        & (*self != Self::ZERO)
-                        & (*rhs != Self::ZERO),
+                    is_negative: (self.is_negative() ^ rhs.is_negative())
+                        & (self != &Self::ZERO)
+                        & (rhs != &Self::ZERO),
                 }
             }
         }
@@ -364,6 +364,7 @@ mod tests {
             BigInt::ZERO
         );
         assert_eq!(BigInt::<4>::ZERO.widening_mul(&BigInt::ONE), BigInt::ZERO);
+        assert_eq!(BigInt::<4>::ONE.widening_mul(&BigInt::ONE), BigInt::ONE);
     }
 
     #[test]
