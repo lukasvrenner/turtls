@@ -11,12 +11,8 @@ pub struct ProjectivePoint<C: EllipticCurve> {
 
 impl<C: EllipticCurve> PartialEq for ProjectivePoint<C> {
     fn eq(&self, other: &Self) -> bool {
-        let mut temp = self.x.mul(&other.z);
-        temp.sub_assign(&other.x.mul(&self.z));
-        let eq = temp == FieldElement::ZERO;
-        temp = self.y.mul(&other.z);
-        temp.sub_assign(&other.y.mul(&self.z));
-        eq & (temp == FieldElement::ZERO)
+        (self.x.mul(&other.z) == other.x.mul(&self.z))
+            & (self.y.mul(&other.z) == other.y.mul(&self.z))
     }
 }
 impl<C: EllipticCurve> Eq for ProjectivePoint<C> {}
