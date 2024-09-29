@@ -82,14 +82,18 @@ pub fn verify_signature<C: EllipticCurve>(
     let u = hash.mul(&inverse);
     let v = sign.r.mul(&inverse);
 
-    match C::BASE_POINT
+    let r = match C::BASE_POINT
         .as_projective()
         .mul_scalar(&u.inner())
         .add(&pub_key.mul_scalar(v.inner()))
         .as_affine()
     {
-        Some(_) => Ok(ValidSign),
-        None => Err(InvalidSign),
+        Some(point) => point.x(),
+        None => return Err(InvalidSign),
+    };
+    match r == sign.r {
+        true => Ok(ValidSign),
+        false => Err(InvalidSign),
     }
 
 }
