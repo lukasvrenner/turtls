@@ -61,7 +61,7 @@ impl<const N: usize> UBigInt<N> {
     /// use libcrypto::big_int::UBigInt;
     ///
     /// assert_eq!(UBigInt::<4>::ZERO, UBigInt::MIN);
-    /// assert_eq!(UBigInt::<4>::ZERO.count_digits(), 0);
+    /// assert_eq!(UBigInt::<4>::ZERO.count_digits(), 1);
     /// ```
     ///
     /// This has the same value as [`UBigInt<N>::MIN`].
@@ -157,12 +157,12 @@ impl<const N: usize> UBigInt<N> {
     /// This operation is *NOT* constant-time.
     /// If constant-time is needed, use [`Self::count_digits()`].
     pub fn count_digits_fast(&self) -> usize {
-        for (count, digit) in self.0.iter().rev().enumerate() {
-            if *digit != 0 {
+        for (count, digit) in self.0.into_iter().skip(1).rev().enumerate() {
+            if digit != 0 {
                 return N - count;
             };
         }
-        0
+        1
     }
 
     /// Returns the number of digits in `self`.
@@ -184,9 +184,9 @@ impl<const N: usize> UBigInt<N> {
     /// This is a constant-time operation.
     /// If constant-time is not needed, consider using [`Self::count_digits_fast()`].
     pub fn count_digits(&self) -> usize {
-        let mut num_digts = 0;
+        let mut num_digts = 1;
         let mut digit_encounterd = false;
-        for digit in self.0.iter().rev() {
+        for digit in self.0.iter().skip(1).rev() {
             digit_encounterd |= *digit != 0;
             num_digts += digit_encounterd as usize;
         }
@@ -584,7 +584,7 @@ impl<const N: usize> UBigInt<N> {
     }
 
     pub fn count_bits(&self) -> usize {
-        let num_ditis = self.count_digits() - 1;
+        let num_ditis = self.count_digits().saturating_sub(1);
         let bits = size_of::<u64>() * 8 - self.0[num_ditis].leading_zeros() as usize;
         num_ditis * size_of::<u64>() * 8 + bits
     }
@@ -1055,6 +1055,7 @@ mod tests {
             0x0000000000000000,
         ]);
         assert_eq!(z.count_digits_fast(), 3);
+        assert_eq!(UBigInt::<4>::ZERO.count_digits_fast(), 1);
     }
 
     #[test]
@@ -1082,6 +1083,7 @@ mod tests {
             0x0000000000000000,
         ]);
         assert_eq!(z.count_digits(), 3);
+        assert_eq!(UBigInt::<4>::ZERO.count_digits(), 1);
     }
 
     #[test]
@@ -1114,5 +1116,8 @@ mod tests {
             0x0000000000000000,
         ]);
         assert_eq!(x.count_bits(), 185);
+
+        assert_eq!(UBigInt::<4>::ZERO.count_bits(), 0);
+        assert_eq!(UBigInt::<4>::ONE.count_bits(), 1);
     }
 }

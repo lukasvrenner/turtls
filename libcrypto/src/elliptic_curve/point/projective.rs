@@ -124,19 +124,11 @@ impl<C: EllipticCurve> ProjectivePoint<C> {
     }
 
     pub fn add_assign(&mut self, rhs: &Self) {
-        if self == &Self::POINT_AT_INF {
+        if self.is_infinity() {
             *self = *rhs;
             return;
         }
-        if rhs == &Self::POINT_AT_INF {
-            return;
-        }
-        if self == &rhs.neg() {
-            *self = Self::POINT_AT_INF;
-        }
-        if self == rhs {
-            // SAFETY: self isn't POINT_AT_INF
-            self.double_assign();
+        if rhs.is_infinity() {
             return;
         }
         self.add_assign_fast(rhs);
@@ -206,22 +198,17 @@ impl<C: EllipticCurve> ProjectivePoint<C> {
         self.y.neg_assign();
     }
 
-    // TODO: make an unchecked and checked version
     pub fn mul_scalar(&self, scalar: UBigInt<4>) -> Self {
-        // TODO: can we avoid POINT_AT_INF and use add_assign_unchecked() and double_assign_unchecked()
-        // by prereducing scalar until addition actually occurs? On top of minor performance
-        // improvements, this would allow the return of the Point trait.
         let mut result = Self::POINT_AT_INF;
         let mut temp = *self;
         let num_bits = scalar.count_bits();
         for i in (0..num_bits).rev() {
             if scalar.get_bit(i) {
-                // if temp is infinity then the result is infinity anyways
-                temp.add_assign_fast(&result);
-                result.double();
-            } else {
                 result.add_assign(&temp);
                 temp.double_assign();
+            } else {
+                temp.add_assign(&result);
+                result.double_assign();
             }
         }
         result
@@ -293,6 +280,15 @@ mod tests {
 
         let also_sum = Secp256r1::BASE_POINT.as_projective().add(&k_2);
         assert_eq!(also_sum, k_3);
+
+        let sum = Secp256r1::BASE_POINT
+            .as_projective()
+            .add(&ProjectivePoint::POINT_AT_INF);
+        assert_eq!(sum, Secp256r1::BASE_POINT.as_projective());
+
+        let sum = ProjectivePoint::POINT_AT_INF
+            .add(&Secp256r1::BASE_POINT.as_projective());
+        assert_eq!(sum, Secp256r1::BASE_POINT.as_projective());
     }
 
     #[test]
@@ -373,6 +369,11 @@ mod tests {
 
     #[test]
     fn mul_scalar() {
+        let point = Secp256r1::BASE_POINT
+            .as_projective()
+            .mul_scalar(UBigInt::ONE);
+        assert_eq!(point, Secp256r1::BASE_POINT.as_projective());
+
         let scalar = UBigInt::from(112233445566778899);
 
         let x = unsafe {
@@ -383,6 +384,7 @@ mod tests {
                 0x339150844ec15234,
             ]))
         };
+
         let y = unsafe {
             FieldElement::new_unchecked(UBigInt([
                 0x5ada38b674336a21,
@@ -391,9 +393,11 @@ mod tests {
                 0xb1c14ddfdc8ec1b2,
             ]))
         };
+
         let product = unsafe { AffinePoint::new_unchecked(x, y) }.as_projective();
 
         let point = Secp256r1::BASE_POINT.as_projective().mul_scalar(scalar);
+
         assert_eq!(point, product)
     }
 }
