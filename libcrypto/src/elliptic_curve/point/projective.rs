@@ -198,7 +198,7 @@ impl<C: EllipticCurve> ProjectivePoint<C> {
         self.y.neg_assign();
     }
 
-    pub fn mul_scalar(&self, scalar: UBigInt<4>) -> Self {
+    pub fn mul_scalar(&self, scalar: &UBigInt<4>) -> Self {
         let mut result = Self::POINT_AT_INF;
         let mut temp = *self;
         let num_bits = scalar.count_bits();
@@ -215,7 +215,7 @@ impl<C: EllipticCurve> ProjectivePoint<C> {
     }
 
     pub fn mul_scalar_assign(&mut self, scalar: UBigInt<4>) {
-        *self = self.mul_scalar(scalar);
+        *self = self.mul_scalar(&scalar);
     }
 }
 
@@ -286,8 +286,7 @@ mod tests {
             .add(&ProjectivePoint::POINT_AT_INF);
         assert_eq!(sum, Secp256r1::BASE_POINT.as_projective());
 
-        let sum = ProjectivePoint::POINT_AT_INF
-            .add(&Secp256r1::BASE_POINT.as_projective());
+        let sum = ProjectivePoint::POINT_AT_INF.add(&Secp256r1::BASE_POINT.as_projective());
         assert_eq!(sum, Secp256r1::BASE_POINT.as_projective());
     }
 
@@ -371,7 +370,7 @@ mod tests {
     fn mul_scalar() {
         let point = Secp256r1::BASE_POINT
             .as_projective()
-            .mul_scalar(UBigInt::ONE);
+            .mul_scalar(&UBigInt::ONE);
         assert_eq!(point, Secp256r1::BASE_POINT.as_projective());
 
         let scalar = UBigInt::from(112233445566778899);
@@ -396,7 +395,7 @@ mod tests {
 
         let product = unsafe { AffinePoint::new_unchecked(x, y) }.as_projective();
 
-        let point = Secp256r1::BASE_POINT.as_projective().mul_scalar(scalar);
+        let point = Secp256r1::BASE_POINT.as_projective().mul_scalar(&scalar);
 
         assert_eq!(point, product)
     }

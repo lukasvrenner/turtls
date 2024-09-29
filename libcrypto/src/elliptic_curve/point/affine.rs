@@ -34,12 +34,20 @@ impl<C: EllipticCurve> core::fmt::Debug for AffinePoint<C> {
 
 impl<C: EllipticCurve> AffinePoint<C> {
     /// Returns the x-value of `self`.
-    pub fn x(&self) -> &FieldElement<C> {
+    pub fn x(&self) -> FieldElement<C> {
+        self.x
+    }
+
+    pub fn x_ref(&self) -> &FieldElement<C> {
         &self.x
     }
 
     /// Returns the y-value of `self`.
-    pub fn y(&self) -> &FieldElement<C> {
+    pub fn y(&self) -> FieldElement<C> {
+        self.y
+    }
+
+    pub fn y_ref(&self) -> &FieldElement<C> {
         &self.y
     }
 
