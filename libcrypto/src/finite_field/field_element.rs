@@ -215,17 +215,36 @@ impl<F: FiniteField> FieldElement<F> {
 
     /// Returns the modular additive inverse of `self`.
     ///
-    /// The returned value has the property that, when added to `self`, the sum is [`F::ZERO`](super::FiniteField::ZERO).
+    /// The returned value has the property that, when added to `self`, the sum is
+    /// [`FieldElement::ZERO`].
     pub fn neg(&self) -> Self {
-        Self::ZERO.sub(self)
+        unsafe {
+            let mut neg = self.neg_uncheckd();
+            neg.0.and_bool_assign(self != &Self::ZERO);
+            neg
+        }
+    }
+
+    /// Returns the modular additive inverse of `self`, assuming `self` isn't [`FieldElement::ZERO`].
+    ///
+    /// # Safety:
+    /// `self` cannot be [`FieldElement::ZERO`].
+    pub unsafe fn neg_uncheckd(&self) -> Self {
+        // SAFETY: the caller guarnantees that `self` isn't zero.
+        unsafe { Self::new_unchecked(F::MODULUS.sub(&self.0)) }
     }
 
     /// Sets `self` to the modular additive inverse of `self`.
     ///
-    /// The returned value has the property that, when added to `self`, the sum is [`F::ZERO`](super::FiniteField::ZERO).
+    /// The returned value has the property that, when added to `self`, the sum is
+    /// [`FieldElement::ZERO`].
     pub fn neg_assign(&mut self) {
-        // TODO: can this be made more efficient?
         *self = self.neg();
+    }
+
+    pub unsafe fn neg_assign_unchecked(&mut self) {
+        // SAFETY: the caller guarnantees that `self` isn't zero.
+        *self = unsafe { self.neg_uncheckd() }
     }
 }
 
@@ -505,6 +524,14 @@ mod tests {
         );
 
         assert_eq!(c.neg(), d);
+        assert_eq!(FieldElement::<Secp256r1>::ZERO.neg(), FieldElement::ZERO);
+    }
+
+    #[test]
+    fn neg_assign() {
+        let mut zero = FieldElement::<Secp256r1>::ZERO;
+        zero.neg_assign();
+        assert_eq!(zero, FieldElement::ZERO);
     }
 
     #[test]
