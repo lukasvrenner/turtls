@@ -130,14 +130,13 @@ impl<F: FiniteField> FieldElement<F> {
     }
 
     pub fn double(&self) -> Self {
+        // TODO: can this be more efficient?
         self.add(self)
     }
 
     pub fn double_assign(&mut self) {
-        unsafe {
-            self.0.double_assign();
-            self.sub_assign(&Self::new_unchecked(F::MODULUS));
-        }
+        // TODO: can this be more efficient?
+        *self = self.add(self);
     }
 
     /// Returns `self - rhs` modulo [`F::MODULUS`](super::FiniteField::MODULUS).
