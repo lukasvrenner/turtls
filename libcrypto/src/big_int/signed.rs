@@ -67,7 +67,7 @@ impl<const N: usize> BigInt<N> {
     /// This is a constant-time operation.
     #[allow(clippy::len_without_is_empty)]
     pub const fn len(&self) -> usize {
-        N
+        self.digits.len()
     }
 
     /// Returns the additive inverse of `self`.

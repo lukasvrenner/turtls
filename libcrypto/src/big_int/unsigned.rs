@@ -567,7 +567,7 @@ impl<const N: usize> UBigInt<N> {
     /// This is a constant-time operation.
     #[allow(clippy::len_without_is_empty)]
     pub const fn len(&self) -> usize {
-        N
+        self.0.len()
     }
 
     /// Resizes a `UBigInt<N>` to a `UBigInt<O>`, truncating most significant bits if necessary.
@@ -576,6 +576,17 @@ impl<const N: usize> UBigInt<N> {
         let mut new = UBigInt([0; O]);
         new.0[..min].copy_from_slice(&self.0[..min]);
         new
+    }
+
+    pub fn get_bit(&self, bit: usize) -> bool {
+        assert!(bit < size_of::<[u64; N]>() * 8);
+        self.0[bit / (size_of::<u64>() * 8)] & 1 << (bit % (size_of::<u64>() * 8)) != 0
+    }
+
+    pub fn count_bits(&self) -> usize {
+        let num_ditis = self.count_digits() - 1;
+        let bits = size_of::<u64>() * 8 - self.0[num_ditis].leading_zeros() as usize;
+        num_ditis * size_of::<u64>() * 8 + bits
     }
 }
 
@@ -922,7 +933,7 @@ mod tests {
             0xfedcba9876543210,
             0x0123456789abcdef,
             0xfedcba9876543210,
-            0,
+            0x0000000000000000,
         ]);
         // TODO: make this hex
         let product = UBigInt([
@@ -949,7 +960,7 @@ mod tests {
             0xfedcba9876543210,
             0x0123456789abcdef,
             0xfedcba9876543210,
-            0,
+            0x0000000000000000,
         ]);
         let remainder = UBigInt([0x0123456789abcdef, 0, 0, 0]);
         assert_eq!(y.div(&x), (quotient, remainder));
@@ -966,14 +977,14 @@ mod tests {
             0xfedcba9876543210,
             0x0123456789abcdef,
             0xfedcba9876543210,
-            0,
+            0x0000000000000000,
         ]);
         let quotient = UBigInt([0x124924924924924, 0, 0, 0]);
         let remainder = UBigInt([
             0x7e3649cb031697d0,
             0x81cb031697cfe364,
             0x7e34fce968301c9b,
-            0,
+            0x0000000000000000,
         ]);
         assert_eq!(a.div(&b), (quotient, remainder));
     }
@@ -991,7 +1002,7 @@ mod tests {
             0xcba9876543210012,
             0x3456789abcdeffed,
             0xcba9876543210012,
-            0xfed,
+            0x0000000000000fed,
         ]);
         assert_eq!(x.widening_shift_left(12), shifted);
 
@@ -1032,7 +1043,7 @@ mod tests {
         let y = UBigInt([
             0x0123456789abcdef,
             0xfedcba9876543210,
-            0,
+            0x0000000000000000,
             0xfedcba9876543210,
         ]);
         assert_eq!(y.count_digits_fast(), 4);
@@ -1041,7 +1052,7 @@ mod tests {
             0x0123456789abcdef,
             0xfedcba9876543210,
             0x0123456789abcdef,
-            0,
+            0x0000000000000000,
         ]);
         assert_eq!(z.count_digits_fast(), 3);
     }
@@ -1059,7 +1070,7 @@ mod tests {
         let y = UBigInt([
             0x0123456789abcdef,
             0xfedcba9876543210,
-            0,
+            0x0000000000000000,
             0xfedcba9876543210,
         ]);
         assert_eq!(y.count_digits(), 4);
@@ -1068,8 +1079,40 @@ mod tests {
             0x0123456789abcdef,
             0xfedcba9876543210,
             0x0123456789abcdef,
-            0,
+            0x0000000000000000,
         ]);
         assert_eq!(z.count_digits(), 3);
+    }
+
+    #[test]
+    fn get_bit() {
+        let z = UBigInt([
+            0x0000000000000000,
+            0x0123456789abcdef,
+            0xfedcba9876543210,
+            0x0123456789abcdef,
+        ]);
+        assert!(!z.get_bit(0));
+        assert!(z.get_bit(64));
+        assert!(z.get_bit(248));
+        assert!(!z.get_bit(255));
+    }
+
+    #[test]
+    fn count_bits() {
+        let z = UBigInt([
+            0x0000000000000000,
+            0x0123456789abcdef,
+            0x0000000000000000,
+            0xf123456789abcdef,
+        ]);
+        assert_eq!(z.count_bits(), 256);
+        let x = UBigInt([
+            0x0123456789abcdef,
+            0xfedcba9876543210,
+            0x0123456789abcdef,
+            0x0000000000000000,
+        ]);
+        assert_eq!(x.count_bits(), 185);
     }
 }
