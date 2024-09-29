@@ -87,7 +87,7 @@ impl<C: EllipticCurve> AffinePoint<C> {
     }
 
     pub fn double_assign(&mut self) {
-        todo!();
+        *self = self.double();
     }
 
     fn third_point_on_line(&self, other: &Self, slope: &FieldElement<C>) -> Self {
