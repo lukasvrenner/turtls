@@ -2,17 +2,27 @@ use super::{super::EllipticCurve, AffinePoint};
 use crate::{big_int::UBigInt, finite_field::FieldElement};
 
 /// A point on [`EllipticCurve`] `C` in projective representation.
-#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct ProjectivePoint<C: EllipticCurve> {
     x: FieldElement<C>,
     y: FieldElement<C>,
     z: FieldElement<C>,
 }
 
+impl<C: EllipticCurve> PartialEq for ProjectivePoint<C> {
+    fn eq(&self, other: &Self) -> bool {
+        let mut temp = self.x.mul(&other.z);
+        temp.sub_assign(&other.x.mul(&self.z));
+        let eq = temp == FieldElement::ZERO;
+        temp = self.y.mul(&other.z);
+        temp.sub_assign(&other.y.mul(&self.z));
+        eq & (temp == FieldElement::ZERO)
+    }
+}
+impl<C: EllipticCurve> Eq for ProjectivePoint<C> {}
+
 impl<C: EllipticCurve> ProjectivePoint<C> {
     /// The point at infinity.
-    ///
-    /// Note: this is not necessarily the same as `self.is_infinity()`
     pub const POINT_AT_INF: Self = Self {
         x: FieldElement::ZERO,
         y: FieldElement::ONE,
@@ -20,8 +30,6 @@ impl<C: EllipticCurve> ProjectivePoint<C> {
     };
 
     /// Returns `true` if `self` is the point at infinity and `false` otherwise.
-    ///
-    /// Note: this is not necessarily the same as `self == POINT_AT_INF`.
     pub fn is_infinity(&self) -> bool {
         self.z == FieldElement::ZERO
     }
@@ -42,6 +50,7 @@ impl<C: EllipticCurve> ProjectivePoint<C> {
     }
 
     /// Creates a new [`ProjectivePoint`] along the curve.
+    ///
     /// # Safety
     /// The point must be on the curve.
     pub const unsafe fn new_unchecked(
@@ -113,7 +122,6 @@ impl<C: EllipticCurve> ProjectivePoint<C> {
         unsafe { Self::new_unchecked(x, y, z) }
     }
 
-
     pub fn add_assign_fast(&mut self, rhs: &Self) {
         // SAFETY: the caller guarantees that neither point is POINT_AT_INF.
         *self = self.add_fast(rhs);
@@ -132,7 +140,7 @@ impl<C: EllipticCurve> ProjectivePoint<C> {
         }
         if self == rhs {
             // SAFETY: self isn't POINT_AT_INF
-            unsafe { self.double_assign() }
+            self.double_assign();
             return;
         }
         self.add_assign_fast(rhs);
@@ -211,11 +219,13 @@ impl<C: EllipticCurve> ProjectivePoint<C> {
         let mut temp = *self;
         while scalar != UBigInt::ZERO {
             if scalar.0[0] & 1 == 0 {
-                temp.add_assign(&result);
+                // if temp is infinity then the result is infinity anyways
+                temp.add_assign_fast(&result);
                 result.double();
+            } else {
+                result.add_assign(&temp);
+                temp.double_assign();
             }
-            result.add_assign(&temp);
-            temp.double_assign();
             scalar.shift_right_assign(1);
         }
         result
@@ -280,13 +290,13 @@ mod tests {
             ]))
         };
         // Secp256r1::BASE_POINT * 3
-        let k_3 = unsafe { AffinePoint::new_unchecked(x, y) };
+        let k_3 = unsafe { AffinePoint::new_unchecked(x, y) }.as_projective();
 
-        let sum = k_2.add(&Secp256r1::BASE_POINT.as_projective()).as_affine();
-        assert_eq!(sum, Some(k_3));
+        let sum = k_2.add(&Secp256r1::BASE_POINT.as_projective());
+        assert_eq!(sum, k_3);
 
-        let also_sum = Secp256r1::BASE_POINT.as_projective().add(&k_2).as_affine();
-        assert_eq!(also_sum, Some(k_3));
+        let also_sum = Secp256r1::BASE_POINT.as_projective().add(&k_2);
+        assert_eq!(also_sum, k_3);
     }
 
     #[test]
@@ -328,27 +338,23 @@ mod tests {
             ]))
         };
         // Secp256r1::BASE_POINT * 3
-        let k_3 = unsafe { AffinePoint::new_unchecked(x, y) };
+        let k_3 = unsafe { AffinePoint::new_unchecked(x, y) }.as_projective();
 
-        let sum = k_2
-            .add_fast(&Secp256r1::BASE_POINT.as_projective())
-            .as_affine();
-        assert_eq!(sum, Some(k_3));
+        let sum = k_2.add_fast(&Secp256r1::BASE_POINT.as_projective());
+        assert_eq!(sum, k_3);
 
         let inf = Secp256r1::BASE_POINT
             .as_projective()
-            .add_fast(&ProjectivePoint::POINT_AT_INF)
-            .as_affine();
-        assert_eq!(inf, None);
+            .add_fast(&ProjectivePoint::POINT_AT_INF);
+        assert_eq!(inf, ProjectivePoint::POINT_AT_INF);
 
-        let inf = k_3.as_projective().neg().add_fast(&k_3.as_projective()).as_affine();
-        assert_eq!(inf, None);
-
+        let inf = k_3.neg().add_fast(&k_3);
+        assert_eq!(inf, ProjectivePoint::POINT_AT_INF);
     }
 
     #[test]
     fn double() {
-        let point = Secp256r1::BASE_POINT.as_projective().double().as_affine();
+        let point = Secp256r1::BASE_POINT.as_projective().double();
         let x = unsafe {
             FieldElement::new_unchecked(UBigInt([
                 0xa60b48fc47669978,
@@ -365,18 +371,17 @@ mod tests {
                 0x07775510db8ed040,
             ]))
         };
-        let sum = unsafe { AffinePoint::new_unchecked(x, y) };
-        assert_eq!(point, Some(sum));
+        let sum = unsafe { AffinePoint::new_unchecked(x, y) }.as_projective();
+        assert_eq!(point, sum);
     }
 
     #[test]
     fn mul_scalar() {
         let point = Secp256r1::BASE_POINT
             .as_projective()
-            .mul_scalar(UBigInt::ONE)
-            .as_affine();
+            .mul_scalar(UBigInt::ONE);
 
-        assert_eq!(point, Some(Secp256r1::BASE_POINT));
+        assert_eq!(point, Secp256r1::BASE_POINT.as_projective());
 
         let scalar = UBigInt::from(112233445566778899);
 
@@ -398,13 +403,10 @@ mod tests {
             ]))
         };
 
-        let product = unsafe { AffinePoint::new_unchecked(x, y) };
+        let product = unsafe { AffinePoint::new_unchecked(x, y) }.as_projective();
 
-        let point = Secp256r1::BASE_POINT
-            .as_projective()
-            .mul_scalar(scalar)
-            .as_affine();
+        let point = Secp256r1::BASE_POINT.as_projective().mul_scalar(scalar);
 
-        assert_eq!(point, Some(product))
+        assert_eq!(point, product)
     }
 }
