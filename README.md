@@ -1,9 +1,12 @@
-This crate has the long-term goal of becoming a fully compliant TLS 1.3 library, with C bindings.
+# turtls 🐢
 
-In addition to the main turtls code, this repository contains the crypto library used in turtls.
+## A work-in-progress TLS 1.3 library with C bindings
+
+In addition to the main TLS code, this repository contains the crypto library used in turtls.
 It can be found at `./libcrypto/`.
 
 WARNING: This code has not been audited. Use it at your own risk.
+================================================================
 
 ## License
 Copyright 2024 Lukas Renner
