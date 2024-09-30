@@ -232,7 +232,7 @@ mod tests {
     use crate::elliptic_curve::{AffinePoint, ProjectivePoint, Secp256r1};
     use crate::finite_field::FieldElement;
 
-    // test values from http://point-at-infinity.org/ecc/nisttv
+    // test vectors from http://point-at-infinity.org/ecc/nisttv
 
     #[test]
     fn add() {

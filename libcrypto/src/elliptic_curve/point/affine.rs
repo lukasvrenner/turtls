@@ -53,8 +53,6 @@ impl<C: EllipticCurve> AffinePoint<C> {
 
     /// Converts `self` into its projective representation.
     pub const fn as_projective(self) -> ProjectivePoint<C> {
-        // TODO: is there a better way to do this?
-
         // # SAFETY: The projective value is still on the curve.
         unsafe { ProjectivePoint::new_unchecked(self.x, self.y, FieldElement::ONE) }
     }
@@ -122,7 +120,7 @@ mod tests {
     use crate::big_int::UBigInt;
     use crate::elliptic_curve::Secp256r1;
 
-    // test values from http://point-at-infinity.org/ecc/nisttv
+    // test vectors from http://point-at-infinity.org/ecc/nisttv
 
     #[test]
     fn add() {
