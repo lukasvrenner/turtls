@@ -18,9 +18,9 @@ impl<C: EllipticCurve> Signature<C> {
 
 /// The value that represents a valid signature.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default)]
-pub struct ValidSign;
+pub struct ValidSig;
 
-impl core::fmt::Display for ValidSign {
+impl core::fmt::Display for ValidSig {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_str("the signature is valid")
     }
@@ -28,15 +28,15 @@ impl core::fmt::Display for ValidSign {
 
 /// The error that represents an invalid signature.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default)]
-pub struct InvalidSign;
+pub struct InvalidSig;
 
-impl core::fmt::Display for InvalidSign {
+impl core::fmt::Display for InvalidSig {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_str("the signature is not valid")
     }
 }
 
-impl core::error::Error for InvalidSign {}
+impl core::error::Error for InvalidSig {}
 
 pub fn sign<C: EllipticCurve>(
     msg: &[u8],
@@ -70,13 +70,13 @@ pub fn verify_signature<C: EllipticCurve>(
     msg: &[u8],
     pub_key: &ProjectivePoint<C>,
     hash_func: impl FnOnce(&[u8]) -> [u8; 32],
-    sign: &Signature<C>,
-) -> Result<ValidSign, InvalidSign> {
+    sig: &Signature<C>,
+) -> Result<ValidSig, InvalidSig> {
     let hash: FieldElement<C> = FieldElement::new(UBigInt::<4>::from_be_bytes(hash_func(msg)));
-    let inverse = sign.s.inverse();
+    let inverse = sig.s.inverse();
 
     let u = hash.mul(&inverse);
-    let v = sign.r.mul(&inverse);
+    let v = sig.r.mul(&inverse);
 
     let r = match C::BASE_POINT
         .as_projective()
@@ -85,12 +85,12 @@ pub fn verify_signature<C: EllipticCurve>(
         .as_affine()
     {
         Some(point) => point.x(),
-        None => return Err(InvalidSign),
+        None => return Err(InvalidSig),
     };
 
-    match r == sign.r {
-        true => Ok(ValidSign),
-        false => Err(InvalidSign),
+    match r == sig.r {
+        true => Ok(ValidSig),
+        false => Err(InvalidSig),
     }
 }
 
@@ -102,7 +102,7 @@ mod tests {
     use super::ProjectivePoint;
     use super::Signature;
     use super::UBigInt;
-    use super::ValidSign;
+    use super::ValidSig;
 
     // test vectors from http://csrc.nist.gov/groups/STM/cavp/documents/dss/186-3ecdsatestvectors.zip
 
@@ -224,7 +224,7 @@ mod tests {
 
         assert_eq!(
             super::verify_signature(msg, &pub_key, crate::sha2::sha256, &signature),
-            Ok(ValidSign)
+            Ok(ValidSig)
         );
     }
 }
