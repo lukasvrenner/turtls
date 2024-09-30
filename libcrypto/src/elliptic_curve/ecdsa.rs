@@ -41,39 +41,35 @@ impl core::error::Error for InvalidSign {}
 pub fn sign<C: EllipticCurve>(
     msg: &[u8],
     priv_key: &FieldElement<C>,
-    hash_func: fn(&[u8]) -> [u8; 32],
+    hash_func: impl FnOnce(&[u8]) -> [u8; 32],
     secret_num_gen: impl Fn() -> FieldElement<C>,
 ) -> Signature<C> {
     let mut hash: FieldElement<C> = FieldElement::new(UBigInt::<4>::from_be_bytes(hash_func(msg)));
-    let mut secret_num;
-    let mut inverse;
-    let mut new_point;
 
     loop {
-        secret_num = secret_num_gen();
-        inverse = secret_num.inverse();
+        let secret_num = secret_num_gen();
+        let mut inverse = secret_num.inverse();
 
-        new_point = C::BASE_POINT
+        let Some(new_point) = C::BASE_POINT
             .as_projective()
             .mul_scalar(secret_num.inner())
-            .as_affine()
-            .unwrap();
+            .as_affine() else {
+            continue
+        };
 
         hash.add_assign(&new_point.x().mul(priv_key));
         inverse.mul_assign(&hash);
+
         if new_point.x_ref() != &FieldElement::ZERO && inverse != FieldElement::ZERO {
-            break;
+            return Signature::new(new_point.x(), inverse);
         }
     }
-
-    // TODO: destroy secret_num
-    Signature::new(new_point.x(), inverse)
 }
 
 pub fn verify_signature<C: EllipticCurve>(
     msg: &[u8],
     pub_key: &ProjectivePoint<C>,
-    hash_func: fn(&[u8]) -> [u8; 32],
+    hash_func: impl FnOnce(&[u8]) -> [u8; 32],
     sign: &Signature<C>,
 ) -> Result<ValidSign, InvalidSign> {
     let hash: FieldElement<C> = FieldElement::new(UBigInt::<4>::from_be_bytes(hash_func(msg)));
@@ -91,6 +87,7 @@ pub fn verify_signature<C: EllipticCurve>(
         Some(point) => point.x(),
         None => return Err(InvalidSign),
     };
+
     match r == sign.r {
         true => Ok(ValidSign),
         false => Err(InvalidSign),
@@ -130,7 +127,6 @@ mod tests {
                 0x5b44c8130b4e3eac,
                 0x1f4fa8ee59f4771a,
                 0x519b423d715f8b58,
-
             ]))
         };
 
@@ -149,7 +145,6 @@ mod tests {
                 0xef97b218e96f175a,
                 0x786c76262bf7371c,
                 0x8bf77819ca05a6b2,
-
             ]))
         };
         let signature = Signature::new(r, s);
@@ -160,7 +155,6 @@ mod tests {
                 0x3b4a6247824f5d33,
                 0xa280f245f9e93c7f,
                 0x94a1bbb14b906a61,
-
             ]))
         };
 
@@ -224,7 +218,6 @@ mod tests {
                 0xef97b218e96f175a,
                 0x786c76262bf7371c,
                 0x8bf77819ca05a6b2,
-
             ]))
         };
         let signature = Signature::new(r, s);
