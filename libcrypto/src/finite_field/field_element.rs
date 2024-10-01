@@ -219,7 +219,7 @@ impl<F: FiniteField> FieldElement<F> {
     /// [`FieldElement::ZERO`].
     pub fn neg(&self) -> Self {
         unsafe {
-            let mut neg = self.neg_uncheckd();
+            let mut neg = self.neg_unchecked();
             neg.0.and_bool_assign(self != &Self::ZERO);
             neg
         }
@@ -227,9 +227,9 @@ impl<F: FiniteField> FieldElement<F> {
 
     /// Returns the modular additive inverse of `self`, assuming `self` isn't [`FieldElement::ZERO`].
     ///
-    /// # Safety:
+    /// # Safety
     /// `self` cannot be [`FieldElement::ZERO`].
-    pub unsafe fn neg_uncheckd(&self) -> Self {
+    pub unsafe fn neg_unchecked(&self) -> Self {
         // SAFETY: the caller guarnantees that `self` isn't zero.
         unsafe { Self::new_unchecked(F::MODULUS.sub(&self.0)) }
     }
@@ -242,9 +242,11 @@ impl<F: FiniteField> FieldElement<F> {
         *self = self.neg();
     }
 
+    /// # Safety
+    /// `self` cannot be `FieldElement::ZERO`
     pub unsafe fn neg_assign_unchecked(&mut self) {
         // SAFETY: the caller guarnantees that `self` isn't zero.
-        *self = unsafe { self.neg_uncheckd() }
+        *self = unsafe { self.neg_unchecked() }
     }
 
     pub fn convert<G: FiniteField>(&self) -> FieldElement<G> {
