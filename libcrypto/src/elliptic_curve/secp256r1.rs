@@ -16,6 +16,18 @@ unsafe impl FiniteField for Secp256r1 {
     ]);
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Default, Hash)]
+pub struct P256Order;
+// SAFETY: `Self::MODULUS` is prime.
+unsafe impl FiniteField for P256Order {
+    const MODULUS: UBigInt<4> = UBigInt([
+        0xf3b9cac2fc632551,
+        0xbce6faada7179e84,
+        0xffffffffffffffff,
+        0xffffffff00000000,
+    ]);
+}
+
 impl EllipticCurve for Secp256r1 {
     const BASE_POINT: AffinePoint<Self> = unsafe {
         AffinePoint::new_unchecked(
@@ -52,10 +64,5 @@ impl EllipticCurve for Secp256r1 {
         ]))
     };
 
-    const ORDER: UBigInt<4> = UBigInt([
-        0xf3b9cac2fc632551,
-        0xbce6faada7179e84,
-        0xffffffffffffffff,
-        0xffffffff00000000,
-    ]);
+    type Order = P256Order;
 }

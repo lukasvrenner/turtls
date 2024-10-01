@@ -3,7 +3,6 @@ pub mod ecdsa;
 mod point;
 mod secp256r1;
 
-use crate::big_int::UBigInt;
 pub use point::affine::AffinePoint;
 pub use point::projective::ProjectivePoint;
 pub use secp256r1::Secp256r1;
@@ -23,5 +22,5 @@ pub trait EllipticCurve: FiniteField {
     /// The constant-term coefficient of the curve.
     const B: FieldElement<Self>;
 
-    const ORDER: UBigInt<4>;
+    type Order: FiniteField;
 }

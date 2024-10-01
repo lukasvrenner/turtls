@@ -2,15 +2,15 @@
 
 use super::{EllipticCurve, ProjectivePoint};
 use crate::big_int::UBigInt;
-use crate::finite_field::FieldElement;
+use crate::finite_field::{FieldElement, FiniteField};
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
-pub struct Signature<C: EllipticCurve> {
+pub struct Signature<C: FiniteField> {
     r: FieldElement<C>,
     s: FieldElement<C>,
 }
 
-impl<C: EllipticCurve> Signature<C> {
+impl<C: FiniteField> Signature<C> {
     pub const fn new(r: FieldElement<C>, s: FieldElement<C>) -> Self {
         Self { r, s }
     }
@@ -40,11 +40,12 @@ impl core::error::Error for InvalidSig {}
 
 pub fn sign<C: EllipticCurve>(
     msg: &[u8],
-    priv_key: &FieldElement<C>,
+    priv_key: &FieldElement<C::Order>,
     hash_func: impl FnOnce(&[u8]) -> [u8; 32],
-    secret_num_gen: impl Fn() -> FieldElement<C>,
-) -> Signature<C> {
-    let mut hash: FieldElement<C> = FieldElement::new(UBigInt::<4>::from_be_bytes(hash_func(msg)));
+    secret_num_gen: impl Fn() -> FieldElement<C::Order>,
+) -> Signature<C::Order> {
+    let mut hash: FieldElement<C::Order> =
+        FieldElement::new(UBigInt::<4>::from_be_bytes(hash_func(msg)));
 
     loop {
         let secret_num = secret_num_gen();
@@ -53,15 +54,18 @@ pub fn sign<C: EllipticCurve>(
         let Some(new_point) = C::BASE_POINT
             .as_projective()
             .mul_scalar(secret_num.inner())
-            .as_affine() else {
-            continue
+            .as_affine()
+        else {
+            continue;
         };
 
-        hash.add_assign(&new_point.x().mul(priv_key));
+        let r = new_point.x_ref().convert();
+
+        hash.add_assign(&r.mul(priv_key));
         inverse.mul_assign(&hash);
 
         if new_point.x_ref() != &FieldElement::ZERO && inverse != FieldElement::ZERO {
-            return Signature::new(new_point.x(), inverse);
+            return Signature::new(r, inverse);
         }
     }
 }
@@ -70,9 +74,10 @@ pub fn verify_signature<C: EllipticCurve>(
     msg: &[u8],
     pub_key: &ProjectivePoint<C>,
     hash_func: impl FnOnce(&[u8]) -> [u8; 32],
-    sig: &Signature<C>,
+    sig: &Signature<C::Order>,
 ) -> Result<ValidSig, InvalidSig> {
-    let hash: FieldElement<C> = FieldElement::new(UBigInt::<4>::from_be_bytes(hash_func(msg)));
+    let hash: FieldElement<C::Order> =
+        FieldElement::new(UBigInt::<4>::from_be_bytes(hash_func(msg)));
     let inverse = sig.s.inverse();
 
     let u = hash.mul(&inverse);
@@ -80,11 +85,11 @@ pub fn verify_signature<C: EllipticCurve>(
 
     let r = match C::BASE_POINT
         .as_projective()
-        .mul_scalar(&u.inner())
+        .mul_scalar(u.inner())
         .add(&pub_key.mul_scalar(v.inner()))
         .as_affine()
     {
-        Some(point) => point.x(),
+        Some(point) => point.x_ref().convert(),
         None => return Err(InvalidSig),
     };
 
@@ -96,6 +101,7 @@ pub fn verify_signature<C: EllipticCurve>(
 
 #[cfg(test)]
 mod tests {
+    use crate::elliptic_curve::secp256r1::P256Order;
     use crate::elliptic_curve::Secp256r1;
 
     use super::FieldElement;
@@ -122,7 +128,7 @@ mod tests {
         ];
 
         let priv_key = unsafe {
-            FieldElement::<Secp256r1>::new_unchecked(UBigInt([
+            FieldElement::<P256Order>::new_unchecked(UBigInt([
                 0xca54a56dda72b464,
                 0x5b44c8130b4e3eac,
                 0x1f4fa8ee59f4771a,
@@ -131,7 +137,7 @@ mod tests {
         };
 
         let r = unsafe {
-            FieldElement::<Secp256r1>::new_unchecked(UBigInt([
+            FieldElement::new_unchecked(UBigInt([
                 0xcabb5e6f79c8c2ac,
                 0x2afd6b1f6a555a7a,
                 0x8843e3d6629527ed,
@@ -140,7 +146,7 @@ mod tests {
         };
 
         let s = unsafe {
-            FieldElement::<Secp256r1>::new_unchecked(UBigInt([
+            FieldElement::<P256Order>::new_unchecked(UBigInt([
                 0x3ccdda2acc058903,
                 0xef97b218e96f175a,
                 0x786c76262bf7371c,
@@ -150,7 +156,7 @@ mod tests {
         let signature = Signature::new(r, s);
 
         let super_secure_secret_num_generator = || unsafe {
-            FieldElement::<Secp256r1>::new_unchecked(UBigInt([
+            FieldElement::<P256Order>::new_unchecked(UBigInt([
                 0xb9670787642a68de,
                 0x3b4a6247824f5d33,
                 0xa280f245f9e93c7f,
@@ -158,7 +164,7 @@ mod tests {
             ]))
         };
 
-        let generated_signature = super::sign(
+        let generated_signature = super::sign::<Secp256r1>(
             msg,
             &priv_key,
             crate::sha2::sha256,
@@ -204,7 +210,7 @@ mod tests {
             unsafe { ProjectivePoint::new_unchecked(pub_key_x, pub_key_y, FieldElement::ONE) };
 
         let r = unsafe {
-            FieldElement::<Secp256r1>::new_unchecked(UBigInt([
+            FieldElement::new_unchecked(UBigInt([
                 0xcabb5e6f79c8c2ac,
                 0x2afd6b1f6a555a7a,
                 0x8843e3d6629527ed,
@@ -213,7 +219,7 @@ mod tests {
         };
 
         let s = unsafe {
-            FieldElement::<Secp256r1>::new_unchecked(UBigInt([
+            FieldElement::<P256Order>::new_unchecked(UBigInt([
                 0x3ccdda2acc058903,
                 0xef97b218e96f175a,
                 0x786c76262bf7371c,

@@ -246,9 +246,13 @@ impl<F: FiniteField> FieldElement<F> {
         // SAFETY: the caller guarnantees that `self` isn't zero.
         *self = unsafe { self.neg_uncheckd() }
     }
+
+    pub fn convert<G: FiniteField>(&self) -> FieldElement<G> {
+        FieldElement::new(self.0)
+    }
 }
 
-impl<M: FiniteField> TryFrom<UBigInt<4>> for FieldElement<M> {
+impl<F: FiniteField> TryFrom<UBigInt<4>> for FieldElement<F> {
     type Error = InputTooLargeError;
     fn try_from(value: UBigInt<4>) -> Result<Self, Self::Error> {
         FieldElement::try_new(value)
