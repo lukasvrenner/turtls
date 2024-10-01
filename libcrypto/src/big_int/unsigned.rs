@@ -580,13 +580,13 @@ impl<const N: usize> UBigInt<N> {
 
     pub fn get_bit(&self, bit: usize) -> bool {
         assert!(bit < size_of::<[u64; N]>() * 8);
-        self.0[bit / (size_of::<u64>() * 8)] & 1 << (bit % (size_of::<u64>() * 8)) != 0
+        self.0[bit / (u64::BITS as usize)] & 1 << (bit % (u64::BITS as usize)) != 0
     }
 
     pub fn count_bits(&self) -> usize {
         let num_ditis = self.count_digits().saturating_sub(1);
-        let bits = size_of::<u64>() * 8 - self.0[num_ditis].leading_zeros() as usize;
-        num_ditis * size_of::<u64>() * 8 + bits
+        let bits = u64::BITS as usize - self.0[num_ditis].leading_zeros() as usize;
+        num_ditis * u64::BITS as usize + bits
     }
 }
 
