@@ -10,6 +10,6 @@
 pub mod aes;
 pub mod big_int;
 pub mod chacha;
-pub mod elliptic_curve;
+pub mod ec;
 pub mod finite_field;
 pub mod sha2;

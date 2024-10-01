@@ -101,8 +101,8 @@ pub fn verify_signature<C: EllipticCurve>(
 
 #[cfg(test)]
 mod tests {
-    use crate::elliptic_curve::secp256r1::P256Order;
-    use crate::elliptic_curve::Secp256r1;
+    use crate::ec::secp256r1::P256Order;
+    use crate::ec::Secp256r1;
 
     use super::FieldElement;
     use super::ProjectivePoint;

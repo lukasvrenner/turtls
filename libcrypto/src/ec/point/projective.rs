@@ -229,7 +229,7 @@ impl<C: EllipticCurve> From<AffinePoint<C>> for ProjectivePoint<C> {
 mod tests {
     use super::EllipticCurve;
     use crate::big_int::UBigInt;
-    use crate::elliptic_curve::{AffinePoint, ProjectivePoint, Secp256r1};
+    use crate::ec::{AffinePoint, ProjectivePoint, Secp256r1};
     use crate::finite_field::FieldElement;
 
     // test vectors from http://point-at-infinity.org/ecc/nisttv

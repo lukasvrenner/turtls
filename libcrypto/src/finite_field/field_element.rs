@@ -7,6 +7,7 @@ use super::FiniteField;
 ///
 /// All operations are performed modulo [`F::MODULUS`](super::FiniteField::MODULUS).
 #[derive(Eq, PartialOrd, Ord, PartialEq, Clone, Copy)]
+// TODO: use const generics instead of a type once custom const generics types are stabilized
 pub struct FieldElement<F: FiniteField>(UBigInt<4>, PhantomData<F>);
 
 impl<F: FiniteField> core::fmt::Display for FieldElement<F> {
@@ -268,7 +269,7 @@ mod tests {
     use crate::big_int::UBigInt;
 
     use super::FieldElement;
-    use crate::elliptic_curve::Secp256r1;
+    use crate::ec::Secp256r1;
 
     #[test]
     fn inverse() {

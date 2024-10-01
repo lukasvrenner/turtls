@@ -57,7 +57,7 @@ impl<C: EllipticCurve> AffinePoint<C> {
         unsafe { ProjectivePoint::new_unchecked(self.x, self.y, FieldElement::ONE) }
     }
 
-    /// Creates a new [`Point`] without verifying that it is on the curve specified b `P`.
+    /// Creates a new [`AffinePoint`] without verifying that it is on the curve specified b `P`.
     ///
     /// # Safety
     /// The point must be on the curve. If the point isn't on the curve, it will result in
@@ -118,7 +118,7 @@ impl<C: EllipticCurve> TryFrom<ProjectivePoint<C>> for AffinePoint<C> {
 mod tests {
     use super::*;
     use crate::big_int::UBigInt;
-    use crate::elliptic_curve::Secp256r1;
+    use crate::ec::Secp256r1;
 
     // test vectors from http://point-at-infinity.org/ecc/nisttv
 
