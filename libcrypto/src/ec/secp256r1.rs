@@ -64,5 +64,5 @@ impl EllipticCurve for Secp256r1 {
         ]))
     };
 
-    type Order= P256Order;
+    type Order = P256Order;
 }
