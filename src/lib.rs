@@ -7,21 +7,8 @@
 #![warn(missing_docs)]
 
 pub mod client;
+mod handshake;
 pub mod server;
-
-#[repr(C)]
-pub enum ShakeStatus {
-    /// Indicates a successful handshake
-    Success = 0,
-    UnexpectedMessage,
-}
-
-#[repr(C)]
-pub struct IoStream {
-    read: extern fn() -> Message,
-    write: extern fn(Message)
-}
-
 
 #[repr(C)]
 pub struct Message {
