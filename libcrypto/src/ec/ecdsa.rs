@@ -71,7 +71,7 @@ pub fn sign<C: EllipticCurve>(
         hash.add_assign(&r.mul(priv_key));
         inverse.mul_assign(&hash);
 
-        if new_point.x_ref() != &FieldElement::ZERO && inverse != FieldElement::ZERO {
+        if r != FieldElement::ZERO && inverse != FieldElement::ZERO {
             return Signature::new(r, inverse);
         }
     }
