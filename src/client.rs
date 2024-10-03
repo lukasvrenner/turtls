@@ -1,45 +1,53 @@
-use crate::handshake::{ShakeMsg, ShakeStatus, ShakeType};
+use crate::extensions::ExtType;
+use crate::handshake::{ShakeStatus, ShakeType};
+use crate::LEGACY_PROTO_VERS;
 
-use super::Message;
 pub extern "C" fn handshake(
-    read: extern "C" fn() -> Message,
-    write: extern "C" fn(Message),
+    read: extern "C" fn(buf: *mut u8, len: usize),
+    write: extern "C" fn(msg: *const u8, len: usize),
 ) -> ShakeStatus {
     todo!()
 }
 
-fn client_hello(write: extern "C" fn(Message), csprng: impl FnOnce() -> [u8; 32]) {
-    // TODO make the length the proper length
-    let mut msg = ShakeMsg::new(ShakeType::ClientHello, 41);
+fn client_hello(
+    msg_buf: &mut [u8],
+    csprng: impl FnOnce() -> [u8; 32],
+    cipher_suites: &[u8],
+    extensions: &[u8],
+) {
+    // legacy protocol version
+    let mut pos = 0;
+    msg_buf[pos..][..2].copy_from_slice(&LEGACY_PROTO_VERS);
+    pos += size_of_val(&LEGACY_PROTO_VERS);
 
-    let legacy_version = [0x03, 0x03];
-    msg.extend_from_slice(&legacy_version);
+    // random bytes
+    msg_buf[pos..][..32].copy_from_slice(&csprng());
+    pos += 32;
 
-    let random_bytes = csprng();
-    msg.extend_from_slice(&random_bytes);
+    // legacy session id
+    msg_buf[pos] = 0x00;
+    pos += 1;
 
-    let legacy_session_id = 0x00;
-    msg.push(legacy_session_id);
+    // cipher suites len
+    assert!(cipher_suites.len() >= 2);
+    let suites_len = (cipher_suites.len() as u16).to_be_bytes();
+    msg_buf[pos..][..2].copy_from_slice(&suites_len);
+    pos += size_of::<u16>();
 
-    // TODO: allow this to be customizable
-    let cipher_suite_len = 0x01;
-    let aes128_gcm_sha256 = [0x13, 0x01];
-    msg.push(cipher_suite_len);
-    msg.extend_from_slice(&aes128_gcm_sha256);
+    // cipher suites
+    msg_buf[pos..][..cipher_suites.len()].copy_from_slice(cipher_suites);
+    pos += cipher_suites.len();
 
-    let legacy_compression_methods = 0x00;
-    msg.push(legacy_compression_methods);
+    // legacy compression methods
+    msg_buf[pos] = 0x00;
+    pos += 1;
 
-    let extension_len = 0x00;
-    // TODO add extensions
-    let extensions = [0x00];
-    msg.push(extension_len);
-    msg.extend_from_slice(&extensions);
+    // extensions len
+    assert!(extensions.len() >= 8);
+    let extensions_len = (extensions.len() as u16).to_be_bytes();
+    msg_buf[pos..][..extensions.len()].copy_from_slice(&extensions_len);
+    pos += extensions.len();
 
-    let send_msg = Message {
-        ptr: &msg as &[u8] as *const [u8] as *const u8,
-        len: msg.len(),
-    };
-    write(send_msg);
-    todo!()
+    msg_buf[pos..][..extensions.len()].copy_from_slice(extensions);
+    assert_eq!(msg_buf.len(), pos + extensions.len());
 }
