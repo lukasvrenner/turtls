@@ -1,7 +1,7 @@
 use crate::LEGACY_PROTO_VERS;
 
 pub fn client_hello(
-    msg_buf: &mut [u8],
+    msg_buf: &mut Vec<u8>,
     csprng: impl FnOnce() -> [u8; 32],
     // TODO: can a &[CipherSuite] be used somehow?
     cipher_suites: &[u8],
@@ -9,37 +9,29 @@ pub fn client_hello(
     extensions: &[u8],
 ) {
     // legacy protocol version
-    let mut pos = 0;
-    msg_buf[pos..][..2].copy_from_slice(&LEGACY_PROTO_VERS);
-    pos += size_of_val(&LEGACY_PROTO_VERS);
+    msg_buf.extend_from_slice(&LEGACY_PROTO_VERS);
 
     // random bytes
-    msg_buf[pos..][..32].copy_from_slice(&csprng());
-    pos += 32;
+    msg_buf.extend_from_slice(&csprng());
 
     // legacy session id
-    msg_buf[pos] = 0x00;
-    pos += 1;
+    msg_buf.push(0x00);
 
     // cipher suites len
     assert!(cipher_suites.len() >= 2, "at least one cipher suite must be used");
     let suites_len = (cipher_suites.len() as u16).to_be_bytes();
-    msg_buf[pos..][..2].copy_from_slice(&suites_len);
-    pos += size_of::<u16>();
+    msg_buf.extend_from_slice(&suites_len);
 
     // cipher suites
-    msg_buf[pos..][..cipher_suites.len()].copy_from_slice(cipher_suites);
-    pos += cipher_suites.len();
+    msg_buf.extend_from_slice(cipher_suites);
 
     // legacy compression methods
-    msg_buf[pos] = 0x00;
-    pos += 1;
+    msg_buf.push(0x00);
 
     // extensions len
     assert!(extensions.len() >= 8, "at least four extensions must be used");
     let extensions_len = (extensions.len() as u16).to_be_bytes();
-    msg_buf[pos..][..extensions.len()].copy_from_slice(&extensions_len);
-    pos += extensions.len();
+    msg_buf.extend_from_slice(&extensions_len);
 
-    msg_buf[pos..][..extensions.len()].copy_from_slice(extensions);
+    msg_buf.extend_from_slice(extensions);
 }
