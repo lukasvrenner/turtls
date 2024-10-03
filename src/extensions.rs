@@ -23,3 +23,15 @@ pub enum Extension {
     SigAlgCert = 50,
     KeyShare = 51,
 }
+
+pub fn extension(msg_buf: &mut [u8], extension: Extension, data: &[u8]) {
+    assert_eq!(msg_buf.len(), data.len() + 2 * size_of::<u16>(), "buf must exactly fit the data");
+    let as_bytes = (extension as u16).to_be_bytes();
+    msg_buf[..2].copy_from_slice(&as_bytes);
+
+    assert!(data.len() <= 2, "extensions have a max of two bytes");
+    let data_len = (data.len() as u16).to_be_bytes();
+    msg_buf[2..][..2].copy_from_slice(&data_len);
+
+    msg_buf[4..][..data.len()].copy_from_slice(&data);
+}
