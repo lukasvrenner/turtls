@@ -6,11 +6,11 @@
 //! </div>
 #![warn(missing_docs)]
 
-pub mod client;
+mod client_hello;
+mod server_hello;
 mod extensions;
 mod handshake;
 mod record;
 mod cipher_suites;
-pub mod server;
 
 const LEGACY_PROTO_VERS: [u8; 2] = [0x03, 0x03];

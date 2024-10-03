@@ -1,5 +1,5 @@
 #[repr(u16)]
-pub enum ExtType {
+pub enum Extension {
     ServerName = 0,
     MaxFragmentLength = 1,
     StatusRequest = 5,
