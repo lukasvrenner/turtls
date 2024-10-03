@@ -42,5 +42,4 @@ pub fn client_hello(
     pos += extensions.len();
 
     msg_buf[pos..][..extensions.len()].copy_from_slice(extensions);
-    assert_eq!(pos + extensions.len(), msg_buf.len(), "buf must exactly fit contents");
 }

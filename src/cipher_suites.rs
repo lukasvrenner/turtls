@@ -8,7 +8,7 @@ pub enum CipherSuite {
 }
 
 #[repr(u16)]
-pub enum Group {
+pub enum NamedGroup {
     Secp256r1 = 0x17,
     Secp384r1 = 0x18,
     Secp521r1 = 0x19,
