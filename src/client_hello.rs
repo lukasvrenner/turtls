@@ -1,37 +1,42 @@
-use crate::LEGACY_PROTO_VERS;
+use crate::{extensions, LEGACY_PROTO_VERS};
+use crate::cipher_suites::CipherSuite;
 
 pub fn client_hello(
     msg_buf: &mut Vec<u8>,
     csprng: impl FnOnce() -> [u8; 32],
-    // TODO: can a &[CipherSuite] be used somehow?
-    cipher_suites: &[u8],
-    // TODO: can a &[Extension] be used somehow?
-    extensions: &[u8],
 ) {
-    // legacy protocol version
-    msg_buf.extend_from_slice(&LEGACY_PROTO_VERS);
+    legacy_protocol_version(msg_buf);
 
-    // random bytes
     msg_buf.extend_from_slice(&csprng());
 
-    // legacy session id
+    legacy_session_id(msg_buf);
+
+    cipher_suites(msg_buf);
+
+    legacy_compression_methods(msg_buf);
+
+    extensions(msg_buf);
+}
+
+fn legacy_protocol_version(msg_buf: &mut Vec<u8>) {
+    msg_buf.extend_from_slice(&LEGACY_PROTO_VERS);
+}
+
+fn legacy_session_id(msg_buf: &mut Vec<u8>) {
     msg_buf.push(0x00);
+}
 
-    // cipher suites len
-    assert!(cipher_suites.len() >= 2, "at least one cipher suite must be used");
-    let suites_len = (cipher_suites.len() as u16).to_be_bytes();
-    msg_buf.extend_from_slice(&suites_len);
+fn cipher_suites(msg_buf: &mut Vec<u8>) {
+    let len = 1u16.to_be_bytes();
+    msg_buf.extend_from_slice(&len);
+    let aes128_gcm_sha256 = (CipherSuite::Aes128GcmSha256 as u16).to_be_bytes();
+    msg_buf.extend_from_slice(&aes128_gcm_sha256);
+}
 
-    // cipher suites
-    msg_buf.extend_from_slice(cipher_suites);
-
-    // legacy compression methods
+fn legacy_compression_methods(msg_buf: &mut Vec<u8>) {
     msg_buf.push(0x00);
+}
 
-    // extensions len
-    assert!(extensions.len() >= 8, "at least four extensions must be used");
-    let extensions_len = (extensions.len() as u16).to_be_bytes();
-    msg_buf.extend_from_slice(&extensions_len);
-
-    msg_buf.extend_from_slice(extensions);
+fn extensions(msg_buf: &mut Vec<u8>) {
+    todo!()
 }
