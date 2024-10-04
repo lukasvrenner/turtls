@@ -25,7 +25,7 @@ pub enum Extension {
     KeyShare = 51,
 }
 
-pub fn supported_versions_client(msg_buf: &mut Vec<u8>) {
+pub fn supported_versions_client(msg_buf: &mut Vec<u8>) -> u16 {
     let extension_name = (Extension::SupportedVersions as u16).to_be_bytes();
     msg_buf.extend_from_slice(&extension_name);
 
@@ -37,7 +37,7 @@ pub fn supported_versions_client(msg_buf: &mut Vec<u8>) {
     todo!()
 }
 
-pub fn supported_versions_server(msg_buf: &mut Vec<u8>) {
+pub fn supported_versions_server(msg_buf: &mut Vec<u8>) -> u16 {
     todo!()
 }
 
@@ -69,13 +69,18 @@ pub fn supported_groups(msg_buf: &mut Vec<u8>) {
 
     let groups = (NamedGroup::Secp256r1 as u16).to_be_bytes();
     msg_buf.extend_from_slice(&groups);
+
 }
 
 pub fn key_share_client_hello(msg_buf: &mut Vec<u8>) {
+    let extension_name = (Extension::KeyShare as u16).to_be_bytes();
+    msg_buf.extend_from_slice(&extension_name);
     todo!()
 }
 
 fn key_share_entry(msg_buf: &mut Vec<u8>) {
-    let named_group = NamedGroup::Secp256r1;
-
+    let named_group = (NamedGroup::Secp256r1 as u16).to_be_bytes();
+    msg_buf.extend_from_slice(&named_group);
+    let len = 65;
+    todo!()
 }
