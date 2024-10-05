@@ -7,6 +7,12 @@ pub enum CipherSuite {
     Aes128Ccm8Sha256 = 0x1305,
 }
 
+impl CipherSuite {
+    pub const fn as_be_bytes(self) -> [u8; 2] {
+        (self as u16).to_be_bytes()
+    }
+}
+
 #[repr(u16)]
 pub enum NamedGroup {
     Secp256r1 = 0x17,
@@ -21,6 +27,12 @@ pub enum NamedGroup {
     Ffdhe4096 = 0x102,
     Ffdhe6144 = 0x103,
     Ffdhe8192 = 0x104,
+}
+
+impl NamedGroup {
+    pub const fn as_be_bytes(self) -> [u8; 2] {
+        (self as u16).to_be_bytes()
+    }
 }
 
 #[repr(u16)]
@@ -46,4 +58,10 @@ pub enum SignatureScheme {
 
     RsaPkcs1Sha1 = 0x201,
     EcdsaSha1 = 0x203,
+}
+
+impl SignatureScheme {
+    pub const fn as_be_bytes(self) -> [u8; 2] {
+        (self as u16).to_be_bytes()
+    }
 }

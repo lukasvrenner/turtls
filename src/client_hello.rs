@@ -1,5 +1,6 @@
 use crate::cipher_suites::CipherSuite;
-use crate::{extensions, LEGACY_PROTO_VERS};
+use crate::extensions;
+use crate::versions::LEGACY_PROTO_VERS;
 
 pub fn client_hello(msg_buf: &mut Vec<u8>) {
     legacy_protocol_version(msg_buf);
@@ -16,7 +17,7 @@ pub fn client_hello(msg_buf: &mut Vec<u8>) {
 }
 
 fn legacy_protocol_version(msg_buf: &mut Vec<u8>) {
-    msg_buf.extend_from_slice(&LEGACY_PROTO_VERS);
+    msg_buf.extend_from_slice(&LEGACY_PROTO_VERS.as_be_bytes());
 }
 
 fn random_bits(msg_buf: &mut Vec<u8>) {
@@ -30,7 +31,7 @@ fn legacy_session_id(msg_buf: &mut Vec<u8>) {
 fn cipher_suites(msg_buf: &mut Vec<u8>) {
     let len = 1u16.to_be_bytes();
     msg_buf.extend_from_slice(&len);
-    let aes128_gcm_sha256 = (CipherSuite::Aes128GcmSha256 as u16).to_be_bytes();
+    let aes128_gcm_sha256 = CipherSuite::Aes128GcmSha256.as_be_bytes();
     msg_buf.extend_from_slice(&aes128_gcm_sha256);
 }
 

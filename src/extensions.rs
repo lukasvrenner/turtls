@@ -25,8 +25,14 @@ pub enum Extension {
     KeyShare = 51,
 }
 
+impl Extension {
+    pub const fn as_be_bytes(self) -> [u8; 2] {
+        (self as u16).to_be_bytes()
+    }
+}
+
 pub fn supported_versions_client(msg_buf: &mut Vec<u8>) -> u16 {
-    let extension_name = (Extension::SupportedVersions as u16).to_be_bytes();
+    let extension_name = Extension::SupportedVersions.as_be_bytes();
     msg_buf.extend_from_slice(&extension_name);
 
     let extension_len = (size_of::<u8>() as u16 + 1).to_be_bytes();
@@ -43,7 +49,7 @@ pub fn supported_versions_server(msg_buf: &mut Vec<u8>) -> u16 {
 
 // TODO: support more algorithms and allow user to choose which to use
 pub fn signature_algorithms(msg_buf: &mut Vec<u8>) {
-    let extension_name = (Extension::SignatureAlgorithms as u16).to_be_bytes();
+    let extension_name = Extension::SignatureAlgorithms.as_be_bytes();
     msg_buf.extend_from_slice(&extension_name);
 
     let extension_len = (2 * size_of::<u16>() as u16).to_be_bytes();
@@ -52,7 +58,7 @@ pub fn signature_algorithms(msg_buf: &mut Vec<u8>) {
     let len = (size_of::<u16>() as u16).to_be_bytes();
     msg_buf.extend_from_slice(&len);
 
-    let scheme = (SignatureScheme::EcdsaSecp256r1Sha256 as u16).to_be_bytes();
+    let scheme = SignatureScheme::EcdsaSecp256r1Sha256.as_be_bytes();
     msg_buf.extend_from_slice(&scheme);
 }
 
@@ -67,19 +73,18 @@ pub fn supported_groups(msg_buf: &mut Vec<u8>) {
     let len = (size_of::<u16>() as u16).to_be_bytes();
     msg_buf.extend_from_slice(&len);
 
-    let groups = (NamedGroup::Secp256r1 as u16).to_be_bytes();
+    let groups = NamedGroup::Secp256r1.as_be_bytes();
     msg_buf.extend_from_slice(&groups);
 }
 
 pub fn key_share_client_hello(msg_buf: &mut Vec<u8>) {
-    let extension_name = (Extension::KeyShare as u16).to_be_bytes();
+    let extension_name = Extension::KeyShare.as_be_bytes();
     msg_buf.extend_from_slice(&extension_name);
     todo!()
 }
 
 fn key_share_entry(msg_buf: &mut Vec<u8>) {
-    let named_group = (NamedGroup::Secp256r1 as u16).to_be_bytes();
+    let named_group = NamedGroup::Secp256r1.as_be_bytes();
     msg_buf.extend_from_slice(&named_group);
-    let len = 65;
     todo!()
 }
