@@ -1,8 +1,5 @@
 //! A software implementation of SHA-256.
 
-pub const BLOCK_SIZE: usize = 64;
-pub const HASH_SIZE: usize = 32;
-
 /// The first 32 bits of the fractional parts of
 /// the cube roots of the first 64 prime numbers
 // TODO: name this something useful
@@ -76,7 +73,7 @@ impl Sha256 {
         }
     }
 
-    pub fn update(&mut self, block: &[u8; Self::BLOCK_SIZE]) {
+    pub fn update_with(&mut self, block: &[u8; Self::BLOCK_SIZE]) {
         let block = be_bytes_to_u32_array(block);
 
         let mut message_schedule = [0; 64];
@@ -121,43 +118,47 @@ impl Sha256 {
         to_be_bytes_from_hash(&self.state)
     }
 
-    pub fn hash(msg: &[u8]) -> [u8; Self::HASH_SIZE] {
-        let mut hasher = Self::new();
+    pub fn update_with_msg(&mut self, msg: &[u8]) {
         // TODO: use `array_chunks` once stabilized
-        let chunks = msg.chunks_exact(BLOCK_SIZE);
-        let remainder = chunks.remainder();
+        let blocks = msg.chunks_exact(Self::BLOCK_SIZE);
+        let remainder = blocks.remainder();
 
-        for block in chunks {
-            hasher.update(block.try_into().unwrap());
+        for block in blocks {
+            self.update_with(block.try_into().unwrap());
         }
 
-        let mut last_block = [0; BLOCK_SIZE];
+        let mut last_block = [0; Self::BLOCK_SIZE];
         // we can safely write here because the excess must be less than `BLOCK_SIZE`
         last_block[..remainder.len()].copy_from_slice(remainder);
 
         last_block[remainder.len()] = 0x80;
 
         // does the length info fit without adding an extra block?
-        if remainder.len() < BLOCK_SIZE - size_of::<u64>() {
-            last_block[BLOCK_SIZE - size_of::<u64>()..]
+        if remainder.len() < Self::BLOCK_SIZE - size_of::<u64>() {
+            last_block[Self::BLOCK_SIZE - size_of::<u64>()..]
                 .copy_from_slice(&(msg.len() as u64 * 8).to_be_bytes());
         } else {
-            hasher.update(&last_block);
-            last_block = [0; BLOCK_SIZE];
-            last_block[BLOCK_SIZE - size_of::<u64>()..]
+            self.update_with(&last_block);
+            last_block = [0; Self::BLOCK_SIZE];
+            last_block[Self::BLOCK_SIZE - size_of::<u64>()..]
                 .copy_from_slice(&(msg.len() as u64 * 8).to_be_bytes());
         }
 
-        hasher.update(&last_block);
+        self.update_with(&last_block);
+    }
+
+    pub fn hash(msg: &[u8]) -> [u8; Self::HASH_SIZE] {
+        let mut hasher = Self::new();
+        hasher.update_with_msg(msg);
         hasher.finalize()
     }
 }
 
 pub(super) fn be_bytes_to_u32_array(
-    bytes: &[u8; BLOCK_SIZE],
-) -> [u32; BLOCK_SIZE / size_of::<u32>()] {
+    bytes: &[u8; Sha256::BLOCK_SIZE],
+) -> [u32; Sha256::BLOCK_SIZE / size_of::<u32>()] {
     // TODO: consider using uninitialized array
-    let mut as_u32 = [0u32; BLOCK_SIZE / 4];
+    let mut as_u32 = [0u32; Sha256::BLOCK_SIZE / 4];
     // TODO: use `array_chunks` once stabilized
     for (int, chunk) in as_u32.iter_mut().zip(bytes.chunks_exact(4)) {
         *int = u32::from_be_bytes(chunk.try_into().unwrap());
@@ -165,9 +166,9 @@ pub(super) fn be_bytes_to_u32_array(
     as_u32
 }
 
-pub(super) fn to_be_bytes_from_hash(array: &[u32; HASH_SIZE / 4]) -> [u8; HASH_SIZE] {
+pub(super) fn to_be_bytes_from_hash(array: &[u32; Sha256::HASH_SIZE / 4]) -> [u8; Sha256::HASH_SIZE] {
     // TODO: consider using uninitialized array
-    let mut as_bytes = [0u8; HASH_SIZE];
+    let mut as_bytes = [0u8; Sha256::HASH_SIZE];
     // TODO: use `array_chunks` once stabilized
     for (chunk, int) in as_bytes.chunks_exact_mut(4).zip(array) {
         chunk.copy_from_slice(&int.to_be_bytes())
@@ -181,7 +182,7 @@ mod tests {
     #[test]
     fn sha256() {
         let msg = b"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq";
-        let digest: [u8; super::HASH_SIZE] = [
+        let digest: [u8; Sha256::HASH_SIZE] = [
             0x24, 0x8D, 0x6A, 0x61, 0xD2, 0x06, 0x38, 0xB8, 0xE5, 0xC0, 0x26, 0x93, 0x0C, 0x3E,
             0x60, 0x39, 0xA3, 0x3C, 0xE4, 0x59, 0x64, 0xFF, 0x21, 0x67, 0xF6, 0xEC, 0xED, 0xD4,
             0x19, 0xDB, 0x06, 0xC1,
