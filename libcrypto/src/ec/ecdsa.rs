@@ -175,7 +175,7 @@ mod tests {
         let generated_signature = super::sign::<Secp256r1>(
             msg,
             &priv_key,
-            crate::sha2::sha256,
+            crate::sha2::Sha256::hash,
             super_secure_random_num_generator,
         );
         assert_eq!(generated_signature, signature);
@@ -233,7 +233,7 @@ mod tests {
         let generated_signature = super::sign::<Secp256r1>(
             msg,
             &priv_key,
-            crate::sha2::sha256,
+            crate::sha2::Sha256::hash,
             super_secure_random_num_generator,
         );
         assert_eq!(generated_signature, signature);
@@ -295,7 +295,7 @@ mod tests {
         let signature = Signature::new(r, s);
 
         assert_eq!(
-            super::verify_signature(msg, &pub_key, crate::sha2::sha256, &signature),
+            super::verify_signature(msg, &pub_key, crate::sha2::Sha256::hash, &signature),
             Ok(ValidSig)
         );
 
@@ -314,7 +314,7 @@ mod tests {
         ];
 
         assert_eq!(
-            super::verify_signature(msg, &pub_key, crate::sha2::sha256, &signature),
+            super::verify_signature(msg, &pub_key, crate::sha2::Sha256::hash, &signature),
             Err(InvalidSig)
         );
 
@@ -372,7 +372,7 @@ mod tests {
             unsafe { ProjectivePoint::new_unchecked(pub_key_x, pub_key_y, FieldElement::ONE) };
 
         assert_eq!(
-            super::verify_signature(msg, &pub_key, crate::sha2::sha256, &signature),
+            super::verify_signature(msg, &pub_key, crate::sha2::Sha256::hash, &signature),
             Ok(ValidSig)
         );
 
@@ -388,7 +388,7 @@ mod tests {
 
         let signature = Signature::new(r, s);
         assert_eq!(
-            super::verify_signature(msg, &pub_key, crate::sha2::sha256, &signature),
+            super::verify_signature(msg, &pub_key, crate::sha2::Sha256::hash, &signature),
             Err(InvalidSig)
         );
     }

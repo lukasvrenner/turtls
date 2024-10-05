@@ -11,4 +11,5 @@ pub mod aead;
 pub mod big_int;
 pub mod ec;
 pub mod finite_field;
+pub mod hkdf;
 pub mod sha2;

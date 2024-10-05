@@ -1,7 +1,7 @@
 //! A software implementation of SHA-256.
 
-const BLOCK_SIZE: usize = 64;
-const HASH_SIZE: usize = 32;
+pub const BLOCK_SIZE: usize = 64;
+pub const HASH_SIZE: usize = 32;
 
 /// The first 32 bits of the fractional parts of
 /// the cube roots of the first 64 prime numbers
@@ -59,99 +59,103 @@ const fn little_sigma_1(x: u32) -> u32 {
     x.rotate_right(17) ^ x.rotate_right(19) ^ x >> 10
 }
 
-/// Calculates a 256-bit hash of `msg` using the SHA-256 algorithm.
-///
-/// # Examples
-///
-/// ```
-/// use libcrypto::sha2;
-///
-/// let message = b"abc";
-/// let hash = [
-///     0xba, 0x78, 0x16, 0xbf, 0x8f, 0x01, 0xcf, 0xea, 0x41, 0x41, 0x40,
-///     0xde, 0x5d, 0xae, 0x22, 0x23, 0xb0, 0x03, 0x61, 0xa3, 0x96, 0x17,
-///     0x7a, 0x9c, 0xb4, 0x10, 0xff, 0x61, 0xf2, 0x00, 0x15, 0xad,
-/// ];
-/// assert_eq!(sha2::sha256(message), hash);
-/// ```
-pub fn sha256(msg: &[u8]) -> [u8; HASH_SIZE] {
-    let mut hash: [u32; HASH_SIZE / size_of::<u32>()] = [
-        0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab,
-        0x5be0cd19,
-    ];
-    // TODO: use `array_chunks` once stabilized
-    let chunks = msg.chunks_exact(BLOCK_SIZE);
-    let remainder = chunks.remainder();
-    chunks
-        // we can safely unwrap because `block` has a compile-time known length.
-        .map(|block| be_bytes_to_u32_array(block.try_into().unwrap()))
-        .for_each(|block| update_hash(&mut hash, &block));
-
-    let mut last_block = [0; BLOCK_SIZE];
-    // we can safely write here because the excess must be less than `BLOCK_SIZE`
-    last_block[..remainder.len()].copy_from_slice(remainder);
-
-    last_block[remainder.len()] = 0x80;
-
-    // does the length info fit without adding an extra block?
-    if remainder.len() < BLOCK_SIZE - size_of::<u64>() {
-        last_block[BLOCK_SIZE - size_of::<u64>()..]
-            .copy_from_slice(&(msg.len() as u64 * 8).to_be_bytes());
-    } else {
-        update_hash(&mut hash, &be_bytes_to_u32_array(&last_block));
-        last_block = [0; BLOCK_SIZE];
-        last_block[BLOCK_SIZE - size_of::<u64>()..]
-            .copy_from_slice(&(msg.len() as u64 * 8).to_be_bytes());
-    }
-
-    update_hash(&mut hash, &be_bytes_to_u32_array(&last_block));
-
-    to_be_bytes_from_hash(hash)
+pub struct Sha256 {
+    state: [u32; Self::HASH_SIZE / size_of::<u32>()],
 }
 
-fn update_hash(
-    hash: &mut [u32; HASH_SIZE / size_of::<u32>()],
-    next_block: &[u32; BLOCK_SIZE / size_of::<u32>()],
-) {
-    let mut message_schedule = [0; 64];
-    message_schedule[..next_block.len()].copy_from_slice(next_block);
+impl Sha256 {
+    pub const HASH_SIZE: usize = 32;
+    pub const BLOCK_SIZE: usize = 64;
 
-    for i in 16..message_schedule.len() {
-        message_schedule[i] = little_sigma_1(message_schedule[i - 2])
-            .wrapping_add(message_schedule[i - 7])
-            .wrapping_add(little_sigma_0(message_schedule[i - 15]))
-            .wrapping_add(message_schedule[i - 16]);
+    pub const fn new() -> Self {
+        Self {
+            state: [
+                0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab,
+                0x5be0cd19,
+            ],
+        }
     }
 
-    let [mut a, mut b, mut c, mut d, mut e, mut f, mut g, mut h] = *hash;
+    pub fn update(&mut self, block: &[u8; Self::BLOCK_SIZE]) {
+        let block = be_bytes_to_u32_array(block);
 
-    for i in 0..64 {
-        let temp1 = h
-            .wrapping_add(sigma_1(e))
-            .wrapping_add(ch(e, f, g))
-            .wrapping_add(K[i])
-            .wrapping_add(message_schedule[i]);
-        let temp2 = sigma_0(a).wrapping_add(maj(a, b, c));
-        h = g;
-        g = f;
-        f = e;
-        e = d.wrapping_add(temp1);
-        d = c;
-        c = b;
-        b = a;
-        a = temp1.wrapping_add(temp2);
+        let mut message_schedule = [0; 64];
+        message_schedule[..block.len()].copy_from_slice(&block);
+
+        for i in 16..message_schedule.len() {
+            message_schedule[i] = little_sigma_1(message_schedule[i - 2])
+                .wrapping_add(message_schedule[i - 7])
+                .wrapping_add(little_sigma_0(message_schedule[i - 15]))
+                .wrapping_add(message_schedule[i - 16]);
+        }
+
+        let [mut a, mut b, mut c, mut d, mut e, mut f, mut g, mut h] = self.state;
+
+        for i in 0..64 {
+            let temp1 = h
+                .wrapping_add(sigma_1(e))
+                .wrapping_add(ch(e, f, g))
+                .wrapping_add(K[i])
+                .wrapping_add(message_schedule[i]);
+            let temp2 = sigma_0(a).wrapping_add(maj(a, b, c));
+            h = g;
+            g = f;
+            f = e;
+            e = d.wrapping_add(temp1);
+            d = c;
+            c = b;
+            b = a;
+            a = temp1.wrapping_add(temp2);
+        }
+        self.state[0] = self.state[0].wrapping_add(a);
+        self.state[1] = self.state[1].wrapping_add(b);
+        self.state[2] = self.state[2].wrapping_add(c);
+        self.state[3] = self.state[3].wrapping_add(d);
+        self.state[4] = self.state[4].wrapping_add(e);
+        self.state[5] = self.state[5].wrapping_add(f);
+        self.state[6] = self.state[6].wrapping_add(g);
+        self.state[7] = self.state[7].wrapping_add(h);
     }
-    hash[0] = hash[0].wrapping_add(a);
-    hash[1] = hash[1].wrapping_add(b);
-    hash[2] = hash[2].wrapping_add(c);
-    hash[3] = hash[3].wrapping_add(d);
-    hash[4] = hash[4].wrapping_add(e);
-    hash[5] = hash[5].wrapping_add(f);
-    hash[6] = hash[6].wrapping_add(g);
-    hash[7] = hash[7].wrapping_add(h);
+
+    pub fn finalize(&self) -> [u8; Self::HASH_SIZE] {
+        to_be_bytes_from_hash(&self.state)
+    }
+
+    pub fn hash(msg: &[u8]) -> [u8; Self::HASH_SIZE] {
+        let mut hasher = Self::new();
+        // TODO: use `array_chunks` once stabilized
+        let chunks = msg.chunks_exact(BLOCK_SIZE);
+        let remainder = chunks.remainder();
+
+        for block in chunks {
+            hasher.update(block.try_into().unwrap());
+        }
+
+        let mut last_block = [0; BLOCK_SIZE];
+        // we can safely write here because the excess must be less than `BLOCK_SIZE`
+        last_block[..remainder.len()].copy_from_slice(remainder);
+
+        last_block[remainder.len()] = 0x80;
+
+        // does the length info fit without adding an extra block?
+        if remainder.len() < BLOCK_SIZE - size_of::<u64>() {
+            last_block[BLOCK_SIZE - size_of::<u64>()..]
+                .copy_from_slice(&(msg.len() as u64 * 8).to_be_bytes());
+        } else {
+            hasher.update(&last_block);
+            last_block = [0; BLOCK_SIZE];
+            last_block[BLOCK_SIZE - size_of::<u64>()..]
+                .copy_from_slice(&(msg.len() as u64 * 8).to_be_bytes());
+        }
+
+        hasher.update(&last_block);
+        hasher.finalize()
+    }
 }
 
-fn be_bytes_to_u32_array(bytes: &[u8; BLOCK_SIZE]) -> [u32; BLOCK_SIZE / size_of::<u32>()] {
+pub(super) fn be_bytes_to_u32_array(
+    bytes: &[u8; BLOCK_SIZE],
+) -> [u32; BLOCK_SIZE / size_of::<u32>()] {
     // TODO: consider using uninitialized array
     let mut as_u32 = [0u32; BLOCK_SIZE / 4];
     // TODO: use `array_chunks` once stabilized
@@ -161,7 +165,7 @@ fn be_bytes_to_u32_array(bytes: &[u8; BLOCK_SIZE]) -> [u32; BLOCK_SIZE / size_of
     as_u32
 }
 
-fn to_be_bytes_from_hash(array: [u32; HASH_SIZE / 4]) -> [u8; HASH_SIZE] {
+pub(super) fn to_be_bytes_from_hash(array: &[u32; HASH_SIZE / 4]) -> [u8; HASH_SIZE] {
     // TODO: consider using uninitialized array
     let mut as_bytes = [0u8; HASH_SIZE];
     // TODO: use `array_chunks` once stabilized
@@ -173,36 +177,7 @@ fn to_be_bytes_from_hash(array: [u32; HASH_SIZE / 4]) -> [u8; HASH_SIZE] {
 
 #[cfg(test)]
 mod tests {
-
-    // #[test]
-    // fn padding() {
-    //     let msg = b"abc";
-    //     let block = [
-    //         0x61, 0x62, 0x63, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    //         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    //         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    //         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    //         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x18,
-    //     ];
-    //     assert_eq!(super::pad_message(msg), block);
-    //
-    //     let msg = b"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq";
-    //     let block = [
-    //         0x61, 0x62, 0x63, 0x64, 0x62, 0x63, 0x64, 0x65, 0x63, 0x64, 0x65, 0x66, 0x64, 0x65,
-    //         0x66, 0x67, 0x65, 0x66, 0x67, 0x68, 0x66, 0x67, 0x68, 0x69, 0x67, 0x68, 0x69, 0x6A,
-    //         0x68, 0x69, 0x6A, 0x6B, 0x69, 0x6A, 0x6B, 0x6C, 0x6A, 0x6B, 0x6C, 0x6D, 0x6B, 0x6C,
-    //         0x6D, 0x6E, 0x6C, 0x6D, 0x6E, 0x6F, 0x6D, 0x6E, 0x6F, 0x70, 0x6E, 0x6F, 0x70, 0x71,
-    //         0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    //         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    //         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    //         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    //         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    //         0x01, 0xC0,
-    //     ];
-    //
-    //     assert_eq!(super::pad_message(msg), block);
-    // }
-
+    use super::Sha256;
     #[test]
     fn sha256() {
         let msg = b"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq";
@@ -211,6 +186,6 @@ mod tests {
             0x60, 0x39, 0xA3, 0x3C, 0xE4, 0x59, 0x64, 0xFF, 0x21, 0x67, 0xF6, 0xEC, 0xED, 0xD4,
             0x19, 0xDB, 0x06, 0xC1,
         ];
-        assert_eq!(super::sha256(msg), digest);
+        assert_eq!(Sha256::hash(msg), digest);
     }
 }
