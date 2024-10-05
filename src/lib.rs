@@ -6,7 +6,7 @@
 //! </div>
 #![warn(missing_docs)]
 
-use aead::AeadState;
+use aead::{AeadReader, AeadWriter};
 
 mod aead;
 mod cipher_suites;
@@ -20,5 +20,6 @@ mod alert;
 const LEGACY_PROTO_VERS: [u8; 2] = [0x03, 0x03];
 
 pub struct State {
-    aead: AeadState,
+    aead_writer: AeadWriter,
+    aead_reader: AeadReader
 }
