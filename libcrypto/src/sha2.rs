@@ -5,4 +5,4 @@ mod sha512;
 
 pub use hmac_sha256::hmac_sha256;
 pub use sha256::Sha256;
-pub use sha512::sha512;
+pub use sha512::Sha512;

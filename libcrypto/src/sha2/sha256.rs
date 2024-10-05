@@ -114,8 +114,14 @@ impl Sha256 {
         self.state[7] = self.state[7].wrapping_add(h);
     }
 
-    pub fn finalize(&self) -> [u8; Self::HASH_SIZE] {
-        to_be_bytes_from_hash(&self.state)
+    pub fn finalize(self) -> [u8; Self::HASH_SIZE] {
+        // TODO: consider using uninitialized array
+        let mut as_bytes = [0u8; Sha256::HASH_SIZE];
+        // TODO: use `array_chunks` once stabilized
+        for (chunk, int) in as_bytes.chunks_exact_mut(4).zip(self.state) {
+            chunk.copy_from_slice(&int.to_be_bytes())
+        }
+        as_bytes
     }
 
     pub fn update_with_msg(&mut self, msg: &[u8]) {
@@ -164,16 +170,6 @@ pub(super) fn be_bytes_to_u32_array(
         *int = u32::from_be_bytes(chunk.try_into().unwrap());
     }
     as_u32
-}
-
-pub(super) fn to_be_bytes_from_hash(array: &[u32; Sha256::HASH_SIZE / 4]) -> [u8; Sha256::HASH_SIZE] {
-    // TODO: consider using uninitialized array
-    let mut as_bytes = [0u8; Sha256::HASH_SIZE];
-    // TODO: use `array_chunks` once stabilized
-    for (chunk, int) in as_bytes.chunks_exact_mut(4).zip(array) {
-        chunk.copy_from_slice(&int.to_be_bytes())
-    }
-    as_bytes
 }
 
 #[cfg(test)]
