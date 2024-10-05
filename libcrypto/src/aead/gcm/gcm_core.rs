@@ -7,8 +7,8 @@
 //! # Examples
 //!
 //! ```
-//! use libcrypto::aes::gcm::Gcm;
-//! use libcrypto::aes::Aes128;
+//! use libcrypto::aead::gcm::Gcm;
+//! use libcrypto::aead::gcm::Aes128;
 //!
 //! let plain_text = "Top secret message".as_bytes();
 //! let additional_data = "Public information".as_bytes();
@@ -49,11 +49,10 @@
 //! ```
 //!
 //! [`Gallois/Counter Mode`]: https://en.wikipedia.org/wiki/Galois/Counter_Mode
-use super::aes_core;
-
+use super::aes;
+use crate::aead::IV_SIZE;
 const R: u128 = 0xe1 << 120;
 /// The size of an initialization vector, in bytes
-pub const IV_SIZE: usize = 12;
 
 /// An error that is returned when an encrypted message's tag
 /// does not match its generated tag
@@ -74,16 +73,16 @@ impl core::error::Error for BadData {}
 /// encryption and decryption in GCM via AES.
 ///
 /// See [`Gcm`]'s implementations for examples.
-pub struct Gcm<C: aes_core::AesCipher> {
+pub struct Gcm<C: aes::AesCipher> {
     cipher: C,
     h: u128,
 }
 
-impl<C: aes_core::AesCipher> Gcm<C> {
+impl<C: aes::AesCipher> Gcm<C> {
     /// Construct a new [`Gcm`] cipher.
     pub fn new(key: C::Key) -> Self {
         let cipher = C::new(key);
-        let mut h = [0u8; aes_core::BLOCK_SIZE];
+        let mut h = [0u8; aes::BLOCK_SIZE];
         cipher.encrypt_inline(&mut h);
 
         Self {
@@ -101,7 +100,7 @@ impl<C: aes_core::AesCipher> Gcm<C> {
         plain_text: &mut [u8],
         add_data: &[u8],
         init_vector: &[u8; IV_SIZE],
-    ) -> [u8; aes_core::BLOCK_SIZE] {
+    ) -> [u8; aes::BLOCK_SIZE] {
         let counter = {
             let mut counter = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
             counter[..init_vector.len()].copy_from_slice(init_vector);
@@ -127,7 +126,7 @@ impl<C: aes_core::AesCipher> Gcm<C> {
         add_data: &[u8],
         init_vector: &[u8; IV_SIZE],
         buf: &mut [u8],
-    ) -> [u8; aes_core::BLOCK_SIZE] {
+    ) -> [u8; aes::BLOCK_SIZE] {
         buf[..msg.len()].copy_from_slice(msg);
         self.encrypt_inline(buf, add_data, init_vector)
     }
@@ -139,11 +138,11 @@ impl<C: aes_core::AesCipher> Gcm<C> {
         cipher_text: &mut [u8],
         add_data: &[u8],
         init_vector: &[u8; IV_SIZE],
-        tag: &[u8; aes_core::BLOCK_SIZE],
+        tag: &[u8; aes::BLOCK_SIZE],
     ) -> Result<(), BadData> {
         let counter = {
-            let mut counter = [0; aes_core::BLOCK_SIZE];
-            counter[aes_core::BLOCK_SIZE - 1] = 1;
+            let mut counter = [0; aes::BLOCK_SIZE];
+            counter[aes::BLOCK_SIZE - 1] = 1;
             counter[..init_vector.len()].copy_from_slice(init_vector);
             counter
         };
@@ -182,8 +181,8 @@ impl<C: aes_core::AesCipher> Gcm<C> {
     /// ```
     /// Decrypt our message:
     /// ```
-    /// use libcrypto::aes::Aes128;
-    /// use libcrypto::aes::gcm::Gcm;
+    /// use libcrypto::aead::gcm::Aes128;
+    /// use libcrypto::aead::gcm::Gcm;
     ///
     /// // our key has to be the same key used to encrypt the message
     /// let key = [
@@ -217,8 +216,8 @@ impl<C: aes_core::AesCipher> Gcm<C> {
     /// If we modifiy the message before decryption, we get an error:
     ///
     /// ```should_panic
-    /// # use libcrypto::aes::Aes128;
-    /// # use libcrypto::aes::gcm::Gcm;
+    /// use libcrypto::aead::gcm::Aes128;
+    /// use libcrypto::aead::gcm::Gcm;
     /// #
     /// # let key = [
     /// #     0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf,
@@ -255,7 +254,7 @@ impl<C: aes_core::AesCipher> Gcm<C> {
         msg: &[u8],
         add_data: &[u8],
         init_vector: &[u8; IV_SIZE],
-        tag: &[u8; aes_core::BLOCK_SIZE],
+        tag: &[u8; aes::BLOCK_SIZE],
         buf: &mut [u8],
     ) -> Result<(), BadData> {
         buf[..msg.len()].copy_from_slice(msg);
@@ -272,10 +271,10 @@ impl<C: aes_core::AesCipher> Gcm<C> {
     ///
     /// This process can be parallel-ized,
     /// but that has not been implemented yet.
-    fn xor_bit_stream(&self, data: &mut [u8], counter: &[u8; aes_core::BLOCK_SIZE]) {
+    fn xor_bit_stream(&self, data: &mut [u8], counter: &[u8; aes::BLOCK_SIZE]) {
         let iv_as_int = u128::from_be_bytes(*counter);
 
-        for (counter, block) in data.chunks_mut(aes_core::BLOCK_SIZE).enumerate() {
+        for (counter, block) in data.chunks_mut(aes::BLOCK_SIZE).enumerate() {
             let mut stream = (iv_as_int + 1 + counter as u128).to_be_bytes();
             self.cipher.encrypt_inline(&mut stream);
 
@@ -291,17 +290,17 @@ impl<C: aes_core::AesCipher> Gcm<C> {
         &self,
         cipher_text: &[u8],
         add_data: &[u8],
-        counter: &[u8; aes_core::BLOCK_SIZE],
-    ) -> [u8; aes_core::BLOCK_SIZE] {
+        counter: &[u8; aes::BLOCK_SIZE],
+    ) -> [u8; aes::BLOCK_SIZE] {
         let mut tag = 0;
 
         // TODO: use `array_chunks` once stabilized
-        let chunks = add_data.chunks_exact(aes_core::BLOCK_SIZE);
+        let chunks = add_data.chunks_exact(aes::BLOCK_SIZE);
 
         let last_block = {
             let remainder = chunks.remainder();
             // TODO: consider using uninitialized array
-            let mut last_block = [0; aes_core::BLOCK_SIZE];
+            let mut last_block = [0; aes::BLOCK_SIZE];
             last_block[..remainder.len()].copy_from_slice(remainder);
             last_block
         };
@@ -315,12 +314,12 @@ impl<C: aes_core::AesCipher> Gcm<C> {
         add_block(&mut tag, last_block, self.h);
 
         // TODO: use `array_chunks` once stabilized
-        let chunks = cipher_text.chunks_exact(aes_core::BLOCK_SIZE);
+        let chunks = cipher_text.chunks_exact(aes::BLOCK_SIZE);
 
         let last_block = {
             let remainder = chunks.remainder();
             // TODO: consider using uninitialized array
-            let mut last_block = [0; aes_core::BLOCK_SIZE];
+            let mut last_block = [0; aes::BLOCK_SIZE];
             last_block[..remainder.len()].copy_from_slice(remainder);
             last_block
         };
@@ -362,14 +361,14 @@ fn gf_2to128_mul(a: u128, b: u128) -> u128 {
 
 /// A helper function for g_hash()
 #[inline]
-fn add_block(tag: &mut u128, block: [u8; aes_core::BLOCK_SIZE], h: u128) {
+fn add_block(tag: &mut u128, block: [u8; aes::BLOCK_SIZE], h: u128) {
     *tag ^= u128::from_be_bytes(block);
     *tag = gf_2to128_mul(*tag, h);
 }
 
 #[cfg(test)]
 mod tests {
-    use super::aes_core::Aes128;
+    use super::aes::Aes128;
     use super::Gcm;
 
     #[test]

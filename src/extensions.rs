@@ -69,7 +69,6 @@ pub fn supported_groups(msg_buf: &mut Vec<u8>) {
 
     let groups = (NamedGroup::Secp256r1 as u16).to_be_bytes();
     msg_buf.extend_from_slice(&groups);
-
 }
 
 pub fn key_share_client_hello(msg_buf: &mut Vec<u8>) {

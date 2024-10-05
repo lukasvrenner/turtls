@@ -6,11 +6,17 @@
 //! </div>
 #![warn(missing_docs)]
 
+mod aead;
+mod cipher_suites;
 mod client_hello;
-mod server_hello;
 mod extensions;
 mod handshake;
 mod record;
-mod cipher_suites;
+mod server_hello;
 
 const LEGACY_PROTO_VERS: [u8; 2] = [0x03, 0x03];
+
+pub struct State {
+    read_nonce: u64,
+    write_nonce: u64,
+}

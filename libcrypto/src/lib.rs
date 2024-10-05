@@ -7,9 +7,8 @@
 #![warn(clippy::cargo)]
 #![no_std]
 
-pub mod aes;
+pub mod aead;
 pub mod big_int;
-pub mod chacha;
 pub mod ec;
 pub mod finite_field;
 pub mod sha2;

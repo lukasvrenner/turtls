@@ -1,9 +1,7 @@
-use crate::{extensions, LEGACY_PROTO_VERS};
 use crate::cipher_suites::CipherSuite;
+use crate::{extensions, LEGACY_PROTO_VERS};
 
-pub fn client_hello(
-    msg_buf: &mut Vec<u8>,
-) {
+pub fn client_hello(msg_buf: &mut Vec<u8>) {
     legacy_protocol_version(msg_buf);
 
     random_bits(msg_buf);
