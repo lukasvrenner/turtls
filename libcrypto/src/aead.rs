@@ -27,7 +27,13 @@ pub trait Aead {
         init_vector: &[u8; IV_SIZE],
     ) -> [u8; TAG_SIZE];
 
-    fn encrypt(&self, buf: &mut [u8], plain_text: &[u8], add_data: &[u8], init_vector: &[u8; IV_SIZE]) -> [u8; TAG_SIZE];
+    fn encrypt(
+        &self,
+        buf: &mut [u8],
+        plain_text: &[u8],
+        add_data: &[u8],
+        init_vector: &[u8; IV_SIZE],
+    ) -> [u8; TAG_SIZE];
 
     fn decrypt_inline(
         &self,
@@ -37,6 +43,12 @@ pub trait Aead {
         tag: &[u8; TAG_SIZE],
     ) -> Result<(), BadData>;
 
-    fn decrypt(&self, buf: &mut [u8], cipher_text: &[u8], add_data: &[u8], init_vector: &[u8; IV_SIZE], tag: &[u8; TAG_SIZE]) -> Result<(), BadData>;
-
+    fn decrypt(
+        &self,
+        buf: &mut [u8],
+        cipher_text: &[u8],
+        add_data: &[u8],
+        init_vector: &[u8; IV_SIZE],
+        tag: &[u8; TAG_SIZE],
+    ) -> Result<(), BadData>;
 }

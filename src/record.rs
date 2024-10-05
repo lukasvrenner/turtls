@@ -1,5 +1,5 @@
-use crate::versions::LEGACY_PROTO_VERS;
 use crate::aead::AeadWriter;
+use crate::versions::LEGACY_PROTO_VERS;
 
 #[repr(u8)]
 pub enum ContentType {
@@ -26,14 +26,13 @@ pub fn plaintext_record(msg_type: ContentType, msg_data: impl FnOnce(&mut Vec<u8
 pub fn encrypted_record(
     msg_type: ContentType,
     msg_data: impl FnOnce(&mut Vec<u8>),
-    aead_state: &mut AeadWriter
+    aead_state: &mut AeadWriter,
 ) -> Vec<u8> {
     let mut msg = Vec::new();
     msg.push(ContentType::ApplicationData as u8);
     msg.extend_from_slice(&LEGACY_PROTO_VERS.as_be_bytes());
 
     msg.extend_from_slice(&[0, 0]);
-
 
     msg_data(&mut msg);
     msg.push(msg_type as u8);

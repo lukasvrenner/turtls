@@ -9,16 +9,16 @@
 use aead::{AeadReader, AeadWriter};
 
 mod aead;
+mod alert;
 mod cipher_suites;
 mod client_hello;
 mod extensions;
 mod handshake;
 mod record;
 mod server_hello;
-mod alert;
 mod versions;
 
 pub struct State {
     aead_writer: AeadWriter,
-    aead_reader: AeadReader
+    aead_reader: AeadReader,
 }

@@ -53,7 +53,7 @@
 mod aes;
 pub use aes::*;
 
-use crate::aead::{IV_SIZE, BadData, TAG_SIZE};
+use crate::aead::{BadData, IV_SIZE, TAG_SIZE};
 
 use super::Aead;
 const R: u128 = 0xe1 << 120;
@@ -69,11 +69,11 @@ pub struct Gcm<C: aes::AesCipher> {
 
 impl<C: aes::AesCipher> Aead for Gcm<C> {
     fn encrypt_inline(
-            &self,
-            msg: &mut [u8],
-            add_data: &[u8],
-            init_vector: &[u8; IV_SIZE],
-        ) -> [u8; TAG_SIZE] {
+        &self,
+        msg: &mut [u8],
+        add_data: &[u8],
+        init_vector: &[u8; IV_SIZE],
+    ) -> [u8; TAG_SIZE] {
         let counter = {
             let mut counter = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
             counter[..init_vector.len()].copy_from_slice(init_vector);
@@ -105,13 +105,13 @@ impl<C: aes::AesCipher> Aead for Gcm<C> {
     }
 
     fn decrypt_inline(
-            &self,
-            msg: &mut [u8],
-            add_data: &[u8],
-            init_vector: &[u8; IV_SIZE],
-            tag: &[u8; TAG_SIZE],
-        ) -> Result<(), BadData> {
-         let counter = {
+        &self,
+        msg: &mut [u8],
+        add_data: &[u8],
+        init_vector: &[u8; IV_SIZE],
+        tag: &[u8; TAG_SIZE],
+    ) -> Result<(), BadData> {
+        let counter = {
             let mut counter = [0; aes::BLOCK_SIZE];
             counter[aes::BLOCK_SIZE - 1] = 1;
             counter[..init_vector.len()].copy_from_slice(init_vector);
@@ -123,7 +123,6 @@ impl<C: aes::AesCipher> Aead for Gcm<C> {
         self.xor_bit_stream(msg, &counter);
         Ok(())
     }
-
 
     /// Retuns an `Err(BadData)` if the message has been modified
     ///
@@ -263,8 +262,8 @@ fn add_block(tag: &mut u128, block: [u8; aes::BLOCK_SIZE], h: u128) {
 
 #[cfg(test)]
 mod tests {
-    use super::Aead;
     use super::aes::Aes128;
+    use super::Aead;
     use super::Gcm;
 
     #[test]
