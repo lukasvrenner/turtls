@@ -15,6 +15,7 @@ mod extensions;
 mod handshake;
 mod record;
 mod server_hello;
+mod alert;
 
 const LEGACY_PROTO_VERS: [u8; 2] = [0x03, 0x03];
 
