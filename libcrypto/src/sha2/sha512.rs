@@ -149,12 +149,12 @@ impl Hasher<{ Sha512::HASH_SIZE }> for Sha512 {
         // does the length info fit without adding an extra block?
         if remainder.len() < Self::BLOCK_SIZE - size_of::<u128>() {
             last_block[Self::BLOCK_SIZE - size_of::<u128>()..]
-                .copy_from_slice(&(msg.len() as u128 * 8).to_be_bytes());
+                .copy_from_slice(&((msg.len() as u128 + self.len) * 8).to_be_bytes());
         } else {
             self.update(&last_block);
             last_block = [0; Self::BLOCK_SIZE];
             last_block[Self::BLOCK_SIZE - size_of::<u128>()..]
-                .copy_from_slice(&(msg.len() as u128 * 8).to_be_bytes());
+                .copy_from_slice(&((msg.len() as u128 + self.len) * 8).to_be_bytes());
         }
 
         self.update(&last_block);
