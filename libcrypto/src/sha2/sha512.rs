@@ -1,5 +1,7 @@
 //! A software implementation of SHA-512.
 
+use super::{BlockHasher, Hasher};
+
 const K: [u64; 80] = [
     0x428a2f98d728ae22,
     0x7137449123ef65cd,
@@ -111,11 +113,8 @@ pub struct Sha512 {
     state: [u64; Self::HASH_SIZE / size_of::<u64>()],
 }
 
-impl Sha512 {
-    pub const HASH_SIZE: usize = 64;
-    pub const BLOCK_SIZE: usize = 128;
-
-    pub const fn new() -> Self {
+impl Hasher<{ Sha512::HASH_SIZE }> for Sha512 {
+    fn new() -> Self {
         Self {
             state: [
                 0x6a09e667f3bcc908,
@@ -130,7 +129,54 @@ impl Sha512 {
         }
     }
 
-    pub fn update_with(&mut self, block: &[u8; Self::BLOCK_SIZE]) {
+    fn finalize_with(mut self, msg: &[u8]) -> [u8; Self::HASH_SIZE] {
+        // TODO: use `array_chunks` once stabilized
+        let chunks = msg.chunks_exact(Self::BLOCK_SIZE);
+        let remainder = chunks.remainder();
+
+        for block in chunks {
+            self.update_with(&block.try_into().unwrap());
+        }
+
+        let mut last_block = [0; Self::BLOCK_SIZE];
+        // we can safely write here because the excess must be less than `BLOCK_SIZE`
+        last_block[..remainder.len()].copy_from_slice(remainder);
+
+        last_block[remainder.len()] = 0x80;
+
+        // does the length info fit without adding an extra block?
+        if remainder.len() < Self::BLOCK_SIZE - size_of::<u128>() {
+            last_block[Self::BLOCK_SIZE - size_of::<u128>()..]
+                .copy_from_slice(&(msg.len() as u128 * 8).to_be_bytes());
+        } else {
+            self.update_with(&last_block);
+            last_block = [0; Self::BLOCK_SIZE];
+            last_block[Self::BLOCK_SIZE - size_of::<u128>()..]
+                .copy_from_slice(&(msg.len() as u128 * 8).to_be_bytes());
+        }
+
+        self.update_with(&last_block);
+        self.finalize()
+    }
+
+    fn finalize(self) -> [u8; Self::HASH_SIZE] {
+        // TODO: consider using uninitialized array
+        let mut as_bytes = [0u8; Self::HASH_SIZE];
+        // TODO: use `array_chunks` once stabilized
+        for (chunk, int) in as_bytes.chunks_exact_mut(8).zip(self.state) {
+            chunk.copy_from_slice(&int.to_be_bytes())
+        }
+        as_bytes
+    }
+
+    fn hash(msg: &[u8]) -> [u8; Self::HASH_SIZE] {
+        let hasher = Self::new();
+        hasher.finalize_with(msg)
+    }
+}
+
+impl BlockHasher<{ Sha512::HASH_SIZE }, { Sha512::BLOCK_SIZE }> for Sha512 {
+    fn update_with(&mut self, block: &[u8; Self::BLOCK_SIZE]) {
         let block = be_bytes_to_u64_array(block);
         let mut message_schedule = [0; 80];
         message_schedule[..block.len()].copy_from_slice(&block);
@@ -169,51 +215,11 @@ impl Sha512 {
         self.state[6] = self.state[6].wrapping_add(g);
         self.state[7] = self.state[7].wrapping_add(h);
     }
+}
 
-    pub fn update_with_msg(&mut self, msg: &[u8]) {
-        // TODO: use `array_chunks` once stabilized
-        let chunks = msg.chunks_exact(Self::BLOCK_SIZE);
-        let remainder = chunks.remainder();
-
-        for block in chunks {
-            self.update_with(&block.try_into().unwrap());
-        }
-
-        let mut last_block = [0; Self::BLOCK_SIZE];
-        // we can safely write here because the excess must be less than `BLOCK_SIZE`
-        last_block[..remainder.len()].copy_from_slice(remainder);
-
-        last_block[remainder.len()] = 0x80;
-
-        // does the length info fit without adding an extra block?
-        if remainder.len() < Self::BLOCK_SIZE - size_of::<u128>() {
-            last_block[Self::BLOCK_SIZE - size_of::<u128>()..]
-                .copy_from_slice(&(msg.len() as u128 * 8).to_be_bytes());
-        } else {
-            self.update_with(&last_block);
-            last_block = [0; Self::BLOCK_SIZE];
-            last_block[Self::BLOCK_SIZE - size_of::<u128>()..]
-                .copy_from_slice(&(msg.len() as u128 * 8).to_be_bytes());
-        }
-
-        self.update_with(&last_block);
-    }
-
-    pub fn finalize(self) -> [u8; Self::HASH_SIZE] {
-        // TODO: consider using uninitialized array
-        let mut as_bytes = [0u8; Self::HASH_SIZE];
-        // TODO: use `array_chunks` once stabilized
-        for (chunk, int) in as_bytes.chunks_exact_mut(8).zip(self.state) {
-            chunk.copy_from_slice(&int.to_be_bytes())
-        }
-        as_bytes
-    }
-
-    pub fn hash(msg: &[u8]) -> [u8; Self::HASH_SIZE] {
-        let mut hasher = Self::new();
-        hasher.update_with_msg(msg);
-        hasher.finalize()
-    }
+impl Sha512 {
+    pub const HASH_SIZE: usize = 64;
+    pub const BLOCK_SIZE: usize = 128;
 }
 
 fn be_bytes_to_u64_array(bytes: &[u8; Sha512::BLOCK_SIZE]) -> [u64; Sha512::BLOCK_SIZE / 8] {
@@ -230,7 +236,7 @@ fn be_bytes_to_u64_array(bytes: &[u8; Sha512::BLOCK_SIZE]) -> [u64; Sha512::BLOC
 #[cfg(test)]
 mod tests {
 
-    use super::Sha512;
+    use super::{Hasher, Sha512};
 
     #[test]
     fn sha512() {
