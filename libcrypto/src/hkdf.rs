@@ -1,4 +1,5 @@
 use crate::sha2::{BlockHasher, BufHasher, Hmac};
+
 pub fn extract<const H_LEN: usize, const B_LEN: usize, H: BlockHasher<H_LEN, B_LEN>>(
     salt: &[u8],
     ikm: &[u8],
@@ -29,6 +30,6 @@ pub fn expand<
     let mut hmac = Hmac::<H_LEN, B_LEN, BufHasher<H_LEN, B_LEN, H>>::new(pr_key);
     hmac.update_with(info);
     let mac = hmac.finish_with(&[div as u8]);
-    key[div..].copy_from_slice(&mac[..H_LEN - div]);
+    key[div * H_LEN..].copy_from_slice(&mac[..H_LEN - div]);
     key
 }

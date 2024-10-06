@@ -43,7 +43,6 @@ where
         self.buf[self.len..].copy_from_slice(&msg[..B_LEN - self.len]);
         self.hasher.update(&self.buf);
 
-
         // TODO: use array_chunks once stabilized
         let blocks = msg[B_LEN - self.len..].chunks_exact(B_LEN);
         let remainder = blocks.remainder();
