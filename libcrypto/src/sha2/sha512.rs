@@ -240,7 +240,9 @@ fn be_bytes_to_u64_array(bytes: &[u8; Sha512::BLOCK_SIZE]) -> [u64; Sha512::BLOC
     as_u64
 }
 
-fn u64_array_to_be_bytes(array: &[u64; Sha512::HASH_SIZE / size_of::<u64>()]) -> [u8; Sha512::HASH_SIZE] {
+fn u64_array_to_be_bytes(
+    array: &[u64; Sha512::HASH_SIZE / size_of::<u64>()],
+) -> [u8; Sha512::HASH_SIZE] {
     // TODO: consider using uninitialized array
     let mut as_bytes = [0u8; Sha512::HASH_SIZE];
     // TODO: use `array_chunks` once stabilized
