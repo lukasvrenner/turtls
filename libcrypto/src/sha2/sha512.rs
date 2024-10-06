@@ -151,7 +151,7 @@ impl Hasher<{ Sha512::HASH_SIZE }> for Sha512 {
             last_block[Self::BLOCK_SIZE - size_of::<u128>()..]
                 .copy_from_slice(&((msg.len() as u128 + self.len) * 8).to_be_bytes());
         } else {
-            self.update(&last_block);
+            self.update_countless(&last_block);
             last_block = [0; Self::BLOCK_SIZE];
             last_block[Self::BLOCK_SIZE - size_of::<u128>()..]
                 .copy_from_slice(&((msg.len() as u128 + self.len) * 8).to_be_bytes());
