@@ -129,13 +129,13 @@ impl Hasher<{ Sha512::HASH_SIZE }> for Sha512 {
         }
     }
 
-    fn finalize_with(mut self, msg: &[u8]) -> [u8; Self::HASH_SIZE] {
+    fn finish_with(mut self, msg: &[u8]) -> [u8; Self::HASH_SIZE] {
         // TODO: use `array_chunks` once stabilized
         let chunks = msg.chunks_exact(Self::BLOCK_SIZE);
         let remainder = chunks.remainder();
 
         for block in chunks {
-            self.update_with(&block.try_into().unwrap());
+            self.update(&block.try_into().unwrap());
         }
 
         let mut last_block = [0; Self::BLOCK_SIZE];
@@ -149,17 +149,17 @@ impl Hasher<{ Sha512::HASH_SIZE }> for Sha512 {
             last_block[Self::BLOCK_SIZE - size_of::<u128>()..]
                 .copy_from_slice(&(msg.len() as u128 * 8).to_be_bytes());
         } else {
-            self.update_with(&last_block);
+            self.update(&last_block);
             last_block = [0; Self::BLOCK_SIZE];
             last_block[Self::BLOCK_SIZE - size_of::<u128>()..]
                 .copy_from_slice(&(msg.len() as u128 * 8).to_be_bytes());
         }
 
-        self.update_with(&last_block);
-        self.finalize()
+        self.update(&last_block);
+        self.finish()
     }
 
-    fn finalize(self) -> [u8; Self::HASH_SIZE] {
+    fn finish(self) -> [u8; Self::HASH_SIZE] {
         // TODO: consider using uninitialized array
         let mut as_bytes = [0u8; Self::HASH_SIZE];
         // TODO: use `array_chunks` once stabilized
@@ -171,12 +171,12 @@ impl Hasher<{ Sha512::HASH_SIZE }> for Sha512 {
 
     fn hash(msg: &[u8]) -> [u8; Self::HASH_SIZE] {
         let hasher = Self::new();
-        hasher.finalize_with(msg)
+        hasher.finish_with(msg)
     }
 }
 
 impl BlockHasher<{ Sha512::HASH_SIZE }, { Sha512::BLOCK_SIZE }> for Sha512 {
-    fn update_with(&mut self, block: &[u8; Self::BLOCK_SIZE]) {
+    fn update(&mut self, block: &[u8; Self::BLOCK_SIZE]) {
         let block = be_bytes_to_u64_array(block);
         let mut message_schedule = [0; 80];
         message_schedule[..block.len()].copy_from_slice(&block);

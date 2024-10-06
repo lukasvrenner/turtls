@@ -71,13 +71,13 @@ impl Hasher<{ Sha256::HASH_SIZE }> for Sha256 {
             ],
         }
     }
-    fn finalize_with(mut self, msg: &[u8]) -> [u8; Self::HASH_SIZE] {
+    fn finish_with(mut self, msg: &[u8]) -> [u8; Self::HASH_SIZE] {
         // TODO: use `array_chunks` once stabilized
         let blocks = msg.chunks_exact(Self::BLOCK_SIZE);
         let remainder = blocks.remainder();
 
         for block in blocks {
-            self.update_with(block.try_into().unwrap());
+            self.update(block.try_into().unwrap());
         }
 
         let mut last_block = [0; Self::BLOCK_SIZE];
@@ -91,22 +91,22 @@ impl Hasher<{ Sha256::HASH_SIZE }> for Sha256 {
             last_block[Self::BLOCK_SIZE - size_of::<u64>()..]
                 .copy_from_slice(&(msg.len() as u64 * 8).to_be_bytes());
         } else {
-            self.update_with(&last_block);
+            self.update(&last_block);
             last_block = [0; Self::BLOCK_SIZE];
             last_block[Self::BLOCK_SIZE - size_of::<u64>()..]
                 .copy_from_slice(&(msg.len() as u64 * 8).to_be_bytes());
         }
 
-        self.update_with(&last_block);
-        self.finalize()
+        self.update(&last_block);
+        self.finish()
     }
 
     fn hash(msg: &[u8]) -> [u8; Sha256::HASH_SIZE] {
         let hasher = Self::new();
-        hasher.finalize_with(msg)
+        hasher.finish_with(msg)
     }
 
-    fn finalize(self) -> [u8; Self::HASH_SIZE] {
+    fn finish(self) -> [u8; Self::HASH_SIZE] {
         // TODO: consider using uninitialized array
         let mut as_bytes = [0u8; Sha256::HASH_SIZE];
         // TODO: use `array_chunks` once stabilized
@@ -118,7 +118,7 @@ impl Hasher<{ Sha256::HASH_SIZE }> for Sha256 {
 }
 
 impl BlockHasher<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }> for Sha256 {
-    fn update_with(&mut self, block: &[u8; Self::BLOCK_SIZE]) {
+    fn update(&mut self, block: &[u8; Self::BLOCK_SIZE]) {
         let block = {
             // TODO: consider using uninitialized array
             let mut as_u32 = [0u32; Sha256::BLOCK_SIZE / 4];

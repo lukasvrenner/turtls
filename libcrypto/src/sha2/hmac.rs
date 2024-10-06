@@ -13,11 +13,11 @@ pub fn hmac<const H_LEN: usize, const B_LEN: usize, H: BlockHasher<H_LEN, B_LEN>
     }
 
     let mut inner_hasher = H::new();
-    inner_hasher.update_with(&ipad);
-    let inner_hash = inner_hasher.finalize_with(msg);
+    inner_hasher.update(&ipad);
+    let inner_hash = inner_hasher.finish_with(msg);
 
     let mut hasher = H::new();
-    hasher.update_with(&opad);
+    hasher.update(&opad);
 
-    hasher.finalize_with(&inner_hash)
+    hasher.finish_with(&inner_hash)
 }
