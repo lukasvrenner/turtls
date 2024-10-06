@@ -1,5 +1,7 @@
 //! A software implementation of SHA-256.
 
+use crate::aead::gcm::BLOCK_SIZE;
+
 use super::{BlockHasher, Hasher};
 
 /// The first 32 bits of the fractional parts of
@@ -60,65 +62,13 @@ const fn little_sigma_1(x: u32) -> u32 {
 
 pub struct Sha256 {
     state: [u32; Self::HASH_SIZE / size_of::<u32>()],
+    len: u64,
 }
 
-impl Hasher<{ Sha256::HASH_SIZE }> for Sha256 {
-    fn new() -> Self {
-        Self {
-            state: [
-                0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab,
-                0x5be0cd19,
-            ],
-        }
-    }
-    fn finish_with(mut self, msg: &[u8]) -> [u8; Self::HASH_SIZE] {
-        // TODO: use `array_chunks` once stabilized
-        let blocks = msg.chunks_exact(Self::BLOCK_SIZE);
-        let remainder = blocks.remainder();
-
-        for block in blocks {
-            self.update(block.try_into().unwrap());
-        }
-
-        let mut last_block = [0; Self::BLOCK_SIZE];
-        // we can safely write here because the excess must be less than `BLOCK_SIZE`
-        last_block[..remainder.len()].copy_from_slice(remainder);
-
-        last_block[remainder.len()] = 0x80;
-
-        // does the length info fit without adding an extra block?
-        if remainder.len() < Self::BLOCK_SIZE - size_of::<u64>() {
-            last_block[Self::BLOCK_SIZE - size_of::<u64>()..]
-                .copy_from_slice(&(msg.len() as u64 * 8).to_be_bytes());
-        } else {
-            self.update(&last_block);
-            last_block = [0; Self::BLOCK_SIZE];
-            last_block[Self::BLOCK_SIZE - size_of::<u64>()..]
-                .copy_from_slice(&(msg.len() as u64 * 8).to_be_bytes());
-        }
-
-        self.update(&last_block);
-        self.finish()
-    }
-
-    fn hash(msg: &[u8]) -> [u8; Sha256::HASH_SIZE] {
-        let hasher = Self::new();
-        hasher.finish_with(msg)
-    }
-
-    fn finish(self) -> [u8; Self::HASH_SIZE] {
-        // TODO: consider using uninitialized array
-        let mut as_bytes = [0u8; Sha256::HASH_SIZE];
-        // TODO: use `array_chunks` once stabilized
-        for (chunk, int) in as_bytes.chunks_exact_mut(4).zip(self.state) {
-            chunk.copy_from_slice(&int.to_be_bytes())
-        }
-        as_bytes
-    }
-}
-
-impl BlockHasher<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }> for Sha256 {
-    fn update(&mut self, block: &[u8; Self::BLOCK_SIZE]) {
+impl Sha256 {
+    pub const HASH_SIZE: usize = 32;
+    pub const BLOCK_SIZE: usize = 64;
+    fn update_countless(&mut self, block: &[u8; Self::BLOCK_SIZE]) {
         let block = {
             // TODO: consider using uninitialized array
             let mut as_u32 = [0u32; Sha256::BLOCK_SIZE / 4];
@@ -168,9 +118,78 @@ impl BlockHasher<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }> for Sha256 {
     }
 }
 
-impl Sha256 {
-    pub const HASH_SIZE: usize = 32;
-    pub const BLOCK_SIZE: usize = 64;
+impl Hasher<{ Sha256::HASH_SIZE }> for Sha256 {
+    fn new() -> Self {
+        Self {
+            state: [
+                0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab,
+                0x5be0cd19,
+            ],
+            len: 0,
+        }
+    }
+    fn finish_with(mut self, msg: &[u8]) -> [u8; Self::HASH_SIZE] {
+        // TODO: use `array_chunks` once stabilized
+        let blocks = msg.chunks_exact(Self::BLOCK_SIZE);
+        let remainder = blocks.remainder();
+
+        for block in blocks {
+            self.update_countless(block.try_into().unwrap());
+        }
+
+        let mut last_block = [0; Self::BLOCK_SIZE];
+        // we can safely write here because the excess must be less than `BLOCK_SIZE`
+        last_block[..remainder.len()].copy_from_slice(remainder);
+
+        last_block[remainder.len()] = 0x80;
+
+        // does the length info fit without adding an extra block?
+        if remainder.len() < Self::BLOCK_SIZE - size_of::<u64>() {
+            last_block[Self::BLOCK_SIZE - size_of::<u64>()..]
+                .copy_from_slice(&(msg.len() as u64 * 8).to_be_bytes());
+        } else {
+            self.update(&last_block);
+            last_block = [0; Self::BLOCK_SIZE];
+            last_block[Self::BLOCK_SIZE - size_of::<u64>()..]
+                .copy_from_slice(&(msg.len() as u64 * 8).to_be_bytes());
+        }
+
+        self.update(&last_block);
+        u32_array_to_bytes(&self.state)
+    }
+
+    fn hash(msg: &[u8]) -> [u8; Sha256::HASH_SIZE] {
+        let hasher = Self::new();
+        hasher.finish_with(msg)
+    }
+
+    fn finish(mut self) -> [u8; Self::HASH_SIZE] {
+        let mut padding = [0; Self::BLOCK_SIZE];
+        padding[0] = 0x80;
+        padding[Sha256::BLOCK_SIZE - size_of::<u64>()..]
+            .copy_from_slice(&(self.len * 8).to_be_bytes());
+        self.update_countless(&padding);
+        u32_array_to_bytes(&self.state)
+    }
+}
+
+impl BlockHasher<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }> for Sha256 {
+    fn update(&mut self, block: &[u8; Self::BLOCK_SIZE]) {
+        self.update_countless(block);
+        self.len += 1;
+    }
+}
+
+fn u32_array_to_bytes(
+    array: &[u32; Sha256::HASH_SIZE / size_of::<u32>()],
+) -> [u8; Sha256::HASH_SIZE] {
+    // TODO: consider using uninitialized array
+    let mut as_bytes = [0u8; Sha256::HASH_SIZE];
+    // TODO: use `array_chunks` once stabilized
+    for (chunk, int) in as_bytes.chunks_exact_mut(size_of::<u32>()).zip(array) {
+        chunk.copy_from_slice(&int.to_be_bytes())
+    }
+    as_bytes
 }
 
 #[cfg(test)]
