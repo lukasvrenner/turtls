@@ -35,9 +35,6 @@ where
     H: BlockHasher<H_LEN, B_LEN>,
 {
     pub fn update_with(&mut self, msg: &[u8]) {
-        let add_to_buf = core::cmp::min(B_LEN - self.len, msg.len());
-        self.buf[self.len..][..add_to_buf].copy_from_slice(&msg[..add_to_buf]);
-
         if msg.len() < B_LEN - self.len {
             self.buf[self.len..][..msg.len()].copy_from_slice(msg);
             return;
@@ -46,6 +43,8 @@ where
         self.buf[self.len..].copy_from_slice(&msg[..B_LEN - self.len]);
         self.hasher.update(&self.buf);
 
+
+        // TODO: use array_chunks once stabilized
         let blocks = msg[B_LEN - self.len..].chunks_exact(B_LEN);
         let remainder = blocks.remainder();
 
