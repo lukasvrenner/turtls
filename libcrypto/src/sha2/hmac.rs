@@ -1,4 +1,4 @@
-use super::BlockHasher;
+use super::{BlockHasher, BufHasher};
 
 pub struct Hmac<const H_LEN: usize, const B_LEN: usize, H>
 where
@@ -42,6 +42,13 @@ where
     pub fn auth(msg: &[u8], key: &[u8]) -> [u8; H_LEN] {
         let state = Self::new(key);
         state.finish_with(msg)
+    }
+}
+
+impl<const H_LEN: usize, const B_LEN: usize, H> Hmac<H_LEN, B_LEN, BufHasher<H_LEN, B_LEN, H>>
+where H: BlockHasher<H_LEN, B_LEN> {
+    fn update_with(&mut self, msg: &[u8]) {
+        self.state.update_with(msg)
     }
 }
 
