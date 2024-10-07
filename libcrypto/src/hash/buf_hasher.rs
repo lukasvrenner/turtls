@@ -14,7 +14,7 @@ where
     H: BlockHasher<H_LEN, B_LEN>,
 {
     pub fn update_with(&mut self, msg: &[u8]) {
-        if msg.len() <= B_LEN - self.len {
+        if msg.len() < B_LEN - self.len {
             self.buf[self.len..][..msg.len()].copy_from_slice(msg);
             self.len += msg.len();
             return;
