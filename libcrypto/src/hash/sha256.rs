@@ -1,7 +1,5 @@
 //! A software implementation of SHA-256.
 
-use crate::aead::gcm::BLOCK_SIZE;
-
 use super::{BlockHasher, Hasher};
 
 /// The first 32 bits of the fractional parts of

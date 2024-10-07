@@ -1,4 +1,4 @@
-use super::{BlockHasher, BufHasher};
+use crate::hash::{BlockHasher, BufHasher};
 
 pub struct Hmac<const H_LEN: usize, const B_LEN: usize, H>
 where

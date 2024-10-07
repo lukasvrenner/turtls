@@ -165,7 +165,7 @@ impl Hasher<{ Sha512::HASH_SIZE }> for Sha512 {
         let mut padding = [0; Self::BLOCK_SIZE];
         padding[0] = 0x80;
         padding[Self::BLOCK_SIZE - size_of::<u128>()..]
-            .copy_from_slice(&(self.len as u128 * 8).to_be_bytes());
+            .copy_from_slice(&(self.len * 8).to_be_bytes());
         self.update_countless(&padding);
 
         u64_array_to_be_bytes(&self.state)

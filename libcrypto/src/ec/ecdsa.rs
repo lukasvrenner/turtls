@@ -117,7 +117,7 @@ mod tests {
     use super::Signature;
     use super::UBigInt;
     use super::ValidSig;
-    use crate::sha2::{Hasher, Sha256};
+    use crate::hash::{Hasher, Sha256};
 
     // test vectors from http://csrc.nist.gov/groups/STM/cavp/documents/dss/186-3ecdsatestvectors.zip
 
@@ -176,7 +176,7 @@ mod tests {
         let generated_signature = super::sign::<Secp256r1>(
             msg,
             &priv_key,
-            crate::sha2::Sha256::hash,
+            crate::hash::Sha256::hash,
             super_secure_random_num_generator,
         );
         assert_eq!(generated_signature, signature);

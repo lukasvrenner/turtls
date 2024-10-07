@@ -1,4 +1,5 @@
-use crate::sha2::{BlockHasher, BufHasher, Hmac};
+use crate::hash::{BlockHasher, BufHasher};
+use crate::hmac::Hmac;
 
 pub fn extract<const H_LEN: usize, const B_LEN: usize, H: BlockHasher<H_LEN, B_LEN>>(
     salt: &[u8],
