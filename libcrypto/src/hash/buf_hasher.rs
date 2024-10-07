@@ -175,8 +175,8 @@ mod tests {
             0xf4, 0x93, 0xdc, 0xa7,
         ];
         let mut hasher = BufHasher::<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>::new();
-        hasher.update_with(&msg[..9]);
-        for block in msg[9..].chunks_exact(Sha256::BLOCK_SIZE) {
+        hasher.update_with(&msg[..6]);
+        for block in msg[6..].chunks_exact(Sha256::BLOCK_SIZE) {
             hasher.update(block.try_into().unwrap());
         }
         assert_eq!(hasher.finish(), digest);
