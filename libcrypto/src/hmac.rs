@@ -176,9 +176,6 @@ mod tests {
         }
         let mac = hmac.finish();
         assert_eq!(mac, mac_sha512);
-        assert_eq!(
-            mac,
-            mac_sha512
-        );
+        assert_eq!(mac, mac_sha512);
     }
 }
