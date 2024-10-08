@@ -39,7 +39,7 @@ where
         outer_finish::<H_LEN, B_LEN, H>(&self.opad, &inner_hash)
     }
 
-    pub fn auth(msg: &[u8], key: &[u8]) -> [u8; H_LEN] {
+    pub fn auth(key: &[u8], msg: &[u8]) -> [u8; H_LEN] {
         let state = Self::new(key);
         state.finish_with(msg)
     }
@@ -85,7 +85,7 @@ mod tests {
             0x2e, 0x32, 0xcf, 0xf7,
         ];
         assert_eq!(
-            Hmac::<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>::auth(&msg, &key),
+            Hmac::<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>::auth(&key, &msg),
             mac_sha256
         );
         let mac_sha512 = [
@@ -96,7 +96,7 @@ mod tests {
             0x2e, 0x69, 0x6c, 0x20, 0x3a, 0x12, 0x68, 0x54,
         ];
         assert_eq!(
-            Hmac::<{ Sha512::HASH_SIZE }, { Sha512::BLOCK_SIZE }, Sha512>::auth(&msg, &key),
+            Hmac::<{ Sha512::HASH_SIZE }, { Sha512::BLOCK_SIZE }, Sha512>::auth(&key, &msg),
             mac_sha512
         );
 
@@ -116,7 +116,7 @@ mod tests {
             0xce, 0xd5, 0x65, 0xfe,
         ];
         assert_eq!(
-            Hmac::<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>::auth(&msg, &key),
+            Hmac::<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>::auth(&key, &msg),
             mac_sha256
         );
         let mac_sha512 = [
@@ -127,7 +127,7 @@ mod tests {
             0x74, 0x27, 0x88, 0x59, 0xe1, 0x32, 0x92, 0xfb,
         ];
         assert_eq!(
-            Hmac::<{ Sha512::HASH_SIZE }, { Sha512::BLOCK_SIZE }, Sha512>::auth(&msg, &key),
+            Hmac::<{ Sha512::HASH_SIZE }, { Sha512::BLOCK_SIZE }, Sha512>::auth(&key, &msg),
             mac_sha512
         );
     }
