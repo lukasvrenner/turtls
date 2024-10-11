@@ -1,4 +1,4 @@
-use crate::cipher_suites::{NamedGroup, SignatureScheme};
+use crate::{cipher_suites::{NamedGroup, SignatureScheme}, versions::ProtocolVersion};
 #[repr(u16)]
 pub enum Extension {
     ServerName = 0,
@@ -31,20 +31,24 @@ impl Extension {
     }
 }
 
-pub fn supported_versions_client(msg_buf: &mut Vec<u8>) -> u16 {
+pub fn supported_versions_client(msg_buf: &mut Vec<u8>) {
     let extension_name = Extension::SupportedVersions.as_be_bytes();
     msg_buf.extend_from_slice(&extension_name);
 
     let extension_len = (size_of::<u8>() as u16 + 1).to_be_bytes();
     msg_buf.extend_from_slice(&extension_len);
 
-    let len = size_of::<u8>() as u8;
+    let len = size_of::<u16>() as u8;
     msg_buf.push(len);
-    todo!()
+    msg_buf.extend_from_slice(&ProtocolVersion::TlsOnePointThree.as_be_bytes());
 }
 
-pub fn supported_versions_server(msg_buf: &mut Vec<u8>) -> u16 {
-    todo!()
+pub fn supported_versions_server(msg_buf: &mut Vec<u8>) {
+    let extension_name = Extension::SupportedVersions.as_be_bytes();
+    msg_buf.extend_from_slice(&extension_name);
+
+    let supported_versions = ProtocolVersion::TlsOnePointThree.as_be_bytes();
+    msg_buf.extend_from_slice(&supported_versions);
 }
 
 // TODO: support more algorithms and allow user to choose which to use

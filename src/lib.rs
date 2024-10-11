@@ -14,9 +14,12 @@ mod cipher_suites;
 mod client_hello;
 mod extensions;
 mod handshake;
+mod key_schedule;
 mod record;
 mod server_hello;
 mod versions;
+
+pub use handshake::shake_hands;
 
 pub struct State {
     aead_writer: AeadWriter,

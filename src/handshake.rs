@@ -1,3 +1,6 @@
+use crate::client_hello::client_hello;
+
+use super::State;
 #[repr(u8)]
 pub enum ShakeType {
     ClientHello = 1,
@@ -11,4 +14,17 @@ pub enum ShakeType {
     Finished = 20,
     KeyUpdate = 24,
     MessageHash = 254,
+}
+
+#[no_mangle]
+pub extern "C" fn shake_hands(
+    write: extern "C" fn(*const u8, usize),
+    read: extern "C" fn(*mut u8, usize) -> usize,
+) -> *mut State {
+    let mut msg = Vec::new();
+    client_hello(&mut msg);
+    write(&msg as &[u8] as *const [u8] as *const u8, msg.len());
+    let mut buf: [u8; 1024] = [0; 1024];
+    read(&mut buf as *mut [u8; 1024] as *mut u8, buf.len());
+    todo!()
 }
