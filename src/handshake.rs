@@ -20,8 +20,9 @@ pub enum ShakeType {
 
 #[no_mangle]
 pub extern "C" fn shake_hands(
-    write: extern "C" fn(*const c_void, usize),
-    read: extern "C" fn(*mut c_void, usize) -> usize,
+    // TODO: use c_size_t and c_ssize_t once stabilized
+    write: extern "C" fn(*const c_void, usize) -> isize,
+    read: extern "C" fn(*mut c_void, usize) -> isize,
 ) -> *mut State {
     let mut msg = Vec::new();
     client_hello(&mut msg);
