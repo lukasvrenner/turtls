@@ -1,3 +1,5 @@
+use std::ffi::c_void;
+
 use crate::client_hello::client_hello;
 
 use super::State;
@@ -18,13 +20,13 @@ pub enum ShakeType {
 
 #[no_mangle]
 pub extern "C" fn shake_hands(
-    write: extern "C" fn(*const u8, usize),
-    read: extern "C" fn(*mut u8, usize) -> usize,
+    write: extern "C" fn(*const c_void, usize),
+    read: extern "C" fn(*mut c_void, usize) -> usize,
 ) -> *mut State {
     let mut msg = Vec::new();
     client_hello(&mut msg);
-    write(&msg as &[u8] as *const [u8] as *const u8, msg.len());
+    write(&msg as &[u8] as *const [u8] as *const c_void, msg.len());
     let mut buf: [u8; 1024] = [0; 1024];
-    read(&mut buf as *mut [u8; 1024] as *mut u8, buf.len());
+    read(&mut buf as *mut [u8; 1024] as *mut c_void, buf.len());
     todo!()
 }

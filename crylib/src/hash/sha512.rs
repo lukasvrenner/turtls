@@ -1,7 +1,5 @@
 //! A software implementation of SHA-512.
 
-use core::u128;
-
 use super::{BlockHasher, Hasher};
 
 const K: [u64; 80] = [
