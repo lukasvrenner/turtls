@@ -1,4 +1,4 @@
-use libcrypto::aead::{Aead, BadData, IV_SIZE, TAG_SIZE};
+use crylib::aead::{Aead, BadData, IV_SIZE, TAG_SIZE};
 
 pub struct AeadWriter {
     cipher: Box<dyn Aead>,

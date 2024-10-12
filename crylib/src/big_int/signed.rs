@@ -51,7 +51,7 @@ impl<const N: usize> BigInt<N> {
     ///
     /// # Examples
     /// ```
-    /// use libcrypto::big_int::BigInt;
+    /// use crylib::big_int::BigInt;
     ///
     /// assert_eq!(BigInt::<4>::MIN.neg(), BigInt::MIN);
     /// assert_eq!(BigInt::<4>::MIN.abs(), BigInt::ZERO);

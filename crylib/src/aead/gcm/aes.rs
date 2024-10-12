@@ -14,7 +14,7 @@
 //! # Examples
 //!
 //! ```
-//! use libcrypto::aead::gcm::{AesCipher, Aes128};
+//! use crylib::aead::gcm::{AesCipher, Aes128};
 //!
 //! let mut plain_text = *b"Hello, world!!!!";
 //! let key = [

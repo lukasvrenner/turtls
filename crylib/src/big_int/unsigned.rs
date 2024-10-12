@@ -58,7 +58,7 @@ impl<const N: usize> UBigInt<N> {
     ///
     /// # Examples
     /// ```
-    /// use libcrypto::big_int::UBigInt;
+    /// use crylib::big_int::UBigInt;
     ///
     /// assert_eq!(UBigInt::<4>::ZERO, UBigInt::MIN);
     /// assert_eq!(UBigInt::<4>::ZERO.count_digits(), 1);
@@ -71,7 +71,7 @@ impl<const N: usize> UBigInt<N> {
     ///
     /// # Examples
     /// ```
-    /// use libcrypto::big_int::UBigInt;
+    /// use crylib::big_int::UBigInt;
     ///
     /// assert_eq!(UBigInt::<4>::MAX.count_digits(), 4);
     /// ```
@@ -171,7 +171,7 @@ impl<const N: usize> UBigInt<N> {
     ///
     /// # Examples
     /// ```
-    /// use libcrypto::big_int::UBigInt;
+    /// use crylib::big_int::UBigInt;
     ///
     /// let large_int = UBigInt([0x0123456789abcdef, 0xfedcba9876543210, 0x0, 0x0]);
     ///
@@ -199,7 +199,7 @@ impl<const N: usize> UBigInt<N> {
     ///
     /// # Examples
     /// ```
-    /// use libcrypto::big_int::UBigInt;
+    /// use crylib::big_int::UBigInt;
     ///
     /// assert_eq!(UBigInt::<4>::ZERO.add(&UBigInt::ONE), UBigInt::ONE);
     /// assert_eq!(UBigInt::<4>::MAX.add(&UBigInt::ONE), UBigInt::ZERO);
@@ -217,7 +217,7 @@ impl<const N: usize> UBigInt<N> {
     ///
     /// # Examples
     /// ```
-    /// use libcrypto::big_int::UBigInt;
+    /// use crylib::big_int::UBigInt;
     /// let mut zero: UBigInt<4> = UBigInt::ZERO;
     /// let mut max: UBigInt<4> = UBigInt::MAX;
     ///
@@ -286,7 +286,7 @@ impl<const N: usize> UBigInt<N> {
     ///
     /// # Examples
     /// ```
-    /// use libcrypto::big_int::UBigInt;
+    /// use crylib::big_int::UBigInt;
     ///
     /// assert_eq!(UBigInt::<4>::ONE.sub(&UBigInt::ONE), UBigInt::ZERO);
     /// assert_eq!(UBigInt::<4>::ZERO.sub(&UBigInt::ONE), UBigInt::MAX);
@@ -304,7 +304,7 @@ impl<const N: usize> UBigInt<N> {
     ///
     /// # Examples
     /// ```
-    /// use libcrypto::big_int::UBigInt;
+    /// use crylib::big_int::UBigInt;
     /// let mut one: UBigInt<4> = UBigInt::ONE;
     /// let mut zero: UBigInt<4> = UBigInt::ZERO;
     ///
@@ -557,7 +557,7 @@ impl<const N: usize> UBigInt<N> {
     ///
     /// # Examples
     /// ```
-    /// use libcrypto::big_int::UBigInt;
+    /// use crylib::big_int::UBigInt;
     ///
     /// assert_eq!(UBigInt::<4>::ZERO.len(), 4);
     /// assert_eq!(UBigInt::<3>::MAX.len(), 3);

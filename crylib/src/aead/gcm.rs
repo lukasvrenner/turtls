@@ -7,9 +7,9 @@
 //! # Examples
 //!
 //! ```
-//! use libcrypto::aead::gcm::Gcm;
-//! use libcrypto::aead::gcm::Aes128;
-//! use libcrypto::aead::Aead;
+//! use crylib::aead::gcm::Gcm;
+//! use crylib::aead::gcm::Aes128;
+//! use crylib::aead::Aead;
 //!
 //! let plain_text = "Top secret message".as_bytes();
 //! let additional_data = "Public information".as_bytes();

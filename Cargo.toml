@@ -1,6 +1,6 @@
 [workspace]
-members = ["libcrypto"]
-default-members = ["libcrypto"]
+members = ["crylib"]
+default-members = ["crylib"]
 
 [package]
 name = "turtls"
@@ -16,7 +16,7 @@ documentation = "https://docs.rs/turtls/latest/turtls"
 categories = ["network-programming", "cryptography"]
 
 [dependencies]
-libcrypto = { path = "./libcrypto/", version = "0.1.0" }
+crylib = { path = "./crylib/", version = "0.1.0" }
 
 [lib]
 crate-type = ["cdylib"]

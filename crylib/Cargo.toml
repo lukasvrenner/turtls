@@ -1,5 +1,5 @@
 [package]
-name = "libcrypto"
+name = "crylib"
 version = "0.1.0"
 authors = ["Lukas Renner"]
 edition = "2021"
@@ -8,5 +8,5 @@ keywords = ["crypto"]
 license = "Apache-2.0"
 description = "a collection of cryptographic functions"
 repository = "https://github.com/lukasvrenner/turtls"
-documentation = "https://docs.rs/libcrypto/latest/libcrypto"
+documentation = "https://docs.rs/crylib/latest/crylib"
 categories = ["no-std", "cryptography"]

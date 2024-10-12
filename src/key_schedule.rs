@@ -1,4 +1,4 @@
-use libcrypto::{hash::BlockHasher, hkdf::expand};
+use crylib::{hash::BlockHasher, hkdf::expand};
 pub fn hkdf_expand_label<const H_LEN: usize, const B_LEN: usize, const K_LEN: usize, H>(
     secret: &[u8; H_LEN],
     label: &[u8],
