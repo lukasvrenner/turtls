@@ -1,0 +1,13 @@
+# An example pkg-config file for UNIX
+
+prefix=/usr/local
+exec_prefix=${prefix}
+includedir=${prefix}/include
+libdir=${prefix}/lib/
+
+Name: turtls
+Description: a TLS library written in rust
+URL: https://github.com/lukasvrenner/turtls
+Version: 0.1.0
+Cflags: -I${includedir}
+Libs: -L${libdir} -lturtls
