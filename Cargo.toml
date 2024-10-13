@@ -1,6 +1,4 @@
 [workspace]
-members = ["crylib"]
-default-members = ["crylib"]
 
 [package]
 name = "turtls"
