@@ -1,5 +1,5 @@
 use crate::cipher_suites::CipherSuite;
-use crate::LEGACY_PROTO_VERS;
+use crate::versions::LEGACY_PROTO_VERS;
 pub fn server_hello(
     msg_buf: &mut [u8],
     csprng: impl FnOnce() -> [u8; 32],
@@ -9,7 +9,7 @@ pub fn server_hello(
 ) {
     let mut pos = 0;
 
-    msg_buf[pos..][..2].copy_from_slice(&LEGACY_PROTO_VERS);
+    msg_buf[pos..][..2].copy_from_slice(&LEGACY_PROTO_VERS.as_be_bytes());
     pos += 1;
 
     msg_buf[pos..][..32].copy_from_slice(&csprng());

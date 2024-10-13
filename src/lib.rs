@@ -6,7 +6,6 @@
 //! </div>
 #![warn(missing_docs)]
 
-use aead::{AeadReader, AeadWriter};
 
 mod aead;
 mod alert;
@@ -20,6 +19,7 @@ mod server_hello;
 mod versions;
 
 pub use handshake::shake_hands;
+use aead::{AeadReader, AeadWriter};
 
 pub struct State {
     aead_writer: AeadWriter,
