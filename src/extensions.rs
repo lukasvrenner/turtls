@@ -1,4 +1,8 @@
-use crate::{cipher_suites::{NamedGroup, SignatureScheme}, versions::ProtocolVersion};
+use crate::{
+    cipher_suites::{NamedGroup, SignatureScheme},
+    versions::ProtocolVersion,
+    Message,
+};
 #[repr(u16)]
 pub enum Extension {
     ServerName = 0,
@@ -31,7 +35,7 @@ impl Extension {
     }
 }
 
-pub fn supported_versions_client(msg_buf: &mut Vec<u8>) {
+pub fn supported_versions_client(msg_buf: &mut Message) {
     let extension_name = Extension::SupportedVersions.as_be_bytes();
     msg_buf.extend_from_slice(&extension_name);
 
@@ -43,7 +47,7 @@ pub fn supported_versions_client(msg_buf: &mut Vec<u8>) {
     msg_buf.extend_from_slice(&ProtocolVersion::TlsOnePointThree.as_be_bytes());
 }
 
-pub fn supported_versions_server(msg_buf: &mut Vec<u8>) {
+pub fn supported_versions_server(msg_buf: &mut Message) {
     let extension_name = Extension::SupportedVersions.as_be_bytes();
     msg_buf.extend_from_slice(&extension_name);
 
@@ -52,7 +56,7 @@ pub fn supported_versions_server(msg_buf: &mut Vec<u8>) {
 }
 
 // TODO: support more algorithms and allow user to choose which to use
-pub fn signature_algorithms(msg_buf: &mut Vec<u8>) {
+pub fn signature_algorithms(msg_buf: &mut Message) {
     let extension_name = Extension::SignatureAlgorithms.as_be_bytes();
     msg_buf.extend_from_slice(&extension_name);
 
@@ -67,7 +71,7 @@ pub fn signature_algorithms(msg_buf: &mut Vec<u8>) {
 }
 
 // TODO: support more groups and allow user to choose which to use
-pub fn supported_groups(msg_buf: &mut Vec<u8>) {
+pub fn supported_groups(msg_buf: &mut Message) {
     let extension_name = (Extension::SupportedGroups as u16).to_be_bytes();
     msg_buf.extend_from_slice(&extension_name);
 
@@ -81,13 +85,13 @@ pub fn supported_groups(msg_buf: &mut Vec<u8>) {
     msg_buf.extend_from_slice(&groups);
 }
 
-pub fn key_share_client_hello(msg_buf: &mut Vec<u8>) {
+pub fn key_share_client_hello(msg_buf: &mut Message) {
     let extension_name = Extension::KeyShare.as_be_bytes();
     msg_buf.extend_from_slice(&extension_name);
     todo!()
 }
 
-fn key_share_entry(msg_buf: &mut Vec<u8>) {
+fn key_share_entry(msg_buf: &mut Message) {
     let named_group = NamedGroup::Secp256r1.as_be_bytes();
     msg_buf.extend_from_slice(&named_group);
     todo!()

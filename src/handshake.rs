@@ -1,6 +1,6 @@
 use std::ffi::c_void;
 
-use crate::client_hello::client_hello;
+use crate::{client_hello::client_hello, record::{plaintext_record, ContentType}, Message};
 
 use super::State;
 #[repr(u8)]
@@ -24,10 +24,10 @@ pub extern "C" fn shake_hands(
     write: extern "C" fn(*const c_void, usize) -> isize,
     read: extern "C" fn(*mut c_void, usize) -> isize,
 ) -> *mut State {
-    let mut msg = Vec::new();
-    client_hello(&mut msg);
-    write(&msg as &[u8] as *const [u8] as *const c_void, msg.len());
-    let mut buf: [u8; 1024] = [0; 1024];
-    read(&mut buf as *mut [u8; 1024] as *mut c_void, buf.len());
+    let msg = plaintext_record(ContentType::Handshake, client_hello);
+    write(msg.as_bytes() as *const u8 as *const c_void, msg.len());
+
+    let mut buf = [0u8; Message::MAX_SIZE];
+    read(&mut buf as *mut u8 as *mut c_void, buf.len());
     todo!()
 }
