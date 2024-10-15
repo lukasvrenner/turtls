@@ -1,3 +1,8 @@
+use crylib::{
+    ec::{AffinePoint, EllipticCurve, Secp256r1},
+    finite_field::FieldElement,
+};
+
 #[repr(u16)]
 pub enum CipherSuite {
     Aes128GcmSha256 = 0x1301,
@@ -33,6 +38,10 @@ impl NamedGroup {
     pub const fn as_be_bytes(self) -> [u8; 2] {
         (self as u16).to_be_bytes()
     }
+}
+
+pub struct GroupKeys {
+    pub secp256r1: FieldElement<<Secp256r1 as EllipticCurve>::Order>,
 }
 
 #[repr(u16)]

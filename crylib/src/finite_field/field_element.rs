@@ -1,4 +1,4 @@
-use core::marker::PhantomData;
+use core::{marker::PhantomData, ops::Deref};
 
 use crate::big_int::{BigInt, InputTooLargeError, UBigInt};
 
@@ -7,7 +7,9 @@ use super::FiniteField;
 ///
 /// All operations are performed modulo [`F::MODULUS`](super::FiniteField::MODULUS).
 #[derive(Eq, PartialOrd, Ord, PartialEq, Clone, Copy)]
+#[repr(transparent)]
 // TODO: use const generics instead of a type once custom const generics types are stabilized
+// TODO: allow different-sized fields once const generic operations are stabilized
 pub struct FieldElement<F: FiniteField>(UBigInt<4>, PhantomData<F>);
 
 impl<F: FiniteField> core::fmt::Display for FieldElement<F> {
@@ -25,6 +27,8 @@ impl<F: FiniteField> core::fmt::Debug for FieldElement<F> {
 impl<F: FiniteField> FieldElement<F> {
     // SAFETY: `FiniteField` implementors guarantee that `ZERO` is in the field.
     pub const ZERO: Self = unsafe { Self::new_unchecked(UBigInt::ZERO) };
+
+    pub const LEN: usize = 4;
 
     // SAFETY: `FiniteField` implementors guarantee that `ONE` is in the field.
     pub const ONE: Self = unsafe { Self::new_unchecked(UBigInt::ONE) };
@@ -63,7 +67,7 @@ impl<F: FiniteField> FieldElement<F> {
     }
 
     pub fn inner(&self) -> &UBigInt<4> {
-        &self.0
+        self
     }
 
     pub fn into_inner(self) -> UBigInt<4> {
@@ -259,6 +263,13 @@ impl<F: FiniteField> TryFrom<UBigInt<4>> for FieldElement<F> {
     type Error = InputTooLargeError;
     fn try_from(value: UBigInt<4>) -> Result<Self, Self::Error> {
         FieldElement::try_new(value)
+    }
+}
+
+impl<F: FiniteField> Deref for FieldElement<F> {
+    type Target = UBigInt<4>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 

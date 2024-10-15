@@ -18,10 +18,12 @@ mod server_hello;
 mod versions;
 
 use aead::{AeadReader, AeadWriter};
+use cipher_suites::GroupKeys;
 pub use handshake::shake_hands;
 
 pub struct State {
     aead_writer: AeadWriter,
     aead_reader: AeadReader,
-}
 
+    group_keys: GroupKeys,
+}

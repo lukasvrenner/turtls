@@ -56,7 +56,10 @@ impl Message {
     }
 
     pub fn new(msg_type: ContentType) -> Self {
-        let mut msg = Self {contents: [0; Self::MAX_SIZE], len: 5, };
+        let mut msg = Self {
+            contents: [0; Self::MAX_SIZE],
+            len: 5,
+        };
         msg[1..3].copy_from_slice(&LEGACY_PROTO_VERS.as_be_bytes());
         msg.reset(msg_type);
         msg

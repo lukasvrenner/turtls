@@ -742,14 +742,26 @@ macro_rules! impl_non_generic {
 
             /// converts a big-endian byte array to a [`UBigInt`]
             // TODO: implement this for all values of `N` once const_generic operations are stabilized
-            pub fn from_be_bytes(bytes: [u8; $n * 8]) -> Self {
+            pub fn from_be_bytes(bytes: [u8; $n * size_of::<u64>()]) -> Self {
                 // TODO: consider using uninitialized array
-                let mut output = [0u64; $n];
+                let mut output = [0; $n];
                 // TODO: use array_chunks once stabilized
-                for (chunk, digit) in bytes.rchunks_exact(8).zip(output.iter_mut()) {
+                for (chunk, digit) in bytes.rchunks_exact(size_of::<u64>()).zip(output.iter_mut()) {
                     *digit = u64::from_be_bytes(chunk.try_into().unwrap())
                 }
                 output.into()
+            }
+
+            pub fn to_be_bytes(self) -> [u8; $n * size_of::<u64>()] {
+                let mut output = [0; $n * size_of::<u64>()];
+                for (digit, chunk) in self
+                    .0
+                    .into_iter()
+                    .zip(output.chunks_exact_mut(size_of::<u64>()).rev())
+                {
+                    chunk.copy_from_slice(&digit.to_be_bytes());
+                }
+                output
             }
         }
     };

@@ -1,8 +1,8 @@
 use crate::cipher_suites::CipherSuite;
-use crate::versions::LEGACY_PROTO_VERS;
 use crate::extensions;
-use crate::record::Message;
 use crate::handshake::ShakeType;
+use crate::record::Message;
+use crate::versions::LEGACY_PROTO_VERS;
 use getrandom::getrandom;
 use getrandom::Error;
 
@@ -61,5 +61,5 @@ fn extensions(msg_buf: &mut Message) {
     extensions::supported_versions_client(msg_buf);
 
     let extensions_len = ((original_len - msg_buf.len()) as u16).to_be_bytes();
-    msg_buf[original_len- 2..][..2].copy_from_slice(&extensions_len);
+    msg_buf[original_len - 2..][..2].copy_from_slice(&extensions_len);
 }

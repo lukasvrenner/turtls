@@ -1,6 +1,9 @@
-use crate::versions::ProtocolVersion;
+use crylib::ec::{EllipticCurve, Secp256r1};
+
 use crate::cipher_suites::{NamedGroup, SignatureScheme};
 use crate::record::Message;
+use crate::versions::ProtocolVersion;
+use crate::State;
 
 #[repr(u16)]
 pub enum Extension {
@@ -84,14 +87,28 @@ pub fn supported_groups(msg_buf: &mut Message) {
     msg_buf.extend_from_slice(&groups);
 }
 
-pub fn key_share_client_hello(msg_buf: &mut Message) {
+pub fn key_share_client_hello(msg_buf: &mut Message, state: &State) {
     let extension_name = Extension::KeyShare.as_be_bytes();
     msg_buf.extend_from_slice(&extension_name);
-    todo!()
+
+    let original_len = msg_buf.len();
+    msg_buf.extend_from_slice(&[0; 2]);
+
+    secp256r1_key_share(msg_buf, state);
+
+    let len_diff = ((msg_buf.len() - original_len) as u16).to_be_bytes();
+    msg_buf[original_len..][..2].copy_from_slice(&len_diff);
 }
 
-fn key_share_entry(msg_buf: &mut Message) {
+fn secp256r1_key_share(msg_buf: &mut Message, state: &State) {
     let named_group = NamedGroup::Secp256r1.as_be_bytes();
     msg_buf.extend_from_slice(&named_group);
-    todo!()
+    msg_buf.push(4);
+    let pub_key = Secp256r1::BASE_POINT
+        .as_projective()
+        .mul_scalar(state.group_keys.secp256r1.inner())
+        .as_affine()
+        .expect("private key isn't 0");
+    msg_buf.extend_from_slice(&pub_key.x().to_be_bytes());
+    msg_buf.extend_from_slice(&pub_key.y().to_be_bytes());
 }

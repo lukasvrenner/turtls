@@ -1,8 +1,8 @@
 use std::ffi::c_void;
 
 use crate::client_hello::client_hello;
-use crate::record::{plaintext_record, ContentType};
 use crate::record::Message;
+use crate::record::{plaintext_record, ContentType};
 
 use super::State;
 #[repr(u8)]
