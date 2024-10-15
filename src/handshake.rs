@@ -21,13 +21,14 @@ pub enum ShakeType {
 #[no_mangle]
 pub extern "C" fn shake_hands(
     // TODO: use c_size_t and c_ssize_t once stabilized
-    write: extern "C" fn(*const c_void, usize) -> isize,
-    read: extern "C" fn(*mut c_void, usize) -> isize,
+    fd: i32,
+    write: extern "C" fn(i32, *const c_void, usize) -> isize,
+    read: extern "C" fn(i32, *mut c_void, usize) -> isize,
 ) -> *mut State {
     let msg = plaintext_record(ContentType::Handshake, client_hello);
-    write(msg.as_bytes() as *const u8 as *const c_void, msg.len());
+    write(fd, msg.as_bytes() as *const u8 as *const c_void, msg.len());
 
     let mut buf = [0u8; Message::MAX_SIZE];
-    read(&mut buf as *mut u8 as *mut c_void, buf.len());
+    read(fd, &mut buf as *mut u8 as *mut c_void, buf.len());
     todo!()
 }

@@ -4,5 +4,5 @@
 #include <stddef.h>
 struct State;
 
-struct State *shake_hands(ssize_t (*write)(void *, size_t), ssize_t (*read)(void *, size_t));
+struct State *shake_hands(int fd, ssize_t (*write)(int, void *, size_t), ssize_t (*read)(int, void *, size_t));
 #endif
