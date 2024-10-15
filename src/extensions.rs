@@ -1,8 +1,7 @@
-use crate::{
-    cipher_suites::{NamedGroup, SignatureScheme},
-    versions::ProtocolVersion,
-    Message,
-};
+use crate::versions::ProtocolVersion;
+use crate::cipher_suites::{NamedGroup, SignatureScheme};
+use crate::record::Message;
+
 #[repr(u16)]
 pub enum Extension {
     ServerName = 0,
