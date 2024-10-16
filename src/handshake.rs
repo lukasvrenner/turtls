@@ -1,6 +1,6 @@
 use std::ffi::c_void;
 
-use crate::record::Message;
+use crate::{client_hello::ClientHello, record::{ContentType, Message}};
 
 use super::State;
 #[repr(u8)]
@@ -20,18 +20,21 @@ pub enum ShakeType {
 
 pub struct Handshake {
     msg: Message,
-    original_len: usize,
 }
 
 impl Handshake {
-    fn new(msg: Message, shake_type: ShakeType) -> Self {
-        let original_len = msg.len();
-        let mut handshake = Self {
-            msg,
-            original_len,
-        };
-        handshake[original_len] = shake_type as u8;
+    pub const PREFIX_SIZE: usize = 1;
+    pub fn new(shake_type: ShakeType) -> Self {
+
+        let mut handshake = Self { msg: Message::new(ContentType::Handshake) };
+        handshake[Message::PREFIIX_SIZE] = shake_type as u8;
         handshake
+    }
+
+    pub fn finish(&mut self) {
+        let len_diff = &((self.len() - Message::PREFIIX_SIZE) as u32).to_be_bytes()[1..4];
+        self[Message::PREFIIX_SIZE + 1..][..3].copy_from_slice(len_diff);
+        self.msg.finish();
     }
 }
 
@@ -48,12 +51,10 @@ impl std::ops::DerefMut for Handshake {
     }
 }
 
-impl Drop for Handshake {
-    fn drop(&mut self) {
-        let original_len = self.original_len;
-        let len_diff = &((self.len() - self.original_len) as u32).to_be_bytes()[1..4];
-        self[original_len + 1..][..3].copy_from_slice(len_diff);
-    }
+#[repr(C)]
+pub enum ShakeResult {
+    Ok(*mut State),
+    RngError,
 }
 
 #[no_mangle]
@@ -62,9 +63,11 @@ pub extern "C" fn shake_hands(
     fd: i32,
     write: extern "C" fn(i32, *const c_void, usize) -> isize,
     read: extern "C" fn(i32, *mut c_void, usize) -> isize,
-) -> *mut State {
-    let msg = todo!();;
-    write(fd, msg.to_bytes() as *const u8 as *const c_void, msg.len());
+) -> ShakeResult {
+    let Ok(client_hello) = ClientHello::new() else {
+        return ShakeResult::RngError;
+    };
+    write(fd, client_hello.as_ref() as *const [u8] as *const c_void, client_hello.len());
 
     let mut buf = [0u8; Message::MAX_SIZE];
     read(fd, &mut buf as *mut u8 as *mut c_void, buf.len());

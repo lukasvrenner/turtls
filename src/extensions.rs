@@ -1,7 +1,7 @@
 use crylib::ec::{EllipticCurve, Secp256r1};
 
 use crate::cipher_suites::{NamedGroup, SignatureScheme};
-use crate::record::Message;
+use crate::client_hello::ClientHello;
 use crate::versions::ProtocolVersion;
 use crate::State;
 
@@ -37,78 +37,78 @@ impl Extension {
     }
 }
 
-pub fn supported_versions_client(msg_buf: &mut Message) {
+pub fn supported_versions_client(buf: &mut ClientHello) {
     let extension_name = Extension::SupportedVersions.as_be_bytes();
-    msg_buf.extend_from_slice(&extension_name);
+    buf.extend_from_slice(&extension_name);
 
     let extension_len = (size_of::<u8>() as u16 + 1).to_be_bytes();
-    msg_buf.extend_from_slice(&extension_len);
+    buf.extend_from_slice(&extension_len);
 
     let len = size_of::<u16>() as u8;
-    msg_buf.push(len);
-    msg_buf.extend_from_slice(&ProtocolVersion::TlsOnePointThree.as_be_bytes());
+    buf.push(len);
+    buf.extend_from_slice(&ProtocolVersion::TlsOnePointThree.as_be_bytes());
 }
 
-pub fn supported_versions_server(msg_buf: &mut Message) {
+pub fn supported_versions_server(buf: &mut ClientHello) {
     let extension_name = Extension::SupportedVersions.as_be_bytes();
-    msg_buf.extend_from_slice(&extension_name);
+    buf.extend_from_slice(&extension_name);
 
     let supported_versions = ProtocolVersion::TlsOnePointThree.as_be_bytes();
-    msg_buf.extend_from_slice(&supported_versions);
+    buf.extend_from_slice(&supported_versions);
 }
 
 // TODO: support more algorithms and allow user to choose which to use
-pub fn signature_algorithms(msg_buf: &mut Message) {
+pub fn signature_algorithms(buf: &mut ClientHello) {
     let extension_name = Extension::SignatureAlgorithms.as_be_bytes();
-    msg_buf.extend_from_slice(&extension_name);
+    buf.extend_from_slice(&extension_name);
 
     let extension_len = (2 * size_of::<u16>() as u16).to_be_bytes();
-    msg_buf.extend_from_slice(&extension_len);
+    buf.extend_from_slice(&extension_len);
 
     let len = (size_of::<u16>() as u16).to_be_bytes();
-    msg_buf.extend_from_slice(&len);
+    buf.extend_from_slice(&len);
 
     let scheme = SignatureScheme::EcdsaSecp256r1Sha256.as_be_bytes();
-    msg_buf.extend_from_slice(&scheme);
+    buf.extend_from_slice(&scheme);
 }
 
 // TODO: support more groups and allow user to choose which to use
-pub fn supported_groups(msg_buf: &mut Message) {
+pub fn supported_groups(buf: &mut ClientHello) {
     let extension_name = (Extension::SupportedGroups as u16).to_be_bytes();
-    msg_buf.extend_from_slice(&extension_name);
+    buf.extend_from_slice(&extension_name);
 
     let extension_len = (2 * size_of::<u16>() as u16).to_be_bytes();
-    msg_buf.extend_from_slice(&extension_len);
+    buf.extend_from_slice(&extension_len);
 
     let len = (size_of::<u16>() as u16).to_be_bytes();
-    msg_buf.extend_from_slice(&len);
+    buf.extend_from_slice(&len);
 
     let groups = NamedGroup::Secp256r1.as_be_bytes();
-    msg_buf.extend_from_slice(&groups);
+    buf.extend_from_slice(&groups);
 }
 
-pub fn key_share_client_hello(msg_buf: &mut Message, state: &State) {
+pub fn key_share_client_hello(buf: &mut ClientHello, state: &State) {
     let extension_name = Extension::KeyShare.as_be_bytes();
-    msg_buf.extend_from_slice(&extension_name);
+    buf.extend_from_slice(&extension_name);
 
-    let original_len = msg_buf.len();
-    msg_buf.extend_from_slice(&[0; 2]);
+    let original_len = buf.len();
+    buf.extend_from_slice(&[0; 2]);
 
-    secp256r1_key_share(msg_buf, state);
+    secp256r1_key_share(buf, state);
 
-    let len_diff = ((msg_buf.len() - original_len) as u16).to_be_bytes();
-    msg_buf[original_len..][..2].copy_from_slice(&len_diff);
+    let len_diff = ((buf.len() - original_len) as u16).to_be_bytes();
+    buf[original_len..][..2].copy_from_slice(&len_diff);
 }
 
-fn secp256r1_key_share(msg_buf: &mut Message, state: &State) {
+fn secp256r1_key_share(buf: &mut ClientHello, state: &State) {
     let named_group = NamedGroup::Secp256r1.as_be_bytes();
-    msg_buf.extend_from_slice(&named_group);
-    msg_buf.push(4);
+    buf.extend_from_slice(&named_group);
+    buf.push(4);
     let pub_key = Secp256r1::BASE_POINT
         .as_projective()
         .mul_scalar(state.group_keys.secp256r1.inner())
         .as_affine()
         .expect("private key isn't 0");
-    msg_buf.extend_from_slice(&pub_key.x().to_be_bytes());
-    msg_buf.extend_from_slice(&pub_key.y().to_be_bytes());
+    buf.extend_from_slice(&pub_key.x().to_be_bytes());
+    buf.extend_from_slice(&pub_key.y().to_be_bytes());
 }

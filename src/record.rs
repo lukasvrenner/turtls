@@ -17,6 +17,7 @@ pub struct Message {
 
 impl Message {
     pub const MAX_SIZE: usize = 0x4006;
+    pub const PREFIIX_SIZE: usize = 5;
 
     pub fn len(&self) -> usize {
         self.len
@@ -34,13 +35,13 @@ impl Message {
         self.len += slice.len();
     }
 
-    pub fn new(buf: [u8; Message::MAX_SIZE], msg_type: ContentType) -> Self {
+    pub fn new(msg_type: ContentType) -> Self {
         let mut msg = Self {
-            buf,
+            buf: [0; Self::MAX_SIZE],
             len: 5,
         };
+        msg[0] = msg_type as u8;
         msg[1..3].copy_from_slice(&LEGACY_PROTO_VERS.as_be_bytes());
-        msg.reset(msg_type);
         msg
     }
 
@@ -50,10 +51,9 @@ impl Message {
         self[4] = 0;
     }
 
-    pub fn to_bytes(&mut self) -> &mut [u8; Message::MAX_SIZE] {
+    pub fn finish(&mut self) {
         let len = self.len;
         self[3..5].copy_from_slice(&(len as u16).to_be_bytes());
-        &mut self.buf
     }
 }
 
