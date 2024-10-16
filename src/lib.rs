@@ -19,11 +19,36 @@ mod versions;
 
 use aead::{AeadReader, AeadWriter};
 use cipher_suites::GroupKeys;
-pub use handshake::shake_hands;
+use client_hello::ClientHello;
+use std::ffi::c_void;
+use record::Message;
 
 pub struct State {
     aead_writer: AeadWriter,
     aead_reader: AeadReader,
 
     group_keys: GroupKeys,
+}
+
+#[repr(C)]
+pub enum ShakeResult {
+    Ok(*mut State),
+    RngError,
+}
+
+#[no_mangle]
+pub extern "C" fn shake_hands(
+    // TODO: use c_size_t and c_ssize_t once stabilized
+    fd: i32,
+    write: extern "C" fn(i32, *const c_void, usize) -> isize,
+    read: extern "C" fn(i32, *mut c_void, usize) -> isize,
+) -> ShakeResult {
+    let Ok(client_hello) = ClientHello::new() else {
+        return ShakeResult::RngError;
+    };
+    write(fd, client_hello.as_ref() as *const [u8] as *const c_void, client_hello.len());
+
+    let mut buf = [0u8; Message::MAX_SIZE];
+    read(fd, &mut buf as *mut u8 as *mut c_void, buf.len());
+    todo!()
 }
