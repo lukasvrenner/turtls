@@ -10,29 +10,8 @@ pub enum ContentType {
     ApplicationData = 23,
 }
 
-pub fn plaintext_record(msg_type: ContentType, msg_data: impl FnOnce(&mut Message)) -> Message {
-    let mut msg = Message::new(msg_type);
-    msg_data(&mut msg);
-    msg
-}
-
-pub fn encrypted_record(
-    msg_type: ContentType,
-    msg_data: impl FnOnce(&mut Message),
-    aead_state: &mut AeadWriter,
-) -> Message {
-    let mut msg = Message::new(ContentType::ApplicationData);
-    msg_data(&mut msg);
-    msg.push(msg_type as u8);
-
-    let split_msg = msg.split_at_mut(5);
-    let tag = aead_state.encrypt_inline(split_msg.1, split_msg.0);
-    msg.extend_from_slice(&tag);
-    msg
-}
-
 pub struct Message {
-    contents: [u8; Self::MAX_SIZE],
+    buf: [u8; Message::MAX_SIZE],
     len: usize,
 }
 
@@ -55,9 +34,9 @@ impl Message {
         self.len += slice.len();
     }
 
-    pub fn new(msg_type: ContentType) -> Self {
+    pub fn new(buf: [u8; Message::MAX_SIZE], msg_type: ContentType) -> Self {
         let mut msg = Self {
-            contents: [0; Self::MAX_SIZE],
+            buf,
             len: 5,
         };
         msg[1..3].copy_from_slice(&LEGACY_PROTO_VERS.as_be_bytes());
@@ -71,35 +50,41 @@ impl Message {
         self[4] = 0;
     }
 
-    pub fn to_bytes(&mut self) -> &mut [u8; Self::MAX_SIZE] {
+    pub fn to_bytes(&mut self) -> &mut [u8; Message::MAX_SIZE] {
         let len = self.len;
         self[3..5].copy_from_slice(&(len as u16).to_be_bytes());
-        &mut self.contents
+        &mut self.buf
     }
 }
 
 impl std::ops::Deref for Message {
-    type Target = [u8; Self::MAX_SIZE];
+    type Target = [u8; Message::MAX_SIZE];
     fn deref(&self) -> &Self::Target {
-        &self.contents
+        &self.buf
     }
 }
 
 // TODO: should this be implemented?
 impl std::ops::DerefMut for Message {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.contents
+        &mut self.buf
     }
 }
 
 impl std::borrow::Borrow<[u8]> for Message {
     fn borrow(&self) -> &[u8] {
-        &self.contents
+        &self.buf
     }
 }
 
 impl AsRef<[u8]> for Message {
     fn as_ref(&self) -> &[u8] {
-        &self.contents
+        &self.buf
+    }
+}
+
+impl AsMut<[u8]> for Message {
+    fn as_mut(&mut self) -> &mut [u8] {
+        &mut self.buf
     }
 }
