@@ -23,7 +23,7 @@ impl ClientHello {
     }
 
     fn start() -> Self {
-        Self { shake: Handshake::new(ShakeType::ClientHello) }
+        Self { shake: Handshake::start(ShakeType::ClientHello) }
     }
 
     fn legacy_protocol_version(&mut self) {

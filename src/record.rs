@@ -1,7 +1,11 @@
+use crylib::aead;
+
 use crate::aead::AeadWriter;
 use crate::versions::LEGACY_PROTO_VERS;
+use crate::State;
 
 #[repr(u8)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ContentType {
     Invalid = 0,
     ChangeCipherSpec = 20,
@@ -19,6 +23,16 @@ impl Message {
     pub const MAX_SIZE: usize = 0x4006;
     pub const PREFIIX_SIZE: usize = 5;
 
+    pub fn start(msg_type: ContentType) -> Self {
+        let mut msg = Self {
+            buf: [0; Self::MAX_SIZE],
+            len: 5,
+        };
+        msg[0] = msg_type as u8;
+        msg[1..3].copy_from_slice(&LEGACY_PROTO_VERS.as_be_bytes());
+        msg
+    }
+
     pub fn len(&self) -> usize {
         self.len
     }
@@ -35,20 +49,13 @@ impl Message {
         self.len += slice.len();
     }
 
-    pub fn new(msg_type: ContentType) -> Self {
-        let mut msg = Self {
-            buf: [0; Self::MAX_SIZE],
-            len: 5,
-        };
-        msg[0] = msg_type as u8;
-        msg[1..3].copy_from_slice(&LEGACY_PROTO_VERS.as_be_bytes());
-        msg
+    pub fn extend(&mut self, amt: usize) {
+        self.len += amt;
     }
 
     pub fn reset(&mut self, msg_type: ContentType) {
         self[0] = msg_type as u8;
-        self[3] = 0;
-        self[4] = 0;
+        self.len = 5;
     }
 
     pub fn finish(&mut self) {
@@ -86,5 +93,51 @@ impl AsRef<[u8]> for Message {
 impl AsMut<[u8]> for Message {
     fn as_mut(&mut self) -> &mut [u8] {
         &mut self.buf
+    }
+}
+
+pub struct EncryptedMessage {
+    msg: Message,
+    content_type: ContentType,
+    padding: usize,
+}
+
+impl EncryptedMessage {
+    pub fn start(content_type: ContentType, padding: usize) -> Self {
+        Self {
+            msg: Message::start(ContentType::ApplicationData),
+            content_type,
+            padding,
+        }
+    }
+
+    pub fn finish(&mut self, state: &mut State) {
+        let content_type = self.content_type;
+        self.push(content_type as u8);
+
+        let padding = self.padding;
+        self.extend(padding + aead::TAG_SIZE);
+
+        let (add_data, encrypted_data) = self.msg.split_at_mut(Message::PREFIIX_SIZE);
+        let tag = state.aead_writer.encrypt_inline(encrypted_data, add_data);
+
+        let tagless_len = self.len() - aead::TAG_SIZE;
+        self[tagless_len..].copy_from_slice(&tag);
+
+        self.msg.finish();
+    }
+}
+
+impl std::ops::Deref for EncryptedMessage {
+    type Target = Message;
+    fn deref(&self) -> &Self::Target {
+        &self.msg
+    }
+}
+
+// TODO: should this be implemented?
+impl std::ops::DerefMut for EncryptedMessage {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.msg
     }
 }

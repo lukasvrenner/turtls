@@ -21,11 +21,13 @@ pub struct Handshake {
 }
 
 impl Handshake {
-    pub const PREFIX_SIZE: usize = 1;
-    pub fn new(shake_type: ShakeType) -> Self {
-
-        let mut handshake = Self { msg: Message::new(ContentType::Handshake) };
+    pub const PREFIX_SIZE: usize = 4;
+    pub fn start(shake_type: ShakeType) -> Self {
+        let mut handshake = Self { msg: Message::start(ContentType::Handshake) };
         handshake[Message::PREFIIX_SIZE] = shake_type as u8;
+
+        // leave room for length encoding
+        handshake.extend(3);
         handshake
     }
 
