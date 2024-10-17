@@ -2,6 +2,7 @@ use crate::cipher_suites::CipherSuite;
 use crate::extensions;
 use crate::handshake::Handshake;
 use crate::handshake::ShakeType;
+use crate::versions::ProtocolVersion;
 use crate::versions::LEGACY_PROTO_VERS;
 use getrandom::{getrandom, Error};
 
@@ -13,7 +14,7 @@ impl ClientHello {
     pub fn new() -> Result<Self, Error> {
         let mut msg = Self::start();
         msg.legacy_protocol_version();
-        msg.random_bits()?;
+        msg.random_bytes()?;
         msg.legacy_session_id();
         msg.cipher_suites();
         msg.legacy_compression_methods();
@@ -30,7 +31,7 @@ impl ClientHello {
         self.extend_from_slice(&LEGACY_PROTO_VERS.as_be_bytes());
     }
 
-    fn random_bits(&mut self) -> Result<(), Error> {
+    fn random_bytes(&mut self) -> Result<(), Error> {
         self.extend_from_slice(&[0; 32]);
         let len = self.len();
         getrandom(&mut self[len - 32..])
@@ -77,4 +78,13 @@ impl std::ops::DerefMut for ClientHello {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.shake
     }
+}
+
+pub struct ClientHelloRef<'a> {
+    pub proto_version: ProtocolVersion,
+    pub random_bytes: &'a [u8; 32],
+    pub session_id: &'a [u8],
+    pub cipher_suites: &'a [CipherSuite],
+    pub compression_methods: &'a [u8],
+    pub extensions: &'a [u8],
 }

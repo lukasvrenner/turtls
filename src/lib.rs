@@ -37,7 +37,7 @@ pub enum ShakeResult {
 }
 
 #[no_mangle]
-pub extern "C" fn shake_hands(
+pub extern "C" fn client_shake_hands(
     // TODO: use c_size_t and c_ssize_t once stabilized
     fd: i32,
     write: extern "C" fn(i32, *const c_void, usize) -> isize,

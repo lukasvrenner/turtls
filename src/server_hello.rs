@@ -1,49 +1,69 @@
 use crate::cipher_suites::CipherSuite;
+use crate::handshake::{Handshake, ShakeType};
 use crate::versions::LEGACY_PROTO_VERS;
-pub fn server_hello(
-    msg_buf: &mut [u8],
-    csprng: impl FnOnce() -> [u8; 32],
-    leg_session_id: &[u8],
-    cipher_suite: CipherSuite,
-    extensions: &[u8],
-) {
-    let mut pos = 0;
+use getrandom::{getrandom, Error};
+use crate::client_hello::ClientHelloRef;
 
-    msg_buf[pos..][..2].copy_from_slice(&LEGACY_PROTO_VERS.as_be_bytes());
-    pos += 1;
+pub struct ServerHello {
+    shake: Handshake,
+}
 
-    msg_buf[pos..][..32].copy_from_slice(&csprng());
-    pos += 32;
+impl ServerHello {
+    pub fn new(client_hello: &ClientHelloRef) -> Result<Self, Error> {
+        let mut server_hello = Self::start();
+        server_hello.legacy_protocol_version();
+        server_hello.random_bytes()?;
+        server_hello.legacy_session_id_echo(client_hello.session_id);
+        server_hello.cipher_suite(client_hello.cipher_suites);
+        server_hello.legacy_compression_method();
+        server_hello.extensions(client_hello.extensions);
+        server_hello.finish();
+        Ok(server_hello)
+    }
 
-    // legacy session id len
-    msg_buf[pos] = leg_session_id.len() as u8;
-    pos += 1;
+    fn start() -> Self {
+        Self {
+            shake: Handshake::start(ShakeType::ServerHello),
+        }
+    }
 
-    // legacy session id
-    msg_buf[pos..][..leg_session_id.len()].copy_from_slice(&leg_session_id);
-    pos += leg_session_id.len();
+    fn legacy_protocol_version(&mut self) {
+        self.extend_from_slice(&LEGACY_PROTO_VERS.as_be_bytes());
+    }
 
-    // cipher suite
-    let suite = (cipher_suite as u16).to_be_bytes();
-    msg_buf[pos..][..2].copy_from_slice(&suite);
-    pos += 2;
+    fn random_bytes(&mut self) -> Result<(), Error> {
+        self.extend_from_slice(&[0; 32]);
+        let len = self.len();
+        getrandom(&mut self[len - 32..])
+    }
 
-    // legacy compression method
-    msg_buf[pos] = 0;
-    pos += 1;
+    fn legacy_session_id_echo(&mut self, client_ses_id: &[u8]) {
+        self.extend_from_slice(client_ses_id);
+    }
 
-    assert!(
-        extensions.len() >= 6,
-        "at least three extensions must be used"
-    );
-    let extensions_len = (extensions.len() as u16).to_be_bytes();
-    msg_buf[pos..][..2].copy_from_slice(&extensions_len);
-    pos += 2;
+    fn cipher_suite(&mut self, client_cipher_suites: &[CipherSuite]) {
+        let cipher_suite: CipherSuite = todo!();
+        self.push(cipher_suite as u8);
+    }
 
-    msg_buf[pos..][..extensions.len()].copy_from_slice(&extensions);
-    assert_eq!(
-        pos + extensions.len(),
-        msg_buf.len(),
-        "buf must exactly fit contents"
-    );
+    fn legacy_compression_method(&mut self) {
+        self.push(0x00);
+    }
+
+    fn extensions(&mut self, extensions: &[u8]) {
+        todo!();
+    }
+}
+
+impl std::ops::Deref for ServerHello {
+    type Target = Handshake;
+    fn deref(&self) -> &Self::Target {
+        &self.shake
+    }
+}
+
+impl std::ops::DerefMut for ServerHello {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.shake
+    }
 }
