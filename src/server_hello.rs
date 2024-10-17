@@ -1,6 +1,6 @@
 use crate::cipher_suites::CipherSuite;
 use crate::handshake::{Handshake, ShakeType};
-use crate::versions::LEGACY_PROTO_VERS;
+use crate::versions::{ProtocolVersion, LEGACY_PROTO_VERS};
 use getrandom::{getrandom, Error};
 use crate::client_hello::ClientHelloRef;
 
@@ -66,4 +66,13 @@ impl std::ops::DerefMut for ServerHello {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.shake
     }
+}
+
+pub struct ServerHelloRef<'a> {
+    proto_version: ProtocolVersion,
+    random_bytes: &'a [u8],
+    session_id: &'a [u8],
+    cipher_suite: CipherSuite,
+    compression_method: u8,
+    extensions: &'a [u8],
 }
