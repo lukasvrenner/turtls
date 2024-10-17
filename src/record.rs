@@ -25,6 +25,7 @@ impl Message {
 
     pub fn start(msg_type: ContentType) -> Self {
         let mut msg = Self {
+            // TODO: consider using uninitialized memory
             buf: [0; Self::MAX_SIZE],
             len: 5,
         };
@@ -53,11 +54,6 @@ impl Message {
         self.len += amt;
     }
 
-    pub fn reset(&mut self, msg_type: ContentType) {
-        self[0] = msg_type as u8;
-        self.len = 5;
-    }
-
     pub fn finish(&mut self) {
         let len = self.len;
         self[3..5].copy_from_slice(&(len as u16).to_be_bytes());
@@ -65,9 +61,9 @@ impl Message {
 }
 
 impl std::ops::Deref for Message {
-    type Target = [u8; Message::MAX_SIZE];
+    type Target = [u8];
     fn deref(&self) -> &Self::Target {
-        &self.buf
+        &self.buf[..self.len()]
     }
 }
 
