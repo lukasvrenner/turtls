@@ -32,13 +32,13 @@ pub enum Extension {
 }
 
 impl Extension {
-    pub const fn as_be_bytes(self) -> [u8; 2] {
+    pub const fn to_be_bytes(self) -> [u8; 2] {
         (self as u16).to_be_bytes()
     }
 }
 
 pub fn supported_versions_client(buf: &mut ClientHello) {
-    let extension_name = Extension::SupportedVersions.as_be_bytes();
+    let extension_name = Extension::SupportedVersions.to_be_bytes();
     buf.extend_from_slice(&extension_name);
 
     let extension_len = (size_of::<u8>() as u16 + 1).to_be_bytes();
@@ -46,20 +46,20 @@ pub fn supported_versions_client(buf: &mut ClientHello) {
 
     let len = size_of::<u16>() as u8;
     buf.push(len);
-    buf.extend_from_slice(&ProtocolVersion::TlsOnePointThree.as_be_bytes());
+    buf.extend_from_slice(&ProtocolVersion::TlsOnePointThree.to_be_bytes());
 }
 
 pub fn supported_versions_server(buf: &mut ClientHello) {
-    let extension_name = Extension::SupportedVersions.as_be_bytes();
+    let extension_name = Extension::SupportedVersions.to_be_bytes();
     buf.extend_from_slice(&extension_name);
 
-    let supported_versions = ProtocolVersion::TlsOnePointThree.as_be_bytes();
+    let supported_versions = ProtocolVersion::TlsOnePointThree.to_be_bytes();
     buf.extend_from_slice(&supported_versions);
 }
 
 // TODO: support more algorithms and allow user to choose which to use
 pub fn signature_algorithms(buf: &mut ClientHello) {
-    let extension_name = Extension::SignatureAlgorithms.as_be_bytes();
+    let extension_name = Extension::SignatureAlgorithms.to_be_bytes();
     buf.extend_from_slice(&extension_name);
 
     let extension_len = (2 * size_of::<u16>() as u16).to_be_bytes();
@@ -68,7 +68,7 @@ pub fn signature_algorithms(buf: &mut ClientHello) {
     let len = (size_of::<u16>() as u16).to_be_bytes();
     buf.extend_from_slice(&len);
 
-    let scheme = SignatureScheme::EcdsaSecp256r1Sha256.as_be_bytes();
+    let scheme = SignatureScheme::EcdsaSecp256r1Sha256.to_be_bytes();
     buf.extend_from_slice(&scheme);
 }
 
@@ -83,12 +83,12 @@ pub fn supported_groups(buf: &mut ClientHello) {
     let len = (size_of::<u16>() as u16).to_be_bytes();
     buf.extend_from_slice(&len);
 
-    let groups = NamedGroup::Secp256r1.as_be_bytes();
+    let groups = NamedGroup::Secp256r1.to_be_bytes();
     buf.extend_from_slice(&groups);
 }
 
 pub fn key_share_client_hello(buf: &mut ClientHello, state: &State) {
-    let extension_name = Extension::KeyShare.as_be_bytes();
+    let extension_name = Extension::KeyShare.to_be_bytes();
     buf.extend_from_slice(&extension_name);
 
     let original_len = buf.len();
@@ -101,7 +101,7 @@ pub fn key_share_client_hello(buf: &mut ClientHello, state: &State) {
 }
 
 fn secp256r1_key_share(buf: &mut ClientHello, state: &State) {
-    let named_group = NamedGroup::Secp256r1.as_be_bytes();
+    let named_group = NamedGroup::Secp256r1.to_be_bytes();
     buf.extend_from_slice(&named_group);
     buf.push(4);
     let pub_key = Secp256r1::BASE_POINT

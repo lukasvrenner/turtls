@@ -13,7 +13,7 @@ pub enum CipherSuite {
 }
 
 impl CipherSuite {
-    pub const fn as_be_bytes(self) -> [u8; 2] {
+    pub const fn to_be_bytes(self) -> [u8; 2] {
         (self as u16).to_be_bytes()
     }
 }
@@ -35,7 +35,7 @@ pub enum NamedGroup {
 }
 
 impl NamedGroup {
-    pub const fn as_be_bytes(self) -> [u8; 2] {
+    pub const fn to_be_bytes(self) -> [u8; 2] {
         (self as u16).to_be_bytes()
     }
 }
@@ -70,7 +70,7 @@ pub enum SignatureScheme {
 }
 
 impl SignatureScheme {
-    pub const fn as_be_bytes(self) -> [u8; 2] {
+    pub const fn to_be_bytes(self) -> [u8; 2] {
         (self as u16).to_be_bytes()
     }
 }

@@ -1,8 +1,8 @@
 use crate::cipher_suites::CipherSuite;
+use crate::client_hello::ClientHelloRef;
 use crate::handshake::{Handshake, ShakeType};
 use crate::versions::{ProtocolVersion, LEGACY_PROTO_VERS};
 use getrandom::{getrandom, Error};
-use crate::client_hello::ClientHelloRef;
 
 pub struct ServerHello {
     shake: Handshake,
@@ -28,7 +28,7 @@ impl ServerHello {
     }
 
     fn legacy_protocol_version(&mut self) {
-        self.extend_from_slice(&LEGACY_PROTO_VERS.as_be_bytes());
+        self.extend_from_slice(&LEGACY_PROTO_VERS.to_be_bytes());
     }
 
     fn random_bytes(&mut self) -> Result<(), Error> {
@@ -69,10 +69,35 @@ impl std::ops::DerefMut for ServerHello {
 }
 
 pub struct ServerHelloRef<'a> {
-    proto_version: ProtocolVersion,
     random_bytes: &'a [u8],
-    session_id: &'a [u8],
     cipher_suite: CipherSuite,
-    compression_method: u8,
     extensions: &'a [u8],
+}
+
+pub enum SerHelloParseError {
+    MissingData,
+    InvalidLengthEncoding,
+    InvalidCipherSuite,
+}
+
+impl<'a> ServerHelloRef<'a> {
+    fn parse_from_handshake(data: &'a [u8]) -> Result<Self, SerHelloParseError> {
+        let random_bytes = &data[2..34];
+        let session_id_len = data[35];
+        if session_id_len > 32 {
+            return Err(SerHelloParseError::InvalidLengthEncoding);
+        };
+        let cipher_suite =
+            if data[36 + session_id_len as usize] == CipherSuite::Aes128GcmSha256 as u8 {
+                CipherSuite::Aes128GcmSha256
+            } else {
+                return Err(SerHelloParseError::InvalidCipherSuite);
+            };
+        let extensions = &data[36 + session_id_len as usize + 2..];
+        Ok(Self {
+            random_bytes,
+            cipher_suite,
+            extensions,
+        })
+    }
 }

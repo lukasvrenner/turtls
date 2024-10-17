@@ -30,7 +30,7 @@ impl Message {
             len: 5,
         };
         msg[0] = msg_type as u8;
-        msg[1..3].copy_from_slice(&LEGACY_PROTO_VERS.as_be_bytes());
+        msg[1..3].copy_from_slice(&LEGACY_PROTO_VERS.to_be_bytes());
         msg
     }
 

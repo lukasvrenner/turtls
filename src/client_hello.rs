@@ -24,11 +24,13 @@ impl ClientHello {
     }
 
     fn start() -> Self {
-        Self { shake: Handshake::start(ShakeType::ClientHello) }
+        Self {
+            shake: Handshake::start(ShakeType::ClientHello),
+        }
     }
 
     fn legacy_protocol_version(&mut self) {
-        self.extend_from_slice(&LEGACY_PROTO_VERS.as_be_bytes());
+        self.extend_from_slice(&LEGACY_PROTO_VERS.to_be_bytes());
     }
 
     fn random_bytes(&mut self) -> Result<(), Error> {
@@ -45,7 +47,7 @@ impl ClientHello {
         let len = 1u16.to_be_bytes();
         self.extend_from_slice(&len);
 
-        let aes128_gcm_sha256 = CipherSuite::Aes128GcmSha256.as_be_bytes();
+        let aes128_gcm_sha256 = CipherSuite::Aes128GcmSha256.to_be_bytes();
         self.extend_from_slice(&aes128_gcm_sha256);
     }
 

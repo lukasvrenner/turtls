@@ -20,8 +20,8 @@ mod versions;
 use aead::{AeadReader, AeadWriter};
 use cipher_suites::GroupKeys;
 use client_hello::ClientHello;
-use std::ffi::c_void;
 use record::Message;
+use std::ffi::c_void;
 
 pub struct State {
     aead_writer: AeadWriter,
@@ -46,7 +46,11 @@ pub extern "C" fn client_shake_hands(
     let Ok(client_hello) = ClientHello::new() else {
         return ShakeResult::RngError;
     };
-    write(fd, client_hello.as_ref() as *const [u8] as *const c_void, client_hello.len());
+    write(
+        fd,
+        client_hello.as_ref() as *const [u8] as *const c_void,
+        client_hello.len(),
+    );
 
     let mut buf = [0u8; Message::MAX_SIZE];
     read(fd, &mut buf as *mut u8 as *mut c_void, buf.len());

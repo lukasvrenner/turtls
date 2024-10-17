@@ -23,7 +23,9 @@ pub struct Handshake {
 impl Handshake {
     pub const PREFIX_SIZE: usize = 4;
     pub fn start(shake_type: ShakeType) -> Self {
-        let mut handshake = Self { msg: Message::start(ContentType::Handshake) };
+        let mut handshake = Self {
+            msg: Message::start(ContentType::Handshake),
+        };
         handshake[Message::PREFIIX_SIZE] = shake_type as u8;
 
         // leave room for length encoding
@@ -49,4 +51,9 @@ impl std::ops::DerefMut for Handshake {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.msg
     }
+}
+
+pub struct HandshakeRef<'a> {
+    shake_type: ShakeType,
+    data: &'a [u8],
 }

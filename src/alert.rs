@@ -41,7 +41,7 @@ pub struct Alert {
 }
 
 impl Alert {
-    pub const fn as_be_bytes(self) -> [u8; 2] {
+    pub const fn to_be_bytes(self) -> [u8; 2] {
         [self.level as u8, self.description as u8]
     }
 }

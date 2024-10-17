@@ -10,7 +10,7 @@ pub enum ProtocolVersion {
 pub const LEGACY_PROTO_VERS: ProtocolVersion = ProtocolVersion::TlsOnePointZero;
 
 impl ProtocolVersion {
-    pub const fn as_be_bytes(self) -> [u8; 2] {
+    pub const fn to_be_bytes(self) -> [u8; 2] {
         (self as u16).to_be_bytes()
     }
 }
