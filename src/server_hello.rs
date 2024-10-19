@@ -1,4 +1,4 @@
-use crate::cipher_suites::CipherSuite;
+use crate::cipher_suites::{CipherSuite, NoSharedSuites};
 use crate::client_hello::ClientHelloRef;
 use crate::handshake::{Handshake, ShakeType};
 use crate::versions::{ProtocolVersion, LEGACY_PROTO_VERS};
@@ -9,12 +9,13 @@ pub struct ServerHello {
 }
 
 impl ServerHello {
-    pub fn new(client_hello: &ClientHelloRef) -> Result<Self, Error> {
+    const RANDOM_BYTES_LEN: usize = 32;
+    pub fn new(client_hello: &ClientHelloRef, sup_suites: &[CipherSuite]) -> Result<Self, Error> {
         let mut server_hello = Self::start();
         server_hello.legacy_protocol_version();
         server_hello.random_bytes()?;
         server_hello.legacy_session_id_echo(client_hello.session_id);
-        server_hello.cipher_suite(client_hello.cipher_suites);
+        server_hello.cipher_suite(client_hello.cipher_suites, sup_suites);
         server_hello.legacy_compression_method();
         server_hello.extensions(client_hello.extensions);
         server_hello.finish();
@@ -32,18 +33,24 @@ impl ServerHello {
     }
 
     fn random_bytes(&mut self) -> Result<(), Error> {
-        self.extend_from_slice(&[0; 32]);
+        self.extend_from_slice(&[0; Self::RANDOM_BYTES_LEN]);
         let len = self.len();
-        getrandom(&mut self[len - 32..])
+        getrandom(&mut self[len - Self::RANDOM_BYTES_LEN..])
     }
 
     fn legacy_session_id_echo(&mut self, client_ses_id: &[u8]) {
         self.extend_from_slice(client_ses_id);
     }
 
-    fn cipher_suite(&mut self, client_cipher_suites: &[CipherSuite]) {
-        let cipher_suite: CipherSuite = todo!();
-        self.push(cipher_suite as u8);
+    fn cipher_suite(
+        &mut self,
+        client_cipher_suites: &[u8],
+        sup_suites: &[CipherSuite],
+    ) -> Result<(), NoSharedSuites> {
+        self.extend_from_slice(
+            &CipherSuite::sel_from_bytes(client_cipher_suites, sup_suites)?.to_be_bytes(),
+        );
+        Ok(())
     }
 
     fn legacy_compression_method(&mut self) {
@@ -69,9 +76,9 @@ impl std::ops::DerefMut for ServerHello {
 }
 
 pub struct ServerHelloRef<'a> {
-    random_bytes: &'a [u8],
-    cipher_suite: CipherSuite,
-    extensions: &'a [u8],
+    pub random_bytes: &'a [u8; 32],
+    pub cipher_suite: CipherSuite,
+    pub extensions: &'a [u8],
 }
 
 pub enum SerHelloParseError {
@@ -81,19 +88,23 @@ pub enum SerHelloParseError {
 }
 
 impl<'a> ServerHelloRef<'a> {
-    fn parse_from_handshake(data: &'a [u8]) -> Result<Self, SerHelloParseError> {
-        let random_bytes = &data[2..34];
-        let session_id_len = data[35];
+    fn parse(server_hello: &'a [u8]) -> Result<Self, SerHelloParseError> {
+        let mut pos = size_of::<ProtocolVersion>();
+        let random_bytes = &server_hello[2..][..ServerHello::RANDOM_BYTES_LEN];
+        pos += random_bytes.len();
+        let session_id_len = server_hello[pos];
+        pos += 1;
         if session_id_len > 32 {
             return Err(SerHelloParseError::InvalidLengthEncoding);
         };
-        let cipher_suite =
-            if data[36 + session_id_len as usize] == CipherSuite::Aes128GcmSha256 as u8 {
-                CipherSuite::Aes128GcmSha256
-            } else {
-                return Err(SerHelloParseError::InvalidCipherSuite);
-            };
-        let extensions = &data[36 + session_id_len as usize + 2..];
+        pos += session_id_len as usize;
+        let cipher_suite = if server_hello[pos] == CipherSuite::Aes128GcmSha256 as u8 {
+            CipherSuite::Aes128GcmSha256
+        } else {
+            return Err(SerHelloParseError::InvalidCipherSuite);
+        };
+        pos += 1;
+        let extensions = &server_hello[pos..];
         Ok(Self {
             random_bytes,
             cipher_suite,

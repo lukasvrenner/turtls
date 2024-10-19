@@ -18,7 +18,7 @@ mod server_hello;
 mod versions;
 
 use aead::{AeadReader, AeadWriter};
-use cipher_suites::GroupKeys;
+use cipher_suites::{CipherSuite, GroupKeys};
 use client_hello::ClientHello;
 use record::Message;
 use std::ffi::c_void;
@@ -43,7 +43,8 @@ pub extern "C" fn client_shake_hands(
     write: extern "C" fn(i32, *const c_void, usize) -> isize,
     read: extern "C" fn(i32, *mut c_void, usize) -> isize,
 ) -> ShakeResult {
-    let Ok(client_hello) = ClientHello::new() else {
+    let sup_suites = [CipherSuite::Aes128CcmSha256];
+    let Ok(client_hello) = ClientHello::new(&sup_suites) else {
         return ShakeResult::RngError;
     };
     write(
