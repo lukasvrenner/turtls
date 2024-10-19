@@ -17,23 +17,6 @@ impl CipherSuite {
     pub const fn to_be_bytes(self) -> [u8; 2] {
         (self as u16).to_be_bytes()
     }
-
-    pub fn sel_from_bytes(
-        suites: &[u8],
-        sup_suites: &[CipherSuite],
-    ) -> Result<Self, NoSharedSuites> {
-        for suite in suites
-            .chunks_exact(2)
-            .map(|chunk| u16::from_be_bytes(chunk.try_into().unwrap()))
-        {
-            for sup_suite in sup_suites {
-                if suite == *sup_suite as u16 {
-                    return Ok(*sup_suite);
-                }
-            }
-        }
-        Err(NoSharedSuites)
-    }
 }
 
 pub struct NoSharedSuites;

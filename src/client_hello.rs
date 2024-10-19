@@ -1,9 +1,11 @@
-use crate::cipher_suites::CipherSuite;
-use crate::extensions;
+use crate::cipher_suites::{CipherSuite, GroupKeys, NamedGroup, SignatureScheme};
+use crate::extensions::Extension;
 use crate::handshake::Handshake;
 use crate::handshake::ShakeType;
 use crate::versions::ProtocolVersion;
 use crate::versions::LEGACY_PROTO_VERS;
+use crate::State;
+use crylib::ec::{EllipticCurve, Secp256r1};
 use getrandom::{getrandom, Error};
 
 pub struct ClientHello {
@@ -13,14 +15,14 @@ pub struct ClientHello {
 impl ClientHello {
     pub const RANDOM_BYTES_LEN: usize = 32;
 
-    pub fn new(sup_suites: &[CipherSuite]) -> Result<Self, Error> {
+    pub fn new(sup_suites: &[CipherSuite], group_keys: &GroupKeys) -> Result<Self, Error> {
         let mut msg = Self::start();
         msg.legacy_protocol_version();
         msg.random_bytes()?;
         msg.legacy_session_id();
         msg.cipher_suites(sup_suites);
         msg.legacy_compression_methods();
-        msg.extensions();
+        msg.extensions(group_keys);
         msg.finish();
         Ok(msg)
     }
@@ -61,17 +63,83 @@ impl ClientHello {
         self.push(0x00);
     }
 
-    fn extensions(&mut self) {
+    fn extensions(&mut self, group_keys: &GroupKeys) {
         self.extend_from_slice(&[0, 0]);
         let original_len = self.len();
 
-        extensions::supported_groups(self);
-        extensions::signature_algorithms(self);
-        extensions::supported_versions_client(self);
-        extensions::supported_groups(self);
+        self.supported_versions();
+        self.supported_groups();
+        self.signature_algorithms();
+        self.key_share(group_keys);
 
         let extensions_len = ((original_len - self.len()) as u16).to_be_bytes();
         self[original_len - 2..][..2].copy_from_slice(&extensions_len);
+    }
+
+    fn supported_versions(&mut self) {
+        let extension_name = Extension::SupportedVersions.to_be_bytes();
+        self.extend_from_slice(&extension_name);
+
+        let extension_len = (size_of::<u8>() as u16 + 1).to_be_bytes();
+        self.extend_from_slice(&extension_len);
+
+        let len = size_of::<u16>() as u8;
+        self.push(len);
+        self.extend_from_slice(&ProtocolVersion::TlsOnePointThree.to_be_bytes());
+    }
+
+    fn supported_groups(&mut self) {
+        let extension_name = (Extension::SupportedGroups as u16).to_be_bytes();
+        self.extend_from_slice(&extension_name);
+
+        let extension_len = (2 * size_of::<u16>() as u16).to_be_bytes();
+        self.extend_from_slice(&extension_len);
+
+        let len = (size_of::<u16>() as u16).to_be_bytes();
+        self.extend_from_slice(&len);
+
+        let groups = NamedGroup::Secp256r1.to_be_bytes();
+        self.extend_from_slice(&groups);
+    }
+
+    fn signature_algorithms(&mut self) {
+        let extension_name = Extension::SignatureAlgorithms.to_be_bytes();
+        self.extend_from_slice(&extension_name);
+
+        let extension_len = (2 * size_of::<u16>() as u16).to_be_bytes();
+        self.extend_from_slice(&extension_len);
+
+        let len = (size_of::<u16>() as u16).to_be_bytes();
+        self.extend_from_slice(&len);
+
+        let scheme = SignatureScheme::EcdsaSecp256r1Sha256.to_be_bytes();
+        self.extend_from_slice(&scheme);
+    }
+
+    fn key_share(&mut self, group_keys: &GroupKeys) {
+        let extension_name = Extension::KeyShare.to_be_bytes();
+        self.extend_from_slice(&extension_name);
+
+        let original_len = self.len();
+        self.extend_from_slice(&[0; 2]);
+
+        self.secp256r1_key_share(group_keys);
+
+        let len_diff = ((self.len() - original_len) as u16).to_be_bytes();
+        self[original_len..][..2].copy_from_slice(&len_diff);
+    }
+
+    fn secp256r1_key_share(&mut self, group_keys: &GroupKeys) {
+        let named_group = NamedGroup::Secp256r1.to_be_bytes();
+        self.extend_from_slice(&named_group);
+        self.push(4);
+        let pub_key = Secp256r1::BASE_POINT
+            .as_projective()
+            .mul_scalar(group_keys.secp256r1.inner())
+            .as_affine()
+            .expect("private key isn't 0");
+        self.extend_from_slice(&pub_key.x().to_be_bytes());
+        self.extend_from_slice(&pub_key.y().to_be_bytes());
     }
 }
 
@@ -118,9 +186,9 @@ impl<'a> ClientHelloRef<'a> {
         let session_id = &client_hello[pos..][..legacy_session_id_len as usize];
         pos += legacy_session_id_len as usize;
 
-        let cipher_suites_len = client_hello[pos];
-        pos += 1;
-        if cipher_suites_len > (1 << 16) - 2 {
+        let cipher_suites_len = u16::from_be_bytes(client_hello[pos..][..2].try_into().unwrap());
+        pos += 2;
+        if cipher_suites_len > 0xfffe {
             return Err(CliHelloParseError::InvalidLengthEncoding);
         }
 
@@ -129,10 +197,6 @@ impl<'a> ClientHelloRef<'a> {
 
         let legacy_compression_methods_len = client_hello[pos];
         pos += 1;
-
-        if legacy_session_id_len > 0xff {
-            return Err(CliHelloParseError::InvalidLengthEncoding);
-        }
         pos += legacy_compression_methods_len as usize;
 
         let extensions = &client_hello[pos + 1..];

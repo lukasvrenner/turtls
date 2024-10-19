@@ -8,14 +8,41 @@ pub struct ServerHello {
     shake: Handshake,
 }
 
+pub enum ServHelloErr {
+    RngError,
+    NoSharedVersions,
+    NoSharedSuites,
+}
+
+impl From<Error> for ServHelloErr {
+    fn from(_: Error) -> Self {
+        Self::RngError
+    }
+}
+
+impl From<NoSharedSuites> for ServHelloErr {
+    fn from(_: NoSharedSuites) -> Self {
+        Self::NoSharedSuites
+    }
+}
+
+impl From<NoSharedVersions> for ServHelloErr {
+    fn from(_: NoSharedVersions) -> Self {
+        Self::NoSharedVersions
+    }
+}
+
 impl ServerHello {
     const RANDOM_BYTES_LEN: usize = 32;
-    pub fn new(client_hello: &ClientHelloRef, sup_suites: &[CipherSuite]) -> Result<Self, Error> {
+    pub fn new(
+        client_hello: &ClientHelloRef,
+        sup_suites: &[CipherSuite],
+    ) -> Result<Self, ServHelloErr> {
         let mut server_hello = Self::start();
         server_hello.legacy_protocol_version();
         server_hello.random_bytes()?;
         server_hello.legacy_session_id_echo(client_hello.session_id);
-        server_hello.cipher_suite(client_hello.cipher_suites, sup_suites);
+        server_hello.cipher_suite(client_hello.cipher_suites, sup_suites)?;
         server_hello.legacy_compression_method();
         server_hello.extensions(client_hello.extensions);
         server_hello.finish();
@@ -47,10 +74,15 @@ impl ServerHello {
         client_cipher_suites: &[u8],
         sup_suites: &[CipherSuite],
     ) -> Result<(), NoSharedSuites> {
-        self.extend_from_slice(
-            &CipherSuite::sel_from_bytes(client_cipher_suites, sup_suites)?.to_be_bytes(),
-        );
-        Ok(())
+        for suite in client_cipher_suites.chunks_exact(2) {
+            for sup_suite in sup_suites {
+                if suite == sup_suite.to_be_bytes() {
+                    self.extend_from_slice(suite);
+                    return Ok(());
+                }
+            }
+        }
+        Err(NoSharedSuites)
     }
 
     fn legacy_compression_method(&mut self) {
@@ -60,7 +92,22 @@ impl ServerHello {
     fn extensions(&mut self, extensions: &[u8]) {
         todo!();
     }
+
+    pub fn supported_versions_server(
+        &mut self,
+        cli_supported_versions: &[u8],
+    ) -> Result<(), NoSharedVersions> {
+        for cli_version in cli_supported_versions.chunks_exact(2) {
+            if cli_version == ProtocolVersion::TlsOnePointThree.to_be_bytes() {
+                self.extend_from_slice(cli_version);
+                return Ok(());
+            }
+        }
+        Err(NoSharedVersions)
+    }
 }
+
+pub struct NoSharedVersions;
 
 impl std::ops::Deref for ServerHello {
     type Target = Handshake;
@@ -90,7 +137,8 @@ pub enum SerHelloParseError {
 impl<'a> ServerHelloRef<'a> {
     fn parse(server_hello: &'a [u8]) -> Result<Self, SerHelloParseError> {
         let mut pos = size_of::<ProtocolVersion>();
-        let random_bytes = &server_hello[2..][..ServerHello::RANDOM_BYTES_LEN];
+        let random_bytes =
+            <&[u8; 32]>::try_from(&server_hello[2..][..ServerHello::RANDOM_BYTES_LEN]).unwrap();
         pos += random_bytes.len();
         let session_id_len = server_hello[pos];
         pos += 1;
