@@ -7,7 +7,7 @@ use crate::versions::ProtocolVersion;
 use crate::State;
 
 #[repr(u16)]
-pub enum Extension {
+pub enum ExtensionType {
     ServerName = 0,
     MaxFragmentLength = 1,
     StatusRequest = 5,
@@ -32,7 +32,7 @@ pub enum Extension {
     KeyShare = 51,
 }
 
-impl Extension {
+impl ExtensionType {
     pub const fn to_be_bytes(self) -> [u8; 2] {
         (self as u16).to_be_bytes()
     }

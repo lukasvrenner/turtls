@@ -58,7 +58,7 @@ pub extern "C" fn shake_hands_client(
         return ShakeResult::RngError;
     }
     let priv_key = FieldElement::new(UBigInt::<4>::from_be_bytes(buf));
-    let sup_suites = [CipherSuite::Aes128CcmSha256];
+    let sup_suites = [CipherSuite::Aes128GcmSha256];
     let group_keys = GroupKeys {
         secp256r1: priv_key,
     };
@@ -73,8 +73,8 @@ pub extern "C" fn shake_hands_client(
     );
 
     let mut server_hello = [0u8; Message::MAX_SIZE];
-    read(&mut server_hello as *mut u8 as *mut c_void, server_hello.len(), ctx);
-    println!("{}", server_hello.len());
+    let len = read(&mut server_hello as *mut u8 as *mut c_void, server_hello.len(), ctx);
+    println!("{}", len);
     todo!()
 }
 

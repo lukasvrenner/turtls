@@ -27,7 +27,7 @@ impl Message {
         let mut msg = Self {
             // TODO: consider using uninitialized memory
             buf: [0; Self::MAX_SIZE],
-            len: 5,
+            len: Self::PREFIIX_SIZE,
         };
         msg[0] = msg_type as u8;
         msg[1..3].copy_from_slice(&LEGACY_PROTO_VERS.to_be_bytes());
@@ -56,7 +56,7 @@ impl Message {
 
     pub fn finish(&mut self) {
         let len = self.len;
-        self[3..5].copy_from_slice(&(len as u16).to_be_bytes());
+        self[3..5].copy_from_slice(&((len - Self::PREFIIX_SIZE) as u16).to_be_bytes());
     }
 }
 

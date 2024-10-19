@@ -7,7 +7,7 @@ pub enum ProtocolVersion {
     TlsOnePointThree = 0x0304,
 }
 
-pub const LEGACY_PROTO_VERS: ProtocolVersion = ProtocolVersion::TlsOnePointZero;
+pub const LEGACY_PROTO_VERS: ProtocolVersion = ProtocolVersion::TlsOnePointTwo;
 
 impl ProtocolVersion {
     pub const fn to_be_bytes(self) -> [u8; 2] {
