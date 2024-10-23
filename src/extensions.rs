@@ -38,3 +38,63 @@ impl ExtensionType {
     }
 }
 
+pub trait Extension {
+    const TAG: [u8; 2];
+    const LEN_SIZE: usize = 2;
+    const HEADER_SIZE: usize = 2 + Self::LEN_SIZE;
+    fn len(&self) -> usize;
+}
+
+pub struct Extensions {
+    pub server_name: Option<ServerName>,
+    pub supported_versions: Option<SupportedVersions>,
+    pub supported_groups: Option<SupportedGroups>,
+    pub signature_algorithms: Option<SignatureAlgorithms>,
+    pub key_share: Option<KeyShare>,
+}
+
+pub struct ServerName {
+
+}
+
+pub struct MaxFragmentLength {
+
+}
+
+pub struct StatusRequest {
+
+}
+
+pub struct SupportedGroups {
+
+}
+
+pub struct SignatureAlgorithms {
+
+}
+
+pub struct UseSrtp {
+
+}
+
+pub struct SupportedVersions {
+
+}
+
+impl Extension for SupportedVersions {
+    const TAG: [u8; 2] = [0, 43];
+    fn len(&self) -> usize {
+        todo!();
+    }
+}
+
+impl Extension for SupportedGroups {
+    const TAG: [u8; 2] = [0, 10];
+    fn len(&self) -> usize {
+        todo!()
+    }
+}
+
+pub struct KeyShare {
+
+}

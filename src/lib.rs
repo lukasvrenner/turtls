@@ -24,14 +24,15 @@ use crylib::big_int::UBigInt;
 use crylib::ec::Secp256r1;
 use crylib::finite_field::FieldElement;
 use getrandom::{getrandom, Error};
-use record::Message;
+use record::{Record, MessageBuf};
 use std::ffi::c_void;
 
 pub struct State {
     aead_writer: AeadWriter,
     aead_reader: AeadReader,
-
     group_keys: GroupKeys,
+    // TODO: Somehow make this not a Box
+    msg_buf: Box<MessageBuf>,
 }
 
 #[repr(C)]
@@ -46,11 +47,15 @@ impl From<Error> for ShakeResult {
     }
 }
 
+type WriteFn = extern "C" fn(*const c_void, usize, *const c_void) -> isize;
+type ReadFn = extern "C" fn(*mut c_void, usize, *const c_void) -> isize;
+
+/// Performs a TLS handshake as the client, returning the connection state
 #[no_mangle]
 pub extern "C" fn shake_hands_client(
     // TODO: use c_size_t and c_ssize_t once stabilized
-    write: extern "C" fn(*const c_void, usize, *const c_void) -> isize,
-    read: extern "C" fn(*mut c_void, usize, *const c_void) -> isize,
+    write: WriteFn,
+    read: ReadFn,
     ctx: *const c_void,
 ) -> ShakeResult {
     let mut buf = [0; FieldElement::<Secp256r1>::LEN * size_of::<u64>()];
@@ -72,12 +77,13 @@ pub extern "C" fn shake_hands_client(
         ctx,
     );
 
-    let mut server_hello = [0u8; Message::MAX_SIZE];
-    let len = read(&mut server_hello as *mut u8 as *mut c_void, server_hello.len(), ctx);
-    println!("{}", len);
+    let mut buf = [0u8; Record::MAX_SIZE];
+    let len = read(&mut buf as *mut u8 as *mut c_void, buf.len(), ctx);
+    println!("{len}");
     todo!()
 }
 
+/// Listens for and performs a TLS handshake as the server, returning the connection state
 #[no_mangle]
 pub extern "C" fn shake_hands_server(
     // TODO: use c_size_t and c_ssize_t once stabilized
@@ -85,7 +91,7 @@ pub extern "C" fn shake_hands_server(
     read: extern "C" fn(*mut c_void, usize, *const c_void) -> isize,
     ctx: *const c_void,
 ) -> ShakeResult {
-    let mut buf = [0u8; Message::MAX_SIZE];
+    let mut buf = [0u8; Record::MAX_SIZE];
     read(&mut buf as *mut [u8] as *mut c_void, buf.len(), ctx);
     todo!()
 }

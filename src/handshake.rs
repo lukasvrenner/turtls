@@ -1,4 +1,4 @@
-use crate::record::{ContentType, Message};
+use crate::record::{ContentType, Record};
 
 use super::State;
 #[repr(u8)]
@@ -16,15 +16,15 @@ pub enum ShakeType {
     MessageHash = 254,
 }
 
-pub struct Handshake {
-    msg: Message,
+pub struct Handshake<'a> {
+    msg: Record<'a>,
 }
 
 impl Handshake {
     pub const PREFIX_SIZE: usize = 4;
     pub fn start(shake_type: ShakeType) -> Self {
         let mut handshake = Self {
-            msg: Message::start(ContentType::Handshake),
+            msg: Record::new(ContentType::Handshake),
         };
         handshake.push(shake_type as u8);
 
@@ -34,15 +34,15 @@ impl Handshake {
     }
 
     pub fn finish(&mut self) {
-        let len_diff = &((self.len() - (Message::PREFIIX_SIZE + Self::PREFIX_SIZE)) as u32).to_be_bytes()[1..4];
-        self[Message::PREFIIX_SIZE + 1..][..3].copy_from_slice(len_diff);
+        let len_diff = &((self.len() - (Record::PREFIIX_SIZE + Self::PREFIX_SIZE)) as u32).to_be_bytes()[1..4];
+        self[Record::PREFIIX_SIZE + 1..][..3].copy_from_slice(len_diff);
         self.msg.finish();
     }
 }
 
 impl std::ops::Deref for Handshake {
-    type Target = Message;
-    fn deref(&self) -> &Message {
+    type Target = Record;
+    fn deref(&self) -> &Record {
         &self.msg
     }
 }

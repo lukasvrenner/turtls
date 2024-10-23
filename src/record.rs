@@ -1,8 +1,17 @@
+use std::ops::{Deref, DerefMut};
+use std::ffi::c_void;
 use crylib::aead;
-
 use crate::aead::AeadWriter;
 use crate::versions::LEGACY_PROTO_VERS;
-use crate::State;
+
+use crate::WriteFn;
+
+#[repr(C)]
+pub struct Io {
+    write: extern "C" fn(*const c_void, usize, *const c_void) -> isize,
+    read: extern "C" fn(*mut c_void, usize, *const c_void) -> isize,
+    ctx: *const c_void,
+}
 
 #[repr(u8)]
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -14,126 +23,91 @@ pub enum ContentType {
     ApplicationData = 23,
 }
 
-pub struct Message {
-    buf: [u8; Message::MAX_SIZE],
-    len: usize,
+impl ContentType {
+    pub fn as_byte(self) -> u8 {
+        self as u8
+    }
 }
 
-impl Message {
-    pub const MAX_SIZE: usize = 0x4006;
+pub struct RecordLayer {
+    buf: [u8; Self::BUF_SIZE],
+    len: usize,
+    msg_type: ContentType,
+    io: Io,
+}
+
+impl RecordLayer {
+    pub const BUF_SIZE: usize = 0x4006;
+    pub const LEN_SIZE: usize = 2;
     pub const PREFIIX_SIZE: usize = 5;
 
-    pub fn start(msg_type: ContentType) -> Self {
-        let mut msg = Self {
-            // TODO: consider using uninitialized memory
-            buf: [0; Self::MAX_SIZE],
-            len: Self::PREFIIX_SIZE,
-        };
-        msg[0] = msg_type as u8;
-        msg[1..3].copy_from_slice(&LEGACY_PROTO_VERS.to_be_bytes());
-        msg
+    // TODO: Somehow make this not a Box once it can be directly stored into State
+    pub fn new(msg_type: ContentType, io: Io) -> Box<Self> {
+        Box::new(Self {
+            buf: [0; Self::BUF_SIZE],
+            len: 0,
+            msg_type,
+            io,
+        })
+    }
+
+    pub fn start(&mut self) {
+        self.buf[0] = self.msg_type.as_byte();
+        self.buf[1..3].copy_from_slice(&LEGACY_PROTO_VERS.to_be_bytes());
+        self.len = Self::PREFIIX_SIZE;
+    }
+
+    pub fn finish(&mut self) {
+        let len = ((self.len() - Self::PREFIIX_SIZE) as u16).to_be_bytes();
+        self.buf[Self::PREFIIX_SIZE - Self::LEN_SIZE..][..Self::LEN_SIZE].copy_from_slice(&len);
+        (self.io.write)(self.buf.as_ref() as *const [u8] as *const c_void, self.buf.len(), self.io.ctx);
     }
 
     pub fn len(&self) -> usize {
         self.len
     }
 
-    pub fn push(&mut self, val: u8) {
-        let len = self.len();
-        self[len] = val;
+    pub fn push(&mut self, value: u8) {
+        self.buf[self.len] = value;
         self.len += 1;
-    }
-
-    pub fn extend_from_slice(&mut self, slice: &[u8]) {
-        let len = self.len;
-        self[len..][..slice.len()].copy_from_slice(slice);
-        self.len += slice.len();
-    }
-
-    pub fn extend(&mut self, amt: usize) {
-        self.len += amt;
-    }
-
-    pub fn finish(&mut self) {
-        let len = self.len;
-        self[3..5].copy_from_slice(&((len - Self::PREFIIX_SIZE) as u16).to_be_bytes());
-    }
-}
-
-impl std::ops::Deref for Message {
-    type Target = [u8];
-    fn deref(&self) -> &Self::Target {
-        &self.buf[..self.len()]
-    }
-}
-
-// TODO: should this be implemented?
-impl std::ops::DerefMut for Message {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.buf
-    }
-}
-
-impl std::borrow::Borrow<[u8]> for Message {
-    fn borrow(&self) -> &[u8] {
-        &self.buf
-    }
-}
-
-impl AsRef<[u8]> for Message {
-    fn as_ref(&self) -> &[u8] {
-        &self.buf
-    }
-}
-
-impl AsMut<[u8]> for Message {
-    fn as_mut(&mut self) -> &mut [u8] {
-        &mut self.buf
-    }
-}
-
-pub struct EncryptedMessage {
-    msg: Message,
-    content_type: ContentType,
-    padding: usize,
-}
-
-impl EncryptedMessage {
-    pub fn start(content_type: ContentType, padding: usize) -> Self {
-        Self {
-            msg: Message::start(ContentType::ApplicationData),
-            content_type,
-            padding,
+        if self.len() == Self::BUF_SIZE {
+            self.finish();
+            self.start();
         }
     }
 
-    pub fn finish(&mut self, state: &mut State) {
-        let content_type = self.content_type;
-        self.push(content_type as u8);
+    pub fn extend_from_slice(&mut self, slice: &[u8]) {
+        let first_part = std::cmp::min(Self::BUF_SIZE - self.len(), slice.len());
 
-        let padding = self.padding;
-        self.extend(padding + aead::TAG_SIZE);
+        self.buf[self.len..first_part].copy_from_slice(&slice[..first_part]);
+        self.len += first_part;
+        if self.len() != Self::BUF_SIZE {
+            return;
+        }
 
-        let (add_data, encrypted_data) = self.msg.split_at_mut(Message::PREFIIX_SIZE);
-        let tag = state.aead_writer.encrypt_inline(encrypted_data, add_data);
+        self.finish();
+        self.start();
 
-        let tagless_len = self.len() - aead::TAG_SIZE;
-        self[tagless_len..].copy_from_slice(&tag);
+        let chunks = slice[first_part..].chunks_exact(Self::BUF_SIZE - Self::PREFIIX_SIZE);
+        let remainder = chunks.remainder();
 
-        self.msg.finish();
+        for chunk in chunks {
+            self.buf.copy_from_slice(chunk);
+            self.finish();
+            self.start();
+        }
+        self.buf[..remainder.len()].copy_from_slice(remainder);
+        self.len = remainder.len();
     }
-}
 
-impl std::ops::Deref for EncryptedMessage {
-    type Target = Message;
-    fn deref(&self) -> &Self::Target {
-        &self.msg
+    pub fn extend(&mut self, amt: usize) {
+        for i in 0..amt {
+            self.buf[self.len + i] = 0;
+        }
+        self.len += amt;
     }
-}
 
-// TODO: should this be implemented?
-impl std::ops::DerefMut for EncryptedMessage {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.msg
+    pub fn reset(&mut self) {
+        self.len = 0;
     }
 }

@@ -1,8 +1,10 @@
-use crate::cipher_suites::{CipherSuite, NoSharedSuites};
+use crate::cipher_suites::{CipherSuite, NoSharedSuites, GroupKeys, NamedGroup};
+use crylib::ec::{Secp256r1, EllipticCurve};
 use crate::client_hello::ClientHelloRef;
 use crate::handshake::{Handshake, ShakeType};
 use crate::versions::{ProtocolVersion, LEGACY_PROTO_VERS};
 use getrandom::{getrandom, Error};
+use crate::extensions::ExtensionType;
 
 pub struct ServerHello {
     shake: Handshake,
@@ -93,10 +95,14 @@ impl ServerHello {
         todo!();
     }
 
-    pub fn supported_versions_server(
+    fn supported_versions(
         &mut self,
         cli_supported_versions: &[u8],
     ) -> Result<(), NoSharedVersions> {
+        let extension_name = ExtensionType::SupportedVersions.to_be_bytes();
+        self.extend_from_slice(&extension_name);
+
+        self.extend_from_slice(&(size_of::<ProtocolVersion>() as u16).to_be_bytes());
         for cli_version in cli_supported_versions.chunks_exact(2) {
             if cli_version == ProtocolVersion::TlsOnePointThree.to_be_bytes() {
                 self.extend_from_slice(cli_version);
@@ -104,6 +110,39 @@ impl ServerHello {
             }
         }
         Err(NoSharedVersions)
+    }
+
+    fn key_share(&mut self, group_keys: &GroupKeys) {
+        let extension_name = ExtensionType::KeyShare.to_be_bytes();
+        self.extend_from_slice(&extension_name);
+
+        let original_len = self.len();
+        self.extend_from_slice(&[0; 2]);
+
+        self.secp256r1_key_share(group_keys);
+
+        let len_diff = ((self.len() - (original_len + 2)) as u16).to_be_bytes();
+        self[original_len..][..2].copy_from_slice(&len_diff);
+    }
+
+    fn secp256r1_key_share(&mut self, group_keys: &GroupKeys) {
+        let named_group = NamedGroup::Secp256r1.to_be_bytes();
+        self.extend_from_slice(&named_group);
+
+        let original_len = self.len();
+        self.extend_from_slice(&[0; 2]);
+
+        self.push(4);
+        let pub_key = Secp256r1::BASE_POINT
+            .as_projective()
+            .mul_scalar(group_keys.secp256r1.inner())
+            .as_affine()
+            .expect("private key isn't 0");
+        self.extend_from_slice(&pub_key.x().to_be_bytes());
+        self.extend_from_slice(&pub_key.y().to_be_bytes());
+
+        let len_diff = ((self.len() - (original_len + 2)) as u16).to_be_bytes();
+        self[original_len..][..2].copy_from_slice(&len_diff);
     }
 }
 
