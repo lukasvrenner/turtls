@@ -41,6 +41,13 @@ pub struct Alert {
 }
 
 impl Alert {
+    pub fn new(description: AlertDescription) -> Self {
+        Self {
+            level: AlertLevel::Fatal,
+            description,
+        }
+    }
+
     pub const fn to_be_bytes(self) -> [u8; 2] {
         [self.level as u8, self.description as u8]
     }
