@@ -76,7 +76,7 @@ impl Extension for MaxFragmentLength {
 pub struct StatusRequest {}
 
 pub struct SupportedGroups<'a> {
-    pub groups: &'a [NamedGroup]
+    pub groups: &'a [NamedGroup],
 }
 
 pub struct SignatureAlgorithms {}
@@ -84,13 +84,13 @@ pub struct SignatureAlgorithms {}
 pub struct UseSrtp {}
 
 pub struct SupportedVersions<'a> {
-    pub versions: &'a [ProtocolVersion]
+    pub versions: &'a [ProtocolVersion],
 }
 
 impl Extension for SupportedVersions<'_> {
     const TAG: [u8; 2] = [0, 43];
     fn len(&self) -> usize {
-        todo!();
+        self.versions.len()
     }
 }
 

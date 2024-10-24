@@ -89,18 +89,20 @@ impl RecordLayer {
     }
 
     pub fn extend_from_slice(&mut self, slice: &[u8]) {
-        let first_part = std::cmp::min(Self::BUF_SIZE - self.len(), slice.len());
-
-        self.buf[self.len..first_part].copy_from_slice(&slice[..first_part]);
-        self.len += first_part;
-        if self.len() != Self::BUF_SIZE {
+        let diff = Self::MAX_LEN - self.len();
+        if slice.len() < diff {
+            self.buf[self.len..][..slice.len()].copy_from_slice(slice);
+            self.len += slice.len();
             return;
         }
+
+        self.buf[self.len..].copy_from_slice(&slice[..diff]);
+        self.len = Self::MAX_LEN;
 
         self.finish();
         self.start();
 
-        let chunks = slice[first_part..].chunks_exact(Self::BUF_SIZE - Self::PREFIIX_SIZE);
+        let chunks = slice[diff..].chunks_exact(Self::MAX_LEN - Self::PREFIIX_SIZE);
         let remainder = chunks.remainder();
 
         for chunk in chunks {
@@ -108,7 +110,7 @@ impl RecordLayer {
             self.finish();
             self.start();
         }
-        self.buf[..remainder.len()].copy_from_slice(remainder);
+        self.buf[Self::PREFIIX_SIZE..][..remainder.len()].copy_from_slice(remainder);
         self.len = remainder.len();
     }
 
