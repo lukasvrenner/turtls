@@ -52,10 +52,7 @@ impl ClientHello {
         let len = ((sup_suites.len() * size_of::<CipherSuite>()) as u16).to_be_bytes();
         self.extend_from_slice(&len);
 
-        for suite in sup_suites
-            .into_iter()
-            .map(|suite| suite.to_be_bytes())
-        {
+        for suite in sup_suites.into_iter().map(|suite| suite.to_be_bytes()) {
             self.extend_from_slice(&suite);
         }
     }
@@ -108,7 +105,8 @@ impl ClientHello {
         let extension_name = ExtensionType::SignatureAlgorithms.to_be_bytes();
         self.extend_from_slice(&extension_name);
 
-        let extension_len = ((size_of::<u16>() + size_of::<SignatureScheme>()) as u16).to_be_bytes();
+        let extension_len =
+            ((size_of::<u16>() + size_of::<SignatureScheme>()) as u16).to_be_bytes();
         self.extend_from_slice(&extension_len);
 
         let len = (size_of::<SignatureScheme>() as u16).to_be_bytes();

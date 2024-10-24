@@ -15,8 +15,8 @@ mod handshake;
 mod key_schedule;
 mod record;
 mod server_hello;
-mod versions;
 mod state;
+mod versions;
 
 use aead::{AeadReader, AeadWriter};
 use cipher_suites::{CipherSuite, GroupKeys};
@@ -25,8 +25,8 @@ use crylib::big_int::UBigInt;
 use crylib::ec::Secp256r1;
 use crylib::finite_field::FieldElement;
 use getrandom::{getrandom, Error};
-use std::ffi::c_void;
 use state::State;
+use std::ffi::c_void;
 
 #[repr(C)]
 pub enum ShakeResult {

@@ -1,10 +1,10 @@
-use crate::cipher_suites::{CipherSuite, NoSharedSuites, GroupKeys, NamedGroup};
-use crylib::ec::{Secp256r1, EllipticCurve};
+use crate::cipher_suites::{CipherSuite, GroupKeys, NamedGroup, NoSharedSuites};
 use crate::client_hello::ClientHelloRef;
+use crate::extensions::ExtensionType;
 use crate::handshake::{Handshake, ShakeType};
 use crate::versions::{ProtocolVersion, LEGACY_PROTO_VERS};
+use crylib::ec::{EllipticCurve, Secp256r1};
 use getrandom::{getrandom, Error};
-use crate::extensions::ExtensionType;
 
 pub struct ServerHello {
     shake: Handshake,

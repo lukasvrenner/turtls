@@ -1,9 +1,9 @@
-use std::mem::MaybeUninit;
-use std::ops::{Deref, DerefMut};
-use std::ffi::c_void;
-use crylib::aead;
 use crate::aead::AeadWriter;
 use crate::versions::LEGACY_PROTO_VERS;
+use crylib::aead;
+use std::ffi::c_void;
+use std::mem::MaybeUninit;
+use std::ops::{Deref, DerefMut};
 
 #[repr(C)]
 pub struct Io {
@@ -36,17 +36,20 @@ pub struct RecordLayer {
 }
 
 impl RecordLayer {
-    pub const LEN_SIZE: usize = 2;
-    pub const PREFIIX_SIZE: usize = 5;
+    pub const LEN_SIZE: usize = 0x2;
+    pub const PREFIIX_SIZE: usize = 0x5;
     pub const MAX_LEN: usize = 0x4000 + Self::PREFIIX_SIZE;
-    pub const SUFFIX_SIZE: usize = 256;
+    pub const SUFFIX_SIZE: usize = 0x100;
     pub const BUF_SIZE: usize = Self::MAX_LEN + Self::SUFFIX_SIZE;
 
     pub fn init(record: &mut MaybeUninit<Self>, msg_type: ContentType, io: Io) -> &mut Self {
+        let init_record;
         // SAFETY: we initialize all of the fields
-        let init_record = unsafe { &mut *(record as *mut MaybeUninit<Self> as *mut Self) };
-        init_record.buf = [0; Self::BUF_SIZE];
-        init_record.start_as(msg_type, io);
+        unsafe {
+            init_record = &mut *(record as *mut MaybeUninit<Self> as *mut Self);
+            init_record.buf = [0; Self::BUF_SIZE];
+            init_record.start_as(msg_type, io);
+        }
         init_record
     }
 
@@ -65,7 +68,11 @@ impl RecordLayer {
     pub fn finish(&mut self) {
         let len = ((self.len() - Self::PREFIIX_SIZE) as u16).to_be_bytes();
         self.buf[Self::PREFIIX_SIZE - Self::LEN_SIZE..][..Self::LEN_SIZE].copy_from_slice(&len);
-        (self.io.write)(self.buf.as_ref() as *const [u8] as *const c_void, self.buf.len(), self.io.ctx);
+        (self.io.write)(
+            self.buf.as_ref() as *const [u8] as *const c_void,
+            self.buf.len(),
+            self.io.ctx,
+        );
     }
 
     pub fn len(&self) -> usize {

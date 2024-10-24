@@ -34,7 +34,8 @@ impl Handshake {
     }
 
     pub fn finish(&mut self) {
-        let len_diff = &((self.len() - (Record::PREFIIX_SIZE + Self::PREFIX_SIZE)) as u32).to_be_bytes()[1..4];
+        let len_diff =
+            &((self.len() - (Record::PREFIIX_SIZE + Self::PREFIX_SIZE)) as u32).to_be_bytes()[1..4];
         self[Record::PREFIIX_SIZE + 1..][..3].copy_from_slice(len_diff);
         self.msg.finish();
     }

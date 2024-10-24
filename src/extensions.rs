@@ -45,56 +45,60 @@ pub trait Extension {
     fn len(&self) -> usize;
 }
 
-pub struct Extensions {
+pub struct Extensions<'a, 'b> {
     pub server_name: Option<ServerName>,
-    pub supported_versions: Option<SupportedVersions>,
-    pub supported_groups: Option<SupportedGroups>,
     pub signature_algorithms: Option<SignatureAlgorithms>,
+    pub supported_groups: Option<SupportedGroups<'a>>,
+    pub supported_versions: Option<SupportedVersions<'b>>,
     pub key_share: Option<KeyShare>,
 }
 
-pub struct ServerName {
+pub struct ServerName {}
 
+pub enum MaxFragLenEnum {
+    Hex200 = 1,
+    Hex400 = 2,
+    Hex500 = 3,
+    Hex600 = 4,
 }
 
 pub struct MaxFragmentLength {
-
+    max_len: MaxFragLenEnum,
 }
 
-pub struct StatusRequest {
-
+impl Extension for MaxFragmentLength {
+    const TAG: [u8; 2] = ExtensionType::MaxFragmentLength.to_be_bytes();
+    fn len(&self) -> usize {
+        1
+    }
 }
 
-pub struct SupportedGroups {
+pub struct StatusRequest {}
 
+pub struct SupportedGroups<'a> {
+    pub groups: &'a [NamedGroup]
 }
 
-pub struct SignatureAlgorithms {
+pub struct SignatureAlgorithms {}
 
+pub struct UseSrtp {}
+
+pub struct SupportedVersions<'a> {
+    pub versions: &'a [ProtocolVersion]
 }
 
-pub struct UseSrtp {
-
-}
-
-pub struct SupportedVersions {
-
-}
-
-impl Extension for SupportedVersions {
+impl Extension for SupportedVersions<'_> {
     const TAG: [u8; 2] = [0, 43];
     fn len(&self) -> usize {
         todo!();
     }
 }
 
-impl Extension for SupportedGroups {
+impl Extension for SupportedGroups<'_> {
     const TAG: [u8; 2] = [0, 10];
     fn len(&self) -> usize {
-        todo!()
+        self.groups.len()
     }
 }
 
-pub struct KeyShare {
-
-}
+pub struct KeyShare {}
