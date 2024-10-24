@@ -90,7 +90,7 @@ impl RecordLayer {
 
     pub fn extend_from_slice(&mut self, slice: &[u8]) {
         let diff = Self::MAX_LEN - self.len();
-        if slice.len() < diff {
+        if slice.len() <= diff {
             self.buf[self.len..][..slice.len()].copy_from_slice(slice);
             self.len += slice.len();
             return;
@@ -99,19 +99,12 @@ impl RecordLayer {
         self.buf[self.len..].copy_from_slice(&slice[..diff]);
         self.len = Self::MAX_LEN;
 
-        self.finish();
-        self.start();
-
-        let chunks = slice[diff..].chunks_exact(Self::MAX_LEN - Self::PREFIIX_SIZE);
-        let remainder = chunks.remainder();
-
-        for chunk in chunks {
-            self.buf.copy_from_slice(chunk);
+        for chunk in slice[diff..].chunks(Self::MAX_LEN - Self::PREFIIX_SIZE) {
             self.finish();
             self.start();
+            self.buf[Self::PREFIIX_SIZE..][..chunk.len()].copy_from_slice(chunk);
+            self.len = Self::PREFIIX_SIZE + chunk.len();
         }
-        self.buf[Self::PREFIIX_SIZE..][..remainder.len()].copy_from_slice(remainder);
-        self.len = remainder.len();
     }
 
     pub fn extend(&mut self, amt: usize) {
