@@ -41,6 +41,7 @@ pub struct Alert {
 }
 
 impl Alert {
+    pub const SIZE: usize = 2;
     pub fn new(description: AlertDescription) -> Self {
         Self {
             level: AlertLevel::Fatal,
@@ -48,7 +49,12 @@ impl Alert {
         }
     }
 
-    pub const fn to_be_bytes(self) -> [u8; 2] {
+    pub fn new_in(buf: &mut [u8; 2], description: AlertDescription) {
+        buf[0] = AlertLevel::Fatal as u8;
+        buf[1] = description as u8;
+    }
+
+    pub const fn to_be_bytes(self) -> [u8; Self::SIZE] {
         [self.level as u8, self.description as u8]
     }
 }

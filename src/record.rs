@@ -123,18 +123,19 @@ impl RecordLayer {
         }
     }
 
-    pub fn read(&mut self, buf: &mut [u8], expected_type: ContentType) -> Result<(), ReadError> {
-        fn handle_alert(msg: &[u8]) -> AlertDescription {
+    pub fn read(buf: &mut [u8], expected_type: ContentType, io: &Io) -> Result<(), ReadError> {
+        fn handle_alert(alert: &[u8; Alert::SIZE]) -> AlertDescription {
             todo!();
         }
-        (self.io.read)(
-            &mut self.buf as *mut [u8] as *mut c_void,
+        let mut header_buf = [0; Self::PREFIIX_SIZE];
+        (io.read)(
+            &mut header_buf as *mut [u8] as *mut c_void,
             Self::PREFIIX_SIZE,
-            self.io.ctx,
+            io.ctx,
         );
 
         let len = u16::from_be_bytes(
-            self.buf[Self::PREFIIX_SIZE - Self::LEN_SIZE..Self::PREFIIX_SIZE]
+            header_buf[Self::PREFIIX_SIZE - Self::LEN_SIZE..]
                 .try_into()
                 .unwrap(),
         ) as usize;
@@ -142,23 +143,27 @@ impl RecordLayer {
             return Err(ReadError::RecordOverflow);
         }
 
-        let msg_type = self.buf[0];
+        let msg_type = header_buf[0];
 
         if msg_type == ContentType::Alert.as_byte() {
+            let mut alert = [0; Alert::SIZE];
+            (io.read)(
+                &mut alert as *mut [u8] as *mut c_void,
+                Alert::SIZE,
+                io.ctx,
+            );
             return Err(ReadError::RecievedAlert(handle_alert(
-                &self.buf[Self::PREFIIX_SIZE..][..len],
+                &alert
             )));
         }
 
         if msg_type != expected_type.as_byte() {
-            self.start_as(ContentType::Alert);
-            self.extend_from_slice(&Alert::new(AlertDescription::UnexpectedMessage).to_be_bytes());
-            self.finish_and_send();
-            return Err(ReadError::UnexpectedMessage);
+            let mut alert = [0; Self::PREFIIX_SIZE + Alert::SIZE];
+            Alert::new_in((&mut alert[Self::PREFIIX_SIZE..]).try_into().unwrap(), AlertDescription::UnexpectedMessage);
         }
 
         if buf.len() <= len {
-            todo!();
+
         }
         todo!();
     }
