@@ -16,6 +16,7 @@ mod key_schedule;
 mod record;
 mod server_hello;
 mod versions;
+mod state;
 
 use aead::{AeadReader, AeadWriter};
 use cipher_suites::{CipherSuite, GroupKeys};
@@ -24,16 +25,8 @@ use crylib::big_int::UBigInt;
 use crylib::ec::Secp256r1;
 use crylib::finite_field::FieldElement;
 use getrandom::{getrandom, Error};
-use record::{Record, MessageBuf};
 use std::ffi::c_void;
-
-pub struct State {
-    aead_writer: AeadWriter,
-    aead_reader: AeadReader,
-    group_keys: GroupKeys,
-    // TODO: Somehow make this not a Box
-    msg_buf: Box<MessageBuf>,
-}
+use state::State;
 
 #[repr(C)]
 pub enum ShakeResult {
@@ -47,17 +40,15 @@ impl From<Error> for ShakeResult {
     }
 }
 
-type WriteFn = extern "C" fn(*const c_void, usize, *const c_void) -> isize;
-type ReadFn = extern "C" fn(*mut c_void, usize, *const c_void) -> isize;
-
 /// Performs a TLS handshake as the client, returning the connection state
 #[no_mangle]
 pub extern "C" fn shake_hands_client(
     // TODO: use c_size_t and c_ssize_t once stabilized
-    write: WriteFn,
-    read: ReadFn,
+    write: extern "C" fn(*const c_void, usize, *const c_void) -> isize,
+    read: extern "C" fn(*mut c_void, usize, *const c_void) -> isize,
     ctx: *const c_void,
 ) -> ShakeResult {
+    let mut state = State::new_uninit();
     let mut buf = [0; FieldElement::<Secp256r1>::LEN * size_of::<u64>()];
     if getrandom(&mut buf).is_err() {
         return ShakeResult::RngError;

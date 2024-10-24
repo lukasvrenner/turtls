@@ -1,10 +1,9 @@
+use std::mem::MaybeUninit;
 use std::ops::{Deref, DerefMut};
 use std::ffi::c_void;
 use crylib::aead;
 use crate::aead::AeadWriter;
 use crate::versions::LEGACY_PROTO_VERS;
-
-use crate::WriteFn;
 
 #[repr(C)]
 pub struct Io {
@@ -37,18 +36,24 @@ pub struct RecordLayer {
 }
 
 impl RecordLayer {
-    pub const BUF_SIZE: usize = 0x4006;
     pub const LEN_SIZE: usize = 2;
     pub const PREFIIX_SIZE: usize = 5;
+    pub const MAX_LEN: usize = 0x4000 + Self::PREFIIX_SIZE;
+    pub const SUFFIX_SIZE: usize = 256;
+    pub const BUF_SIZE: usize = Self::MAX_LEN + Self::SUFFIX_SIZE;
 
-    // TODO: Somehow make this not a Box once it can be directly stored into State
-    pub fn new(msg_type: ContentType, io: Io) -> Box<Self> {
-        Box::new(Self {
-            buf: [0; Self::BUF_SIZE],
-            len: 0,
-            msg_type,
-            io,
-        })
+    pub fn init(record: &mut MaybeUninit<Self>, msg_type: ContentType, io: Io) -> &mut Self {
+        // SAFETY: we initialize all of the fields
+        let init_record = unsafe { &mut *(record as *mut MaybeUninit<Self> as *mut Self) };
+        init_record.buf = [0; Self::BUF_SIZE];
+        init_record.start_as(msg_type, io);
+        init_record
+    }
+
+    pub fn start_as(&mut self, msg_type: ContentType, io: Io) {
+        self.msg_type = msg_type;
+        self.io = io;
+        self.start();
     }
 
     pub fn start(&mut self) {
@@ -101,13 +106,12 @@ impl RecordLayer {
     }
 
     pub fn extend(&mut self, amt: usize) {
-        for i in 0..amt {
-            self.buf[self.len + i] = 0;
-        }
-        self.len += amt;
+        self.extend_with(0, amt);
     }
 
-    pub fn reset(&mut self) {
-        self.len = 0;
+    pub fn extend_with(&mut self, value: u8, amt: usize) {
+        for _ in 0..amt {
+            self.push(value);
+        }
     }
 }
