@@ -1,5 +1,6 @@
 use crate::aead::AeadWriter;
 use crate::alert::{Alert, AlertDescription};
+use crate::state::Config;
 use crate::versions::LEGACY_PROTO_VERS;
 use crylib::aead;
 use std::ffi::c_void;
@@ -126,11 +127,16 @@ impl RecordLayer {
         }
     }
 
-    // Read a single record into `buf`, stripping the header.
+    /// Reads the contents of a single record into `buf`, returning an [`Err`] if the read failed,
+    /// and an `Ok(len)` if the read was successful, where `len` is the number of bytes read.
+    ///
+    /// If less data is recieved than promised, it will return an `Err(ReadError::Timeout)` after
+    /// `timeout` time.
     pub fn read(
         buf: &mut [u8; Self::BUF_SIZE],
         expected_type: ContentType,
         io: &Io,
+        timeout: Duration,
     ) -> Result<usize, ReadError> {
         fn handle_alert(alert: &[u8; Alert::SIZE], io: &Io) -> AlertDescription {
             (io.close)(io.ctx);
@@ -183,7 +189,7 @@ impl RecordLayer {
 
         // make sure we don't listen indefinetly
         let countdown = thread::spawn(move || {
-            thread::sleep(Duration::from_secs(10));
+            thread::sleep(timeout);
             return;
         });
 

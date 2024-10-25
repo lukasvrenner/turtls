@@ -1,4 +1,6 @@
 use std::mem::MaybeUninit;
+use std::sync::RwLock;
+use std::time::Duration;
 
 use crate::aead::{AeadReader, AeadWriter};
 use crate::cipher_suites::GroupKeys;
@@ -9,6 +11,11 @@ pub struct State {
     aead_reader: AeadReader,
     group_keys: GroupKeys,
     msg_buf: RecordLayer,
+    config: Config
+}
+
+pub struct Config {
+    read_timeout: Duration,
 }
 
 impl State {
@@ -22,9 +29,17 @@ impl State {
         io: Io,
     ) -> &mut RecordLayer {
         let state_ptr = state.as_mut_ptr();
-        // SAFETY: buf_ptr is a valid MaybeUninit<RecordLayer>
+        // SAFETY: a MaybeUninit<State> has a valid MaybeUninit<RecordLayer>
         let buf_ptr =
             unsafe { &mut *(&raw mut (*state_ptr).msg_buf as *mut MaybeUninit<RecordLayer>) };
         RecordLayer::init(buf_ptr, msg_type, io)
+    }
+
+    pub fn get_uninit_config(state: &mut MaybeUninit<Self>) -> &mut MaybeUninit<Config> {
+        // SAFETY: a MaybeUninit<State> has a valid MaybeUninit<Config>
+        unsafe {
+            let config_ptr = &raw mut (*state.as_mut_ptr()).config.read_timeout;
+            &mut *(config_ptr as *mut MaybeUninit<Config>)
+        }
     }
 }
