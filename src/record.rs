@@ -4,6 +4,9 @@ use crate::versions::LEGACY_PROTO_VERS;
 use crylib::aead;
 use std::ffi::c_void;
 use std::mem::MaybeUninit;
+use std::sync::mpsc;
+use std::thread;
+use std::time::Duration;
 
 #[repr(C)]
 pub struct Io {
@@ -123,10 +126,17 @@ impl RecordLayer {
         }
     }
 
-    pub fn read(buf: &mut [u8], expected_type: ContentType, io: &Io) -> Result<(), ReadError> {
-        fn handle_alert(alert: &[u8; Alert::SIZE]) -> AlertDescription {
-            todo!();
+    // Read a single record into `buf`, stripping the header.
+    pub fn read(
+        buf: &mut [u8; Self::BUF_SIZE],
+        expected_type: ContentType,
+        io: &Io,
+    ) -> Result<usize, ReadError> {
+        fn handle_alert(alert: &[u8; Alert::SIZE], io: &Io) -> AlertDescription {
+            (io.close)(io.ctx);
+            todo!()
         }
+
         let mut header_buf = [0; Self::PREFIIX_SIZE];
         (io.read)(
             &mut header_buf as *mut [u8] as *mut c_void,
@@ -139,6 +149,7 @@ impl RecordLayer {
                 .try_into()
                 .unwrap(),
         ) as usize;
+
         if len > Self::MAX_LEN - Self::PREFIIX_SIZE {
             return Err(ReadError::RecordOverflow);
         }
@@ -147,25 +158,53 @@ impl RecordLayer {
 
         if msg_type == ContentType::Alert.as_byte() {
             let mut alert = [0; Alert::SIZE];
-            (io.read)(
-                &mut alert as *mut [u8] as *mut c_void,
-                Alert::SIZE,
-                io.ctx,
-            );
-            return Err(ReadError::RecievedAlert(handle_alert(
-                &alert
-            )));
+            (io.read)(&mut alert as *mut [u8] as *mut c_void, Alert::SIZE, io.ctx);
+            return Err(ReadError::RecievedAlert(handle_alert(&alert, io)));
         }
 
         if msg_type != expected_type.as_byte() {
             let mut alert = [0; Self::PREFIIX_SIZE + Alert::SIZE];
-            Alert::new_in((&mut alert[Self::PREFIIX_SIZE..]).try_into().unwrap(), AlertDescription::UnexpectedMessage);
+
+            alert[0] = ContentType::Alert.as_byte();
+            alert[1..3].copy_from_slice(&LEGACY_PROTO_VERS.to_be_bytes());
+            alert[Self::PREFIIX_SIZE - Self::LEN_SIZE..Self::PREFIIX_SIZE]
+                .copy_from_slice(&(Alert::SIZE as u16).to_be_bytes());
+
+            Alert::new_in(
+                (&mut alert[Self::PREFIIX_SIZE..]).try_into().unwrap(),
+                AlertDescription::UnexpectedMessage,
+            );
+
+            (io.write)(&alert as *const [u8] as *const c_void, alert.len(), io.ctx);
+            (io.close)(io.ctx);
+
+            return Err(ReadError::UnexpectedMessage);
         }
 
-        if buf.len() <= len {
+        // make sure we don't listen indefinetly
+        let countdown = thread::spawn(move || {
+            thread::sleep(Duration::from_secs(10));
+            return;
+        });
 
+        let mut bytes_remaining = len;
+        while bytes_remaining > 0 {
+            // make sure we don't listen indefinetly
+            if countdown.is_finished() {
+                return Err(ReadError::Timeout);
+            }
+
+            let Ok(bytes_read): Result<usize, _> =
+                (io.read)(buf as *mut [u8] as *mut c_void, bytes_remaining, io.ctx).try_into()
+            else {
+                return Err(ReadError::IoError);
+            };
+
+            // io.read should theoretically never return more than bytes_remaining, but it's better
+            // to be safe than sorry
+            bytes_remaining = bytes_remaining.saturating_sub(bytes_read);
         }
-        todo!();
+        Ok(len)
     }
 }
 
@@ -174,4 +213,5 @@ pub enum ReadError {
     IoError,
     RecievedAlert(AlertDescription),
     UnexpectedMessage,
+    Timeout,
 }

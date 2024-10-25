@@ -35,9 +35,26 @@ pub enum AlertDescription {
     NoAppProtocol = 120,
 }
 
+impl AlertDescription {
+    pub fn from_byte(byte: u8) -> Option<Self> {
+        use AlertDescription::*;
+        // TODO: use inline const once stabilized
+        match byte {
+            x if x == CloseNotify as u8 => Some(CloseNotify),
+            x if x == UnexpectedMessage as u8 => Some(UnexpectedMessage),
+            x if x == BadRecordMac as u8 => Some(BadRecordMac),
+            x if x == RecordOverflow as u8 => Some(RecordOverflow),
+            x if x == HandshakeFailure as u8 => Some(HandshakeFailure),
+            x if x == BadCert as u8 => Some(BadCert),
+            x if x == UnsupportedCert as u8 => Some(UnsupportedCert),
+            _ => todo!(),
+        }
+    }
+}
+
 pub struct Alert {
     level: AlertLevel,
-    description: AlertDescription,
+    pub description: AlertDescription,
 }
 
 impl Alert {
