@@ -45,11 +45,11 @@ pub trait Extension {
     fn len(&self) -> usize;
 }
 
-pub struct Extensions<'a, 'b> {
+pub struct Extensions {
     pub server_name: Option<ServerName>,
     pub signature_algorithms: Option<SignatureAlgorithms>,
-    pub supported_groups: Option<SupportedGroups<'a>>,
-    pub supported_versions: Option<SupportedVersions<'b>>,
+    pub supported_groups: Option<SupportedGroups>,
+    pub supported_versions: Option<SupportedVersions>,
     pub key_share: Option<KeyShare>,
 }
 
@@ -75,29 +75,25 @@ impl Extension for MaxFragmentLength {
 
 pub struct StatusRequest {}
 
-pub struct SupportedGroups<'a> {
-    pub groups: &'a [NamedGroup],
-}
+pub struct SupportedGroups {}
 
 pub struct SignatureAlgorithms {}
 
 pub struct UseSrtp {}
 
-pub struct SupportedVersions<'a> {
-    pub versions: &'a [ProtocolVersion],
-}
+pub struct SupportedVersions {}
 
-impl Extension for SupportedVersions<'_> {
+impl Extension for SupportedVersions {
     const TAG: [u8; 2] = [0, 43];
     fn len(&self) -> usize {
-        self.versions.len()
+        todo!()
     }
 }
 
-impl Extension for SupportedGroups<'_> {
+impl Extension for SupportedGroups {
     const TAG: [u8; 2] = [0, 10];
     fn len(&self) -> usize {
-        self.groups.len()
+        todo!()
     }
 }
 

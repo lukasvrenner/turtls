@@ -25,8 +25,8 @@ use crylib::big_int::UBigInt;
 use crylib::ec::Secp256r1;
 use crylib::finite_field::FieldElement;
 use getrandom::{getrandom, Error};
+pub use record::Io;
 use state::State;
-use std::ffi::c_void;
 
 #[repr(C)]
 pub enum ShakeResult {
@@ -44,9 +44,7 @@ impl From<Error> for ShakeResult {
 #[no_mangle]
 pub extern "C" fn shake_hands_client(
     // TODO: use c_size_t and c_ssize_t once stabilized
-    write: extern "C" fn(*const c_void, usize, *const c_void) -> isize,
-    read: extern "C" fn(*mut c_void, usize, *const c_void) -> isize,
-    ctx: *const c_void,
+    io: Io,
 ) -> ShakeResult {
     todo!();
 }
@@ -55,9 +53,7 @@ pub extern "C" fn shake_hands_client(
 #[no_mangle]
 pub extern "C" fn shake_hands_server(
     // TODO: use c_size_t and c_ssize_t once stabilized
-    write: extern "C" fn(*const c_void, usize, *const c_void) -> isize,
-    read: extern "C" fn(*mut c_void, usize, *const c_void) -> isize,
-    ctx: *const c_void,
+    io: Io,
 ) -> ShakeResult {
     todo!();
 }

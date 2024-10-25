@@ -1,18 +1,16 @@
 use crate::aead::AeadWriter;
 use crate::alert::{Alert, AlertDescription};
-use crate::state::Config;
 use crate::versions::LEGACY_PROTO_VERS;
 use crylib::aead;
 use std::ffi::c_void;
 use std::mem::MaybeUninit;
-use std::sync::mpsc;
-use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 #[repr(C)]
 pub struct Io {
     pub write: extern "C" fn(buf: *const c_void, amt: usize, ctx: *const c_void) -> isize,
     pub read: extern "C" fn(buf: *mut c_void, amt: usize, ctx: *const c_void) -> isize,
+    pub is_ready: extern "C" fn(ctx: *const c_void) -> bool,
     pub close: extern "C" fn(ctx: *const c_void),
     pub ctx: *const c_void,
 }
@@ -187,30 +185,27 @@ impl RecordLayer {
             return Err(ReadError::UnexpectedMessage);
         }
 
-        // make sure we don't listen indefinetly
-        let countdown = thread::spawn(move || {
-            thread::sleep(timeout);
-            return;
-        });
+        let start = Instant::now();
 
+        // make sure we don't listen indefinetly
         let mut bytes_remaining = len;
         while bytes_remaining > 0 {
-            // make sure we don't listen indefinetly
-            if countdown.is_finished() {
+            if start.elapsed() > timeout {
                 return Err(ReadError::Timeout);
             }
+            if (io.is_ready)(io.ctx) {
+                let Ok(bytes_read): Result<usize, _> =
+                    (io.read)(buf as *mut [u8] as *mut c_void, bytes_remaining, io.ctx).try_into()
+                else {
+                    return Err(ReadError::IoError);
+                };
 
-            let Ok(bytes_read): Result<usize, _> =
-                (io.read)(buf as *mut [u8] as *mut c_void, bytes_remaining, io.ctx).try_into()
-            else {
-                return Err(ReadError::IoError);
-            };
-
-            // io.read should theoretically never return more than bytes_remaining, but it's better
-            // to be safe than sorry
-            bytes_remaining = bytes_remaining.saturating_sub(bytes_read);
+                // io.read should theoretically never return more than bytes_remaining, but it's better
+                // to be safe than sorry
+                bytes_remaining = bytes_remaining.saturating_sub(bytes_read);
+            }
         }
-        Ok(len)
+        return Ok(len);
     }
 }
 

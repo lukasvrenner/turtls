@@ -11,7 +11,7 @@ pub struct State {
     aead_reader: AeadReader,
     group_keys: GroupKeys,
     msg_buf: RecordLayer,
-    config: Config
+    config: Config,
 }
 
 pub struct Config {
