@@ -8,11 +8,47 @@ use std::time::{Duration, Instant};
 
 #[repr(C)]
 pub struct Io {
-    pub write: extern "C" fn(buf: *const c_void, amt: usize, ctx: *const c_void) -> isize,
-    pub read: extern "C" fn(buf: *mut c_void, amt: usize, ctx: *const c_void) -> isize,
-    pub is_ready: extern "C" fn(ctx: *const c_void) -> bool,
-    pub close: extern "C" fn(ctx: *const c_void),
+    pub write_fn: extern "C" fn(buf: *const c_void, amt: usize, ctx: *const c_void) -> isize,
+    pub read_fn: extern "C" fn(buf: *mut c_void, amt: usize, ctx: *const c_void) -> isize,
+    pub is_ready_fn: extern "C" fn(ctx: *const c_void) -> bool,
+    pub close_fn: extern "C" fn(ctx: *const c_void),
     pub ctx: *const c_void,
+}
+
+impl Io {
+    pub fn read(&self, buf: &mut [u8]) -> isize {
+        (self.read_fn)(buf as *mut _ as *mut c_void, buf.len(), self.ctx)
+    }
+
+    pub fn write(&self, buf: &[u8]) -> isize {
+        (self.write_fn)(buf as *const _ as *const c_void, buf.len(), self.ctx)
+    }
+
+    pub fn close(&self) {
+        (self.close_fn)(self.ctx);
+    }
+
+    pub fn is_ready(&self) -> bool {
+        (self.is_ready_fn)(self.ctx)
+    }
+
+    pub fn alert(&self, alert: AlertDescription) -> isize {
+        let mut alert_buf = [0; RecordLayer::PREFIIX_SIZE + Alert::SIZE];
+
+        alert_buf[0] = ContentType::Alert.as_byte();
+        alert_buf[1..3].copy_from_slice(&LEGACY_PROTO_VERS.to_be_bytes());
+        alert_buf[RecordLayer::PREFIIX_SIZE - RecordLayer::LEN_SIZE..RecordLayer::PREFIIX_SIZE]
+            .copy_from_slice(&(Alert::SIZE as u16).to_be_bytes());
+
+        Alert::new_in(
+            (&mut alert_buf[RecordLayer::PREFIIX_SIZE..]).try_into().unwrap(),
+            alert
+        );
+
+        let io_status =  self.write(&alert_buf);
+        self.close();
+        io_status
+    }
 }
 
 #[repr(u8)]
@@ -75,11 +111,7 @@ impl RecordLayer {
 
     pub fn finish_and_send(&mut self) {
         self.finish();
-        (self.io.write)(
-            self.buf.as_ref() as *const [u8] as *const c_void,
-            self.buf.len(),
-            self.io.ctx,
-        );
+        self.io.write(&self.buf);
     }
 
     pub fn len(&self) -> usize {
@@ -137,16 +169,12 @@ impl RecordLayer {
         timeout: Duration,
     ) -> Result<usize, ReadError> {
         fn handle_alert(alert: &[u8; Alert::SIZE], io: &Io) -> AlertDescription {
-            (io.close)(io.ctx);
+            io.close();
             todo!()
         }
 
         let mut header_buf = [0; Self::PREFIIX_SIZE];
-        (io.read)(
-            &mut header_buf as *mut [u8] as *mut c_void,
-            Self::PREFIIX_SIZE,
-            io.ctx,
-        );
+        io.read(&mut header_buf);
 
         let len = u16::from_be_bytes(
             header_buf[Self::PREFIIX_SIZE - Self::LEN_SIZE..]
@@ -162,47 +190,33 @@ impl RecordLayer {
 
         if msg_type == ContentType::Alert.as_byte() {
             let mut alert = [0; Alert::SIZE];
-            (io.read)(&mut alert as *mut [u8] as *mut c_void, Alert::SIZE, io.ctx);
+            io.read(&mut alert);
             return Err(ReadError::RecievedAlert(handle_alert(&alert, io)));
         }
 
         if msg_type != expected_type.as_byte() {
-            let mut alert = [0; Self::PREFIIX_SIZE + Alert::SIZE];
-
-            alert[0] = ContentType::Alert.as_byte();
-            alert[1..3].copy_from_slice(&LEGACY_PROTO_VERS.to_be_bytes());
-            alert[Self::PREFIIX_SIZE - Self::LEN_SIZE..Self::PREFIIX_SIZE]
-                .copy_from_slice(&(Alert::SIZE as u16).to_be_bytes());
-
-            Alert::new_in(
-                (&mut alert[Self::PREFIIX_SIZE..]).try_into().unwrap(),
-                AlertDescription::UnexpectedMessage,
-            );
-
-            (io.write)(&alert as *const [u8] as *const c_void, alert.len(), io.ctx);
-            (io.close)(io.ctx);
+            io.alert(AlertDescription::UnexpectedMessage);
 
             return Err(ReadError::UnexpectedMessage);
         }
 
         let start = Instant::now();
 
-        // make sure we don't listen indefinetly
-        let mut bytes_remaining = len;
-        while bytes_remaining > 0 {
+        let mut bytes_read = 0;
+        while bytes_read < len {
+            // make sure we don't listen indefinetly
             if start.elapsed() > timeout {
                 return Err(ReadError::Timeout);
             }
-            if (io.is_ready)(io.ctx) {
-                let Ok(bytes_read): Result<usize, _> =
-                    (io.read)(buf as *mut [u8] as *mut c_void, bytes_remaining, io.ctx).try_into()
+
+            if io.is_ready() {
+                let Ok(new_bytes): Result<usize, _> =
+                    io.read(&mut buf[bytes_read..]).try_into()
                 else {
                     return Err(ReadError::IoError);
                 };
 
-                // io.read should theoretically never return more than bytes_remaining, but it's better
-                // to be safe than sorry
-                bytes_remaining = bytes_remaining.saturating_sub(bytes_read);
+                bytes_read += new_bytes;
             }
         }
         return Ok(len);
