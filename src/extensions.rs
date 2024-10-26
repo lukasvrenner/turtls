@@ -2,6 +2,7 @@ use crylib::ec::{EllipticCurve, Secp256r1};
 
 use crate::cipher_suites::{NamedGroup, SignatureScheme};
 use crate::client_hello::ClientHello;
+use crate::record::RecordLayer;
 use crate::server_hello::ServerHello;
 use crate::versions::ProtocolVersion;
 use crate::State;
@@ -66,6 +67,10 @@ impl Extensions {
 
         len
     }
+
+    pub fn write(&self, record_layer: &mut RecordLayer) {
+        todo!()
+    }
 }
 
 pub struct ServerName {}
@@ -126,7 +131,9 @@ impl SupportedGroups {
 
 impl Default for SupportedGroups {
     fn default() -> Self {
-        Self { groups: Self::SECP256R1 }
+        Self {
+            groups: Self::SECP256R1,
+        }
     }
 }
 
@@ -144,7 +151,9 @@ impl SignatureAlgorithms {
 
 impl Default for SignatureAlgorithms {
     fn default() -> Self {
-        Self { algorithms: Self::ECDSA_SECP256R1 }
+        Self {
+            algorithms: Self::ECDSA_SECP256R1,
+        }
     }
 }
 
@@ -164,7 +173,9 @@ impl SupportedVersions {
 
 impl Default for SupportedVersions {
     fn default() -> Self {
-        Self { versions: Self::TLS_ONE_THREE }
+        Self {
+            versions: Self::TLS_ONE_THREE,
+        }
     }
 }
 

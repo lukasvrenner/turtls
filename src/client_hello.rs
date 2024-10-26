@@ -1,169 +1,64 @@
-use crate::cipher_suites::{CipherSuite, GroupKeys, NamedGroup, SignatureScheme};
-use crate::extensions::ExtensionType;
-use crate::handshake::Handshake;
+use crate::cipher_suites::CipherSuites;
+use crate::extensions::Extensions;
 use crate::handshake::ShakeType;
+use crate::record::{ContentType, RecordLayer};
 use crate::versions::ProtocolVersion;
 use crate::versions::LEGACY_PROTO_VERS;
-use crate::State;
-use crylib::ec::{EllipticCurve, Secp256r1};
-use crylib::finite_field::FieldElement;
 use getrandom::{getrandom, Error};
 
-pub struct ClientHello {
-    shake: Handshake,
+pub struct ClientHello<'a, 'b> {
+    pub cipher_suites: &'b CipherSuites,
+    pub extensions: &'a Extensions,
 }
 
-impl ClientHello {
+impl<'a, 'b> ClientHello<'a, 'b> {
     pub const RANDOM_BYTES_LEN: usize = 32;
-
-    pub fn new(sup_suites: &[CipherSuite], group_keys: &GroupKeys) -> Result<Self, Error> {
-        let mut msg = Self::start();
-        msg.legacy_protocol_version();
-        msg.random_bytes()?;
-        msg.legacy_session_id();
-        msg.cipher_suites(sup_suites);
-        msg.legacy_compression_methods();
-        msg.extensions(group_keys);
-        msg.finish();
-        Ok(msg)
+    pub const LEGACY_SESSION_ID: u8 = 0;
+    pub const LEGACY_COMPRESSION_METHODS: [u8; 2] = [1, 0];
+    pub const fn len(&self) -> usize {
+        size_of::<ProtocolVersion>()
+            + Self::RANDOM_BYTES_LEN
+            // TODO use size_of_val once it is const-stabilized
+            + 1
+            + self.cipher_suites.len()
+            // TODO use size_of_val once it is const-stabilized
+            + 2
+            + self.extensions.len()
     }
 
-    fn start() -> Self {
-        Self {
-            shake: Handshake::start(ShakeType::ClientHello),
-        }
-    }
+    pub fn write(&self, record_layer: &mut RecordLayer) -> Result<(), CliHelError> {
+        record_layer.start_as(ContentType::Handshake);
+        record_layer.push(ShakeType::ClientHello.as_byte());
 
-    fn legacy_protocol_version(&mut self) {
-        self.extend_from_slice(&LEGACY_PROTO_VERS.to_be_bytes());
-    }
+        let len = (self.len() as u32).to_be_bytes();
+        record_layer.extend_from_slice(&len[1..]);
 
-    fn random_bytes(&mut self) -> Result<(), Error> {
-        self.extend_from_slice(&[0; Self::RANDOM_BYTES_LEN]);
-        let len = self.len();
-        getrandom(&mut self[len - Self::RANDOM_BYTES_LEN..])
-    }
+        record_layer.extend_from_slice(&LEGACY_PROTO_VERS.to_be_bytes());
 
-    fn legacy_session_id(&mut self) {
-        self.push(0x00);
-    }
+        let mut random_bytes = [0; Self::RANDOM_BYTES_LEN];
+        getrandom(&mut random_bytes)?;
+        record_layer.extend_from_slice(&random_bytes);
 
-    fn cipher_suites(&mut self, sup_suites: &[CipherSuite]) {
-        let len = ((sup_suites.len() * size_of::<CipherSuite>()) as u16).to_be_bytes();
-        self.extend_from_slice(&len);
+        record_layer.push(Self::LEGACY_SESSION_ID);
 
-        for suite in sup_suites.into_iter().map(|suite| suite.to_be_bytes()) {
-            self.extend_from_slice(&suite);
-        }
-    }
+        self.cipher_suites.write(record_layer);
 
-    fn legacy_compression_methods(&mut self) {
-        self.push(0x01);
-        self.push(0x00);
-    }
+        record_layer.extend_from_slice(&Self::LEGACY_COMPRESSION_METHODS);
 
-    fn extensions(&mut self, group_keys: &GroupKeys) {
-        self.extend_from_slice(&[0, 0]);
-        let original_len = self.len();
-
-        self.supported_versions();
-        self.supported_groups();
-        self.signature_algorithms();
-        self.key_share(group_keys);
-
-        let extensions_len = ((self.len() - original_len) as u16).to_be_bytes();
-        self[original_len - 2..][..2].copy_from_slice(&extensions_len);
-    }
-
-    fn supported_versions(&mut self) {
-        let extension_name = ExtensionType::SupportedVersions.to_be_bytes();
-        self.extend_from_slice(&extension_name);
-
-        let extension_len = ((size_of::<u8>() + size_of::<ProtocolVersion>()) as u16).to_be_bytes();
-        self.extend_from_slice(&extension_len);
-
-        let len = size_of::<ProtocolVersion>() as u8;
-        self.push(len);
-        self.extend_from_slice(&ProtocolVersion::TlsOnePointThree.to_be_bytes());
-    }
-
-    fn supported_groups(&mut self) {
-        let extension_name = (ExtensionType::SupportedGroups as u16).to_be_bytes();
-        self.extend_from_slice(&extension_name);
-
-        let extension_len = (2 * size_of::<u16>() as u16).to_be_bytes();
-        self.extend_from_slice(&extension_len);
-
-        let len = (size_of::<NamedGroup>() as u16).to_be_bytes();
-        self.extend_from_slice(&len);
-
-        let groups = NamedGroup::Secp256r1.to_be_bytes();
-        self.extend_from_slice(&groups);
-    }
-
-    fn signature_algorithms(&mut self) {
-        let extension_name = ExtensionType::SignatureAlgorithms.to_be_bytes();
-        self.extend_from_slice(&extension_name);
-
-        let extension_len =
-            ((size_of::<u16>() + size_of::<SignatureScheme>()) as u16).to_be_bytes();
-        self.extend_from_slice(&extension_len);
-
-        let len = (size_of::<SignatureScheme>() as u16).to_be_bytes();
-        self.extend_from_slice(&len);
-
-        let scheme = SignatureScheme::EcdsaSecp256r1Sha256.to_be_bytes();
-        self.extend_from_slice(&scheme);
-    }
-
-    fn key_share(&mut self, group_keys: &GroupKeys) {
-        let extension_name = ExtensionType::KeyShare.to_be_bytes();
-        self.extend_from_slice(&extension_name);
-
-        let original_len = self.len();
-        self.extend_from_slice(&[0; 2]);
-        self.extend_from_slice(&[0; 2]);
-
-        self.secp256r1_key_share(group_keys);
-
-        let len_diff = ((self.len() - (original_len + 4)) as u16).to_be_bytes();
-        self[original_len + 2..][..2].copy_from_slice(&len_diff);
-
-        let len_diff = ((self.len() - (original_len + 2)) as u16).to_be_bytes();
-        self[original_len..][..2].copy_from_slice(&len_diff);
-    }
-
-    fn secp256r1_key_share(&mut self, group_keys: &GroupKeys) {
-        let named_group = NamedGroup::Secp256r1.to_be_bytes();
-        self.extend_from_slice(&named_group);
-
-        let original_len = self.len();
-        self.extend_from_slice(&[0; 2]);
-
-        self.push(4);
-        let pub_key = Secp256r1::BASE_POINT
-            .as_projective()
-            .mul_scalar(group_keys.secp256r1.inner())
-            .as_affine()
-            .expect("private key isn't 0");
-        self.extend_from_slice(&pub_key.x().to_be_bytes());
-        self.extend_from_slice(&pub_key.y().to_be_bytes());
-
-        let len_diff = ((self.len() - (original_len + 2)) as u16).to_be_bytes();
-        self[original_len..][..2].copy_from_slice(&len_diff);
+        self.extensions.write(record_layer);
+        record_layer.finish_and_send();
+        Ok(())
     }
 }
 
-impl std::ops::Deref for ClientHello {
-    type Target = Handshake;
-    fn deref(&self) -> &Self::Target {
-        &self.shake
-    }
+pub enum CliHelError {
+    RngError,
+    IoError,
 }
 
-impl std::ops::DerefMut for ClientHello {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.shake
+impl From<Error> for CliHelError {
+    fn from(_: Error) -> Self {
+        Self::RngError
     }
 }
 

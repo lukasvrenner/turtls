@@ -1,4 +1,4 @@
-use crate::record::{ContentType, Record};
+use crate::record::{ContentType, RecordLayer};
 
 use super::State;
 #[repr(u8)]
@@ -16,8 +16,10 @@ pub enum ShakeType {
     MessageHash = 254,
 }
 
-pub struct Handshake<'a> {
-    msg: Record<'a>,
+impl ShakeType {
+    pub const fn as_byte(self) -> u8 {
+        self as u8
+    }
 }
 
 impl Handshake {

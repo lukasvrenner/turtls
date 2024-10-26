@@ -3,6 +3,8 @@ use crylib::{
     finite_field::FieldElement,
 };
 
+use crate::record::RecordLayer;
+
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(u16)]
 pub enum CipherSuite {
@@ -16,6 +18,22 @@ pub enum CipherSuite {
 impl CipherSuite {
     pub const fn to_be_bytes(self) -> [u8; 2] {
         (self as u16).to_be_bytes()
+    }
+}
+
+pub struct CipherSuites {
+    pub suites: u8,
+}
+
+impl CipherSuites {
+    pub const AES_128_GCM_SHA256: u8 = 0b00000001;
+
+    pub const fn len(&self) -> usize {
+        self.suites.count_ones() as usize * size_of::<CipherSuite>()
+    }
+
+    pub fn write(&self, record_layer: &mut RecordLayer) {
+        todo!();
     }
 }
 
