@@ -41,11 +41,13 @@ impl Io {
             .copy_from_slice(&(Alert::SIZE as u16).to_be_bytes());
 
         Alert::new_in(
-            (&mut alert_buf[RecordLayer::PREFIIX_SIZE..]).try_into().unwrap(),
-            alert
+            (&mut alert_buf[RecordLayer::PREFIIX_SIZE..])
+                .try_into()
+                .unwrap(),
+            alert,
         );
 
-        let io_status =  self.write(&alert_buf);
+        let io_status = self.write(&alert_buf);
         self.close();
         io_status
     }
@@ -82,15 +84,14 @@ impl RecordLayer {
     pub const BUF_SIZE: usize = Self::MAX_LEN + Self::SUFFIX_SIZE;
 
     pub fn init(record: &mut MaybeUninit<Self>, msg_type: ContentType, io: Io) -> &mut Self {
-        let init_record;
-        // SAFETY: we initialize all of the fields
-        unsafe {
-            init_record = &mut *(record as *mut MaybeUninit<Self> as *mut Self);
-            init_record.buf = [0; Self::BUF_SIZE];
-            init_record.io = io;
-            init_record.start_as(msg_type);
-        }
-        init_record
+        let ptr = record.write(Self {
+            buf: [0; Self::BUF_SIZE],
+            len: 0,
+            msg_type,
+            io,
+        });
+        ptr.start();
+        ptr
     }
 
     pub fn start_as(&mut self, msg_type: ContentType) {
@@ -210,8 +211,7 @@ impl RecordLayer {
             }
 
             if io.is_ready() {
-                let Ok(new_bytes): Result<usize, _> =
-                    io.read(&mut buf[bytes_read..]).try_into()
+                let Ok(new_bytes): Result<usize, _> = io.read(&mut buf[bytes_read..]).try_into()
                 else {
                     return Err(ReadError::IoError);
                 };
