@@ -46,6 +46,7 @@ impl<'a, 'b> ClientHello<'a, 'b> {
         record_layer.extend_from_slice(&Self::LEGACY_COMPRESSION_METHODS);
 
         self.extensions.write(record_layer);
+
         record_layer.finish_and_send();
         Ok(())
     }
