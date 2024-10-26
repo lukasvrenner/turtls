@@ -38,63 +38,146 @@ impl ExtensionType {
     }
 }
 
-pub trait Extension {
-    const TAG: [u8; 2];
-    const LEN_SIZE: usize = 2;
-    const HEADER_SIZE: usize = 2 + Self::LEN_SIZE;
-    fn len(&self) -> usize;
+#[derive(Default)]
+pub struct Extensions {
+    pub server_name: ServerName,
+    pub signature_algorithms: SignatureAlgorithms,
+    pub supported_groups: SupportedGroups,
+    pub supported_versions: SupportedVersions,
+    pub key_share: KeyShare,
+    pub max_frag_len: MaxFragmentLength,
 }
 
-pub struct Extensions {
-    pub server_name: Option<ServerName>,
-    pub signature_algorithms: Option<SignatureAlgorithms>,
-    pub supported_groups: Option<SupportedGroups>,
-    pub supported_versions: Option<SupportedVersions>,
-    pub key_share: Option<KeyShare>,
+impl Extensions {
+    pub const LEN_SIZE: usize = 2;
+    pub const HEADER_SIZE: usize = 2 + Self::LEN_SIZE;
+
+    pub const fn len(&self) -> usize {
+        const fn new_len(new_len: usize) -> usize {
+            new_len + (new_len > 0) as usize * Extensions::HEADER_SIZE
+        }
+
+        let mut len = 0;
+        len += new_len(self.server_name.len());
+        len += new_len(self.signature_algorithms.len());
+        len += new_len(self.supported_groups.len());
+        len += new_len(self.supported_versions.len());
+        len += new_len(self.key_share.len());
+
+        len
+    }
 }
 
 pub struct ServerName {}
 
-pub enum MaxFragLenEnum {
+impl Default for ServerName {
+    fn default() -> Self {
+        Self {}
+    }
+}
+
+impl ServerName {
+    pub const fn len(&self) -> usize {
+        0
+    }
+}
+
+#[derive(Clone, Copy)]
+#[repr(u8)]
+pub enum MaxFragmentLength {
+    Nul = 0,
     Hex200 = 1,
     Hex400 = 2,
     Hex500 = 3,
     Hex600 = 4,
 }
 
-pub struct MaxFragmentLength {
-    max_len: MaxFragLenEnum,
+impl Default for MaxFragmentLength {
+    fn default() -> Self {
+        Self::Nul
+    }
 }
 
-impl Extension for MaxFragmentLength {
-    const TAG: [u8; 2] = ExtensionType::MaxFragmentLength.to_be_bytes();
-    fn len(&self) -> usize {
-        1
+impl MaxFragmentLength {
+    pub const TAG: [u8; 2] = ExtensionType::MaxFragmentLength.to_be_bytes();
+    pub const fn len(&self) -> usize {
+        // TODO: don't cast to u8 once const traits are stabilized
+        if *self as u8 == Self::Nul as u8 {
+            0
+        } else {
+            size_of::<MaxFragmentLength>()
+        }
     }
 }
 
 pub struct StatusRequest {}
 
-pub struct SupportedGroups {}
+pub struct SupportedGroups {
+    groups: u16,
+}
 
-pub struct SignatureAlgorithms {}
-
-pub struct UseSrtp {}
-
-pub struct SupportedVersions {}
-
-impl Extension for SupportedVersions {
-    const TAG: [u8; 2] = [0, 43];
-    fn len(&self) -> usize {
-        todo!()
+impl SupportedGroups {
+    pub const TAG: [u8; 2] = [0, 10];
+    pub const SECP256R1: u16 = 0b0000000000000001;
+    pub const fn len(&self) -> usize {
+        self.groups.count_ones() as usize * size_of::<NamedGroup>()
     }
 }
 
-impl Extension for SupportedGroups {
-    const TAG: [u8; 2] = [0, 10];
-    fn len(&self) -> usize {
-        todo!()
+impl Default for SupportedGroups {
+    fn default() -> Self {
+        Self { groups: Self::SECP256R1 }
+    }
+}
+
+pub struct SignatureAlgorithms {
+    pub algorithms: u16,
+}
+
+impl SignatureAlgorithms {
+    pub const ECDSA_SECP256R1: u16 = 0b0000000000000001;
+    pub const TAG: [u8; 2] = [0, 13];
+    pub const fn len(&self) -> usize {
+        self.algorithms.count_ones() as usize * size_of::<SignatureScheme>()
+    }
+}
+
+impl Default for SignatureAlgorithms {
+    fn default() -> Self {
+        Self { algorithms: Self::ECDSA_SECP256R1 }
+    }
+}
+
+pub struct UseSrtp {}
+
+pub struct SupportedVersions {
+    pub versions: u8,
+}
+
+impl SupportedVersions {
+    pub const TLS_ONE_THREE: u8 = 0b00000001;
+    pub const TAG: [u8; 2] = [0, 43];
+    pub const fn len(&self) -> usize {
+        self.versions.count_ones() as usize * size_of::<ProtocolVersion>()
+    }
+}
+
+impl Default for SupportedVersions {
+    fn default() -> Self {
+        Self { versions: Self::TLS_ONE_THREE }
     }
 }
 
 pub struct KeyShare {}
+
+impl KeyShare {
+    pub const fn len(&self) -> usize {
+        todo!();
+    }
+}
+
+impl Default for KeyShare {
+    fn default() -> Self {
+        Self {}
+    }
+}
