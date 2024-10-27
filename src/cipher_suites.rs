@@ -1,9 +1,11 @@
 use crylib::{
+    big_int::UBigInt,
     ec::{EllipticCurve, Secp256r1},
     finite_field::FieldElement,
 };
+use getrandom::getrandom;
 
-use crate::record::RecordLayer;
+use crate::{extensions::SupportedGroups, record::RecordLayer};
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(u16)]
@@ -28,15 +30,23 @@ pub struct CipherSuites {
 impl CipherSuites {
     pub const AES_128_GCM_SHA256: u8 = 0b00000001;
 
+    pub const LEN_SIZE: usize = 2;
+
     pub const fn len(&self) -> usize {
         self.suites.count_ones() as usize * size_of::<CipherSuite>()
     }
 
     pub fn write_to(&self, record_layer: &mut RecordLayer) {
         if self.suites & Self::AES_128_GCM_SHA256 > 0 {
-            let len = (self.len() as u16).to_be_bytes();
-            record_layer.extend_from_slice(&len);
             record_layer.extend_from_slice(&CipherSuite::Aes128GcmSha256.to_be_bytes());
+        }
+    }
+}
+
+impl Default for CipherSuites {
+    fn default() -> Self {
+        Self {
+            suites: Self::AES_128_GCM_SHA256,
         }
     }
 }
@@ -67,6 +77,19 @@ impl NamedGroup {
 
 pub struct GroupKeys {
     pub secp256r1: FieldElement<<Secp256r1 as EllipticCurve>::Order>,
+}
+
+impl GroupKeys {
+    pub fn generate(groups: SupportedGroups) -> Self {
+        if groups.groups & SupportedGroups::SECP256R1 > 0 {
+            let mut buf = [0; 32];
+            getrandom(&mut buf);
+            return Self {
+                secp256r1: FieldElement::new(UBigInt::<4>::from_be_bytes(buf)),
+            };
+        }
+        unreachable!();
+    }
 }
 
 #[repr(u16)]

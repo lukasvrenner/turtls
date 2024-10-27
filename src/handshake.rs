@@ -14,7 +14,7 @@ pub enum ShakeType {
 }
 
 impl ShakeType {
-    pub const fn as_byte(self) -> u8 {
+    pub const fn to_byte(self) -> u8 {
         self as u8
     }
 }

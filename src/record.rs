@@ -35,7 +35,7 @@ impl Io {
     pub fn alert(&self, alert: AlertDescription) -> isize {
         let mut alert_buf = [0; RecordLayer::PREFIIX_SIZE + Alert::SIZE];
 
-        alert_buf[0] = ContentType::Alert.as_byte();
+        alert_buf[0] = ContentType::Alert.to_byte();
         alert_buf[1..3].copy_from_slice(&LEGACY_PROTO_VERS.to_be_bytes());
         alert_buf[RecordLayer::PREFIIX_SIZE - RecordLayer::LEN_SIZE..RecordLayer::PREFIIX_SIZE]
             .copy_from_slice(&(Alert::SIZE as u16).to_be_bytes());
@@ -64,7 +64,7 @@ pub enum ContentType {
 }
 
 impl ContentType {
-    pub fn as_byte(self) -> u8 {
+    pub fn to_byte(self) -> u8 {
         self as u8
     }
 }
@@ -73,7 +73,7 @@ pub struct RecordLayer {
     buf: [u8; Self::BUF_SIZE],
     len: usize,
     msg_type: ContentType,
-    io: Io,
+    pub io: Io,
 }
 
 impl RecordLayer {
@@ -100,7 +100,7 @@ impl RecordLayer {
     }
 
     pub fn start(&mut self) {
-        self.buf[0] = self.msg_type.as_byte();
+        self.buf[0] = self.msg_type.to_byte();
         self.buf[1..3].copy_from_slice(&LEGACY_PROTO_VERS.to_be_bytes());
         self.len = Self::PREFIIX_SIZE;
     }
@@ -120,12 +120,12 @@ impl RecordLayer {
     }
 
     pub fn push(&mut self, value: u8) {
-        self.buf[self.len] = value;
-        self.len += 1;
         if self.len() == Self::BUF_SIZE {
             self.finish_and_send();
             self.start();
         }
+        self.buf[self.len] = value;
+        self.len += 1;
     }
 
     pub fn extend_from_slice(&mut self, slice: &[u8]) {
@@ -189,13 +189,13 @@ impl RecordLayer {
 
         let msg_type = header_buf[0];
 
-        if msg_type == ContentType::Alert.as_byte() {
+        if msg_type == ContentType::Alert.to_byte() {
             let mut alert = [0; Alert::SIZE];
             io.read(&mut alert);
             return Err(ReadError::RecievedAlert(handle_alert(&alert, io)));
         }
 
-        if msg_type != expected_type.as_byte() {
+        if msg_type != expected_type.to_byte() {
             io.alert(AlertDescription::UnexpectedMessage);
 
             return Err(ReadError::UnexpectedMessage);
@@ -219,7 +219,7 @@ impl RecordLayer {
                 bytes_read += new_bytes;
             }
         }
-        return Ok(len);
+        Ok(len)
     }
 }
 

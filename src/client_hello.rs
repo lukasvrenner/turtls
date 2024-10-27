@@ -20,15 +20,21 @@ impl<'a, 'b> ClientHello<'a, 'b> {
             + Self::RANDOM_BYTES_LEN
             // TODO use size_of_val once it is const-stabilized
             + 1
+            + CipherSuites::LEN_SIZE
             + self.cipher_suites.len()
             // TODO use size_of_val once it is const-stabilized
             + 2
+            + Extensions::LEN_SIZE
             + self.extensions.len()
     }
 
-    pub fn write_to(&self, record_layer: &mut RecordLayer, keys: &GroupKeys) -> Result<(), CliHelError> {
+    pub fn write_to(
+        &self,
+        record_layer: &mut RecordLayer,
+        keys: &GroupKeys,
+    ) -> Result<(), CliHelError> {
         record_layer.start_as(ContentType::Handshake);
-        record_layer.push(ShakeType::ClientHello.as_byte());
+        record_layer.push(ShakeType::ClientHello.to_byte());
 
         let len = (self.len() as u32).to_be_bytes();
         record_layer.extend_from_slice(&len[1..]);
@@ -41,10 +47,14 @@ impl<'a, 'b> ClientHello<'a, 'b> {
 
         record_layer.push(Self::LEGACY_SESSION_ID);
 
+        let len = (self.cipher_suites.len() as u16).to_be_bytes();
+        record_layer.extend_from_slice(&len);
         self.cipher_suites.write_to(record_layer);
 
         record_layer.extend_from_slice(&Self::LEGACY_COMPRESSION_METHODS);
 
+        let len = (self.extensions.len() as u16).to_be_bytes();
+        record_layer.extend_from_slice(&len);
         self.extensions.write_to(record_layer, keys);
 
         record_layer.finish_and_send();

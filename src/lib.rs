@@ -19,12 +19,14 @@ mod state;
 mod versions;
 
 use aead::{AeadReader, AeadWriter};
-use cipher_suites::{CipherSuite, GroupKeys};
-use client_hello::ClientHello;
+use cipher_suites::{CipherSuite, CipherSuites, GroupKeys};
+use client_hello::{CliHelError, ClientHello};
 use crylib::big_int::UBigInt;
 use crylib::ec::Secp256r1;
 use crylib::finite_field::FieldElement;
+use extensions::Extensions;
 use getrandom::{getrandom, Error};
+use record::ContentType;
 pub use record::Io;
 use state::State;
 
@@ -32,11 +34,15 @@ use state::State;
 pub enum ShakeResult {
     Ok(Box<State>),
     RngError,
+    IoError,
 }
 
-impl From<Error> for ShakeResult {
-    fn from(_: Error) -> Self {
-        ShakeResult::RngError
+impl From<CliHelError> for ShakeResult {
+    fn from(value: CliHelError) -> Self {
+        match value {
+            CliHelError::IoError => Self::IoError,
+            CliHelError::RngError => Self::RngError,
+        }
     }
 }
 
@@ -46,6 +52,22 @@ pub extern "C" fn shake_hands_client(
     // TODO: use c_size_t and c_ssize_t once stabilized
     io: Io,
 ) -> ShakeResult {
+    let cipher_suites = CipherSuites::default();
+    let extensions = Extensions::default();
+    let mut state = State::new_uninit();
+    let record_layer = State::init_buf_with(&mut state, ContentType::Handshake, io);
+    let client_hello = ClientHello {
+        cipher_suites: &cipher_suites,
+        extensions: &extensions,
+    };
+    let keys = GroupKeys::generate(extensions.supported_groups);
+    if let Err(err) = client_hello.write_to(record_layer, &keys) {
+        return err.into();
+    }
+
+    let mut buf = Box::new([0; 0x4000]);
+    let len = record_layer.io.read(buf.as_mut());
+    println!("{}", len);
     todo!();
 }
 
