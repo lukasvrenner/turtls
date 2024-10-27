@@ -7,6 +7,7 @@ use core::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
 ///
 /// Internally, [`UBigInt<N>`] is a little-endian `[u64; N]`.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(transparent)]
 pub struct UBigInt<const N: usize>(pub [u64; N]);
 
 impl<const N: usize> core::fmt::Display for UBigInt<N> {

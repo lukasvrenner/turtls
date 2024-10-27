@@ -1,11 +1,9 @@
 use crylib::ec::{EllipticCurve, Secp256r1};
+use crylib::finite_field::FieldElement;
 
-use crate::cipher_suites::{NamedGroup, SignatureScheme};
-use crate::client_hello::ClientHello;
+use crate::cipher_suites::{NamedGroup, SignatureScheme, GroupKeys};
 use crate::record::RecordLayer;
-use crate::server_hello::ServerHello;
 use crate::versions::ProtocolVersion;
-use crate::State;
 
 #[repr(u16)]
 pub enum ExtensionType {
@@ -51,7 +49,7 @@ pub struct Extensions {
 
 impl Extensions {
     pub const LEN_SIZE: usize = 2;
-    pub const HEADER_SIZE: usize = 2 + Self::LEN_SIZE;
+    pub const HEADER_SIZE: usize = size_of::<ExtensionType>() + Self::LEN_SIZE;
 
     pub const fn len(&self) -> usize {
         const fn new_len(new_len: usize) -> usize {
@@ -63,13 +61,20 @@ impl Extensions {
         len += new_len(self.signature_algorithms.len());
         len += new_len(self.supported_groups.len());
         len += new_len(self.supported_versions.len());
-        len += new_len(self.key_share.len());
+        len += new_len(self.key_share.len(&self.supported_groups));
 
         len
     }
 
-    pub fn write(&self, record_layer: &mut RecordLayer) {
-        todo!()
+    pub fn write_to(&self, record_layer: &mut RecordLayer, keys: &GroupKeys) {
+        let len = (self.len() as u16).to_be_bytes();
+        record_layer.extend_from_slice(&len);
+        self.server_name.write_to(record_layer);
+        self.signature_algorithms.write_to(record_layer);
+        self.supported_groups.write_to(record_layer);
+        self.supported_versions.write_to(record_layer);
+        self.key_share.write_to(record_layer, &self.supported_groups, keys);
+        self.max_frag_len.write_to(record_layer);
     }
 }
 
@@ -85,12 +90,16 @@ impl ServerName {
     pub const fn len(&self) -> usize {
         0
     }
+
+    pub fn write_to(&self, _record_layer: &mut RecordLayer) {
+
+    }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum MaxFragmentLength {
-    Nul = 0,
+    Nil = 0,
     Hex200 = 1,
     Hex400 = 2,
     Hex500 = 3,
@@ -99,18 +108,31 @@ pub enum MaxFragmentLength {
 
 impl Default for MaxFragmentLength {
     fn default() -> Self {
-        Self::Nul
+        Self::Nil
     }
 }
 
 impl MaxFragmentLength {
     pub const TAG: [u8; 2] = ExtensionType::MaxFragmentLength.to_be_bytes();
+
+    pub fn as_byte(self) -> u8 {
+        self as u8
+    }
+
     pub const fn len(&self) -> usize {
         // TODO: don't cast to u8 once const traits are stabilized
-        if *self as u8 == Self::Nul as u8 {
+        if *self as u8 == Self::Nil as u8 {
             0
         } else {
             size_of::<MaxFragmentLength>()
+        }
+    }
+
+    pub fn write_to(&self, record_layer: &mut RecordLayer) {
+        if *self != Self::Nil {
+            record_layer.extend_from_slice(&ExtensionType::MaxFragmentLength.to_be_bytes());
+            record_layer.extend_from_slice(&(size_of::<MaxFragmentLength>() as u16).to_be_bytes());
+            record_layer.push(self.as_byte());
         }
     }
 }
@@ -124,8 +146,20 @@ pub struct SupportedGroups {
 impl SupportedGroups {
     pub const TAG: [u8; 2] = [0, 10];
     pub const SECP256R1: u16 = 0b0000000000000001;
+
     pub const fn len(&self) -> usize {
         self.groups.count_ones() as usize * size_of::<NamedGroup>()
+    }
+
+    pub fn write_to(&self, record_layer: &mut RecordLayer) {
+        if self.groups > 0 {
+            record_layer.extend_from_slice(&ExtensionType::SupportedGroups.to_be_bytes());
+            record_layer.extend_from_slice(&(self.len() as u16).to_be_bytes());
+
+            if self.groups & Self::SECP256R1 > 0 {
+                record_layer.extend_from_slice(&NamedGroup::Secp256r1.to_be_bytes());
+            }
+        }
     }
 }
 
@@ -147,6 +181,17 @@ impl SignatureAlgorithms {
     pub const fn len(&self) -> usize {
         self.algorithms.count_ones() as usize * size_of::<SignatureScheme>()
     }
+
+    pub fn write_to(&self, record_layer: &mut RecordLayer) {
+        if self.algorithms > 0 {
+            record_layer.extend_from_slice(&ExtensionType::SignatureAlgorithms.to_be_bytes());
+            record_layer.extend_from_slice(&(self.len() as u16).to_be_bytes());
+
+            if self.algorithms & Self::ECDSA_SECP256R1 > 0 {
+                record_layer.extend_from_slice(&SignatureScheme::EcdsaSecp256r1Sha256.to_be_bytes());
+            }
+        }
+    }
 }
 
 impl Default for SignatureAlgorithms {
@@ -166,8 +211,20 @@ pub struct SupportedVersions {
 impl SupportedVersions {
     pub const TLS_ONE_THREE: u8 = 0b00000001;
     pub const TAG: [u8; 2] = [0, 43];
+
     pub const fn len(&self) -> usize {
         self.versions.count_ones() as usize * size_of::<ProtocolVersion>()
+    }
+
+    pub fn write_to(&self, record_layer: &mut RecordLayer) {
+        if self.versions > 0 {
+            record_layer.extend_from_slice(&ExtensionType::SupportedVersions.to_be_bytes());
+            record_layer.extend_from_slice(&(self.len() as u16).to_be_bytes());
+
+            if self.versions & Self::TLS_ONE_THREE > 0 {
+                record_layer.extend_from_slice(&ProtocolVersion::TlsOnePointThree.to_be_bytes());
+            }
+        }
     }
 }
 
@@ -182,8 +239,23 @@ impl Default for SupportedVersions {
 pub struct KeyShare {}
 
 impl KeyShare {
-    pub const fn len(&self) -> usize {
-        todo!();
+    pub const LEGACY_FORM: u8 = 4;
+    pub const fn len(&self, groups: &SupportedGroups) -> usize {
+        if groups.groups & SupportedGroups::SECP256R1 > 0 {
+            // TODO: use size_of_val(&Self::LEGACY_FORM) once const-stabilized
+            1 + 2 * size_of::<FieldElement<<Secp256r1 as EllipticCurve>::Order>>()
+        } else {
+            0
+        }
+    }
+
+    pub fn write_to(&self, record_layer: &mut RecordLayer, groups: &SupportedGroups, keys: &GroupKeys) {
+        if groups.groups & SupportedGroups::SECP256R1 > 0 {
+            record_layer.push(Self::LEGACY_FORM);
+            let point = Secp256r1::BASE_POINT.as_projective().mul_scalar(&keys.secp256r1).as_affine().expect("private key isn't 0");
+            record_layer.extend_from_slice(&point.x().into_inner().to_be_bytes());
+            record_layer.extend_from_slice(&point.y().into_inner().to_be_bytes());
+        }
     }
 }
 

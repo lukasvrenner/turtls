@@ -1,4 +1,4 @@
-use crate::cipher_suites::CipherSuites;
+use crate::cipher_suites::{CipherSuites, GroupKeys};
 use crate::extensions::Extensions;
 use crate::handshake::ShakeType;
 use crate::record::{ContentType, RecordLayer};
@@ -26,7 +26,7 @@ impl<'a, 'b> ClientHello<'a, 'b> {
             + self.extensions.len()
     }
 
-    pub fn write(&self, record_layer: &mut RecordLayer) -> Result<(), CliHelError> {
+    pub fn write_to(&self, record_layer: &mut RecordLayer, keys: &GroupKeys) -> Result<(), CliHelError> {
         record_layer.start_as(ContentType::Handshake);
         record_layer.push(ShakeType::ClientHello.as_byte());
 
@@ -41,11 +41,11 @@ impl<'a, 'b> ClientHello<'a, 'b> {
 
         record_layer.push(Self::LEGACY_SESSION_ID);
 
-        self.cipher_suites.write(record_layer);
+        self.cipher_suites.write_to(record_layer);
 
         record_layer.extend_from_slice(&Self::LEGACY_COMPRESSION_METHODS);
 
-        self.extensions.write(record_layer);
+        self.extensions.write_to(record_layer, keys);
 
         record_layer.finish_and_send();
         Ok(())

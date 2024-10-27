@@ -32,8 +32,12 @@ impl CipherSuites {
         self.suites.count_ones() as usize * size_of::<CipherSuite>()
     }
 
-    pub fn write(&self, record_layer: &mut RecordLayer) {
-        todo!();
+    pub fn write_to(&self, record_layer: &mut RecordLayer) {
+        if self.suites & Self::AES_128_GCM_SHA256 > 0 {
+            let len = (self.len() as u16).to_be_bytes();
+            record_layer.extend_from_slice(&len);
+            record_layer.extend_from_slice(&CipherSuite::Aes128GcmSha256.to_be_bytes());
+        }
     }
 }
 
