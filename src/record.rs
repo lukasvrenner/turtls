@@ -10,7 +10,6 @@ use std::time::{Duration, Instant};
 pub struct Io {
     pub write_fn: extern "C" fn(buf: *const c_void, amt: usize, ctx: *const c_void) -> isize,
     pub read_fn: extern "C" fn(buf: *mut c_void, amt: usize, ctx: *const c_void) -> isize,
-    pub is_ready_fn: extern "C" fn(ctx: *const c_void) -> bool,
     pub close_fn: extern "C" fn(ctx: *const c_void),
     pub ctx: *const c_void,
 }
@@ -26,10 +25,6 @@ impl Io {
 
     pub fn close(&self) {
         (self.close_fn)(self.ctx);
-    }
-
-    pub fn is_ready(&self) -> bool {
-        (self.is_ready_fn)(self.ctx)
     }
 
     pub fn alert(&self, alert: AlertDescription) -> isize {
@@ -167,7 +162,6 @@ impl RecordLayer {
         buf: &mut [u8; Self::BUF_SIZE],
         expected_type: ContentType,
         io: &Io,
-        timeout: Duration,
     ) -> Result<usize, ReadError> {
         fn handle_alert(alert: &[u8; Alert::SIZE], io: &Io) -> AlertDescription {
             io.close();
@@ -201,23 +195,14 @@ impl RecordLayer {
             return Err(ReadError::UnexpectedMessage);
         }
 
-        let start = Instant::now();
-
         let mut bytes_read = 0;
         while bytes_read < len {
-            // make sure we don't listen indefinetly
-            if start.elapsed() > timeout {
-                return Err(ReadError::Timeout);
-            }
-
-            if io.is_ready() {
-                let Ok(new_bytes): Result<usize, _> = io.read(&mut buf[bytes_read..]).try_into()
-                else {
-                    return Err(ReadError::IoError);
+                let new_bytes = match io.read(&mut buf[bytes_read..]) {
+                    ..0 => return Err(ReadError::IoError),
+                    non_negative => non_negative as usize,
                 };
 
                 bytes_read += new_bytes;
-            }
         }
         Ok(len)
     }
@@ -228,5 +213,4 @@ pub enum ReadError {
     IoError,
     RecievedAlert(AlertDescription),
     UnexpectedMessage,
-    Timeout,
 }
