@@ -1,15 +1,18 @@
 use crate::aead::AeadWriter;
 use crate::alert::{Alert, AlertDescription};
+use crate::state;
 use crate::versions::LEGACY_PROTO_VERS;
 use crylib::aead;
-use std::ffi::c_void;
+use std::ffi::{c_int, c_void};
 use std::mem::MaybeUninit;
 use std::time::{Duration, Instant};
+use std::usize;
 
 #[repr(C)]
 pub struct Io {
     pub write_fn: extern "C" fn(buf: *const c_void, amt: usize, ctx: *const c_void) -> isize,
     pub read_fn: extern "C" fn(buf: *mut c_void, amt: usize, ctx: *const c_void) -> isize,
+    pub poll_fn: extern "C" fn(ctx: *const c_void, timeout: c_int) -> c_int,
     pub close_fn: extern "C" fn(ctx: *const c_void),
     pub ctx: *const c_void,
 }
@@ -25,6 +28,10 @@ impl Io {
 
     pub fn close(&self) {
         (self.close_fn)(self.ctx);
+    }
+
+    pub fn poll(&self, timeout: Duration) -> i32 {
+        (self.poll_fn)(self.ctx, timeout.as_millis() as c_int)
     }
 
     pub fn alert(&self, alert: AlertDescription) -> isize {
@@ -68,7 +75,7 @@ pub struct RecordLayer {
     buf: [u8; Self::BUF_SIZE],
     len: usize,
     msg_type: ContentType,
-    pub io: Io,
+    io: Io,
 }
 
 impl RecordLayer {
@@ -158,17 +165,26 @@ impl RecordLayer {
     ///
     /// If less data is recieved than promised, it will return an `Err(ReadError::Timeout)` after
     /// `timeout` time.
-    pub fn read(
+    pub fn read_to(
         buf: &mut [u8; Self::BUF_SIZE],
         expected_type: ContentType,
         io: &Io,
+        timeout: Duration,
     ) -> Result<usize, ReadError> {
         fn handle_alert(alert: &[u8; Alert::SIZE], io: &Io) -> AlertDescription {
             io.close();
             todo!()
         }
 
+        let start = Instant::now();
         let mut header_buf = [0; Self::PREFIIX_SIZE];
+
+        match io.poll(timeout) {
+            ..0 => return Err(ReadError::IoError),
+            0 => return Err(ReadError::Timeout),
+            1.. => {},
+        }
+
         io.read(&mut header_buf);
 
         let len = u16::from_be_bytes(
@@ -195,22 +211,42 @@ impl RecordLayer {
             return Err(ReadError::UnexpectedMessage);
         }
 
+
         let mut bytes_read = 0;
         while bytes_read < len {
-                let new_bytes = match io.read(&mut buf[bytes_read..]) {
-                    ..0 => return Err(ReadError::IoError),
-                    non_negative => non_negative as usize,
-                };
+            // make sure we don't listen indefinetly
+            let Some(remaining_time) = timeout.checked_sub(start.elapsed()) else {
+                return Err(ReadError::Timeout);
+            };
 
-                bytes_read += new_bytes;
+            match io.poll(remaining_time) {
+                ..0 => return Err(ReadError::IoError),
+                0 => return Err(ReadError::Timeout),
+                1.. => {},
+            }
+
+            match io.read(&mut buf[bytes_read..]) {
+                ..0 => return Err(ReadError::IoError),
+                non_negative => bytes_read += non_negative as usize,
+            }
         }
         Ok(len)
     }
+
+    pub fn read(
+        &mut self,
+        expected_type: ContentType,
+        timeout: Duration,
+    ) -> Result<usize, ReadError> {
+        Self::read_to(&mut self.buf, expected_type, &self.io, timeout)
+    }
 }
 
+#[derive(Debug)]
 pub enum ReadError {
     RecordOverflow,
     IoError,
     RecievedAlert(AlertDescription),
     UnexpectedMessage,
+    Timeout,
 }

@@ -4,6 +4,7 @@ pub enum AlertLevel {
     Fatal = 2,
 }
 
+#[derive(Debug)]
 #[repr(u8)]
 pub enum AlertDescription {
     CloseNotify = 0,

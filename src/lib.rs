@@ -18,6 +18,8 @@ mod server_hello;
 mod state;
 mod versions;
 
+use std::time::Duration;
+
 use aead::{AeadReader, AeadWriter};
 use cipher_suites::{CipherSuite, CipherSuites, GroupKeys};
 use client_hello::{CliHelError, ClientHello};
@@ -60,13 +62,15 @@ pub extern "C" fn shake_hands_client(
         cipher_suites: &cipher_suites,
         extensions: &extensions,
     };
+
     let keys = GroupKeys::generate(extensions.supported_groups);
     if let Err(err) = client_hello.write_to(record_layer, &keys) {
         return err.into();
     }
 
-    let mut buf = Box::new([0; 0x4000]);
-    let len = record_layer.io.read(buf.as_mut());
+    let timeout = Duration::from_secs(10);
+
+    let len = record_layer.read(ContentType::Handshake, timeout).expect("please work");
     println!("{}", len);
     todo!();
 }
