@@ -155,11 +155,9 @@ impl RecordLayer {
         }
     }
 
-    /// Reads the contents of a single record into `buf`, returning an [`Err`] if the read failed,
-    /// and an `Ok(len)` if the read was successful, where `len` is the number of bytes read.
+    /// Reads a single record into `buf`.
     ///
-    /// If less data is recieved than promised, it will return an `Err(ReadError::Timeout)` after
-    /// `timeout` time.
+    /// If the read takes more than `timeout`, a timeout error is returned.
     pub fn read_to(
         buf: &mut [u8; Self::BUF_SIZE],
         expected_type: ContentType,
@@ -171,14 +169,34 @@ impl RecordLayer {
             todo!()
         }
 
+        fn byte_reader(buf: &mut [u8], io: &Io, timeout: Duration, start: Instant) -> Result<usize, ReadError> {
+            let mut bytes_read = 0;
+
+            let mut new_bytes = 0;
+            while new_bytes == 0 {
+
+                if start.elapsed() > timeout {
+                    return Err(ReadError::Timeout);
+                }
+
+                new_bytes = io.read(&mut buf[bytes_read..]);
+
+                if new_bytes < 0 {
+                    io.alert(AlertDescription::InternalError);
+                    return Err(ReadError::IoError);
+                }
+
+                bytes_read += new_bytes as usize
+            }
+            Ok(bytes_read)
+        }
+
         let start = Instant::now();
         let mut header_buf = [0; Self::PREFIIX_SIZE];
 
-        while io.read(&mut header_buf) < 0 {
-            if start.elapsed() > timeout {
-                io.close();
-                return Err(ReadError::Timeout);
-            }
+        match byte_reader(&mut header_buf, io, timeout, start) {
+            Ok(_) => {},
+            err => return err,
         }
 
         let len = u16::from_be_bytes(
@@ -188,6 +206,7 @@ impl RecordLayer {
         ) as usize;
 
         if len > Self::MAX_LEN - Self::PREFIIX_SIZE {
+            io.alert(AlertDescription::RecordOverflow);
             return Err(ReadError::RecordOverflow);
         }
 
@@ -205,23 +224,10 @@ impl RecordLayer {
             return Err(ReadError::UnexpectedMessage);
         }
 
-        let mut bytes_read = 0;
-        while bytes_read < len {
-            let mut new_bytes = io.read(&mut buf[bytes_read..]);
-
-            while new_bytes < 0 {
-                if start.elapsed() > timeout {
-                    io.close();
-                    return Err(ReadError::Timeout);
-                }
-                new_bytes = io.read(&mut buf[bytes_read..]);
-            }
-
-            bytes_read += new_bytes as usize;
-        }
-        Ok(len)
+        byte_reader(buf, io, timeout, start)
     }
 
+    /// Reads a single record into [`RecordLayer`]'s internal buffer.
     pub fn read(
         &mut self,
         expected_type: ContentType,
