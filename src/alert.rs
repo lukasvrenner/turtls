@@ -37,18 +37,38 @@ pub enum AlertDescription {
 }
 
 impl AlertDescription {
-    pub fn from_byte(byte: u8) -> Option<Self> {
+    pub fn from_byte(byte: u8) -> Self {
         use AlertDescription::*;
         // TODO: use inline const once stabilized
         match byte {
-            x if x == CloseNotify as u8 => Some(CloseNotify),
-            x if x == UnexpectedMessage as u8 => Some(UnexpectedMessage),
-            x if x == BadRecordMac as u8 => Some(BadRecordMac),
-            x if x == RecordOverflow as u8 => Some(RecordOverflow),
-            x if x == HandshakeFailure as u8 => Some(HandshakeFailure),
-            x if x == BadCert as u8 => Some(BadCert),
-            x if x == UnsupportedCert as u8 => Some(UnsupportedCert),
-            _ => todo!(),
+            x if x == CloseNotify as u8 => CloseNotify,
+            x if x == UnexpectedMessage as u8 => UnexpectedMessage,
+            x if x == BadRecordMac as u8 => BadRecordMac,
+            x if x == RecordOverflow as u8 => RecordOverflow,
+            x if x == HandshakeFailure as u8 => HandshakeFailure,
+            x if x == BadCert as u8 => BadCert,
+            x if x == UnsupportedCert as u8 => UnsupportedCert,
+            x if x == CertRevoked as u8 => CertRevoked,
+            x if x == CertExpired as u8 => CertExpired,
+            x if x == CertUnknown as u8 => CertUnknown,
+            x if x == IllegalParam as u8 => IllegalParam,
+            x if x == UnknownCa as u8 => UnknownCa,
+            x if x == AccessDenied as u8 => AccessDenied,
+            x if x == DecodeError as u8 => DecodeError,
+            x if x == DecryptErorr as u8 => DecryptErorr,
+            x if x == ProtocolVersion as u8 => ProtocolVersion,
+            x if x == InsufficientSecurity as u8 => InsufficientSecurity,
+            x if x == InternalError as u8 => InternalError,
+            x if x == InappropriateFallback as u8 => InappropriateFallback,
+            x if x == UserCancelled as u8 => UserCancelled,
+            x if x == MissingExtension as u8 => MissingExtension,
+            x if x == UnsupportedExtension as u8 => UnsupportedExtension,
+            x if x == UnrecognizedName as u8 => UnrecognizedName,
+            x if x == BadCertStatusResponse as u8 => BadCertStatusResponse,
+            x if x == UnknownPskIdentity as u8 => UnknownPskIdentity,
+            x if x == CertRequired as u8 => CertRequired,
+            x if x == NoAppProtocol as u8 => NoAppProtocol,
+            _ => CloseNotify,
         }
     }
 }

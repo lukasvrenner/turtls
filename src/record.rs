@@ -10,26 +10,42 @@ use std::usize;
 
 #[repr(C)]
 pub struct Io {
+    /// Any io write function.
+    ///
+    /// `buf`: the buffer to write.
+    /// `amt`: the number of bytes to write.
+    /// `ctx`: any contextual data (e.g. where to write to).
     pub write_fn: extern "C" fn(buf: *const c_void, amt: usize, ctx: *const c_void) -> isize,
+    /// Any *non-blocking* io read function.
+    ///
+    /// `buf`: the buffer to read to.
+    /// `amt`: the maximum number of bytes to read.
+    /// `ctx`: any contextual data (e.g. where to read to).
     pub read_fn: extern "C" fn(buf: *mut c_void, amt: usize, ctx: *const c_void) -> isize,
+
+    /// Any function to close io.
+    ///
+    /// `ctx`: any contextual data (e.g. what socket to close).
     pub close_fn: extern "C" fn(ctx: *const c_void),
+
+    /// Any contextual data.
     pub ctx: *const c_void,
 }
 
 impl Io {
-    pub fn read(&self, buf: &mut [u8]) -> isize {
+    fn read(&self, buf: &mut [u8]) -> isize {
         (self.read_fn)(buf as *mut _ as *mut c_void, buf.len(), self.ctx)
     }
 
-    pub fn write(&self, buf: &[u8]) -> isize {
+    fn write(&self, buf: &[u8]) -> isize {
         (self.write_fn)(buf as *const _ as *const c_void, buf.len(), self.ctx)
     }
 
-    pub fn close(&self) {
+    fn close(&self) {
         (self.close_fn)(self.ctx);
     }
 
-    pub fn alert(&self, alert: AlertDescription) -> isize {
+    fn alert(&self, alert: AlertDescription) -> isize {
         let mut alert_buf = [0; RecordLayer::PREFIIX_SIZE + Alert::SIZE];
 
         alert_buf[0] = ContentType::Alert.to_byte();
@@ -76,9 +92,9 @@ pub struct RecordLayer {
 impl RecordLayer {
     pub const LEN_SIZE: usize = 0x2;
     pub const PREFIIX_SIZE: usize = 0x5;
-    pub const MAX_LEN: usize = 0x4000 + Self::PREFIIX_SIZE;
+    pub const MAX_LEN: usize = 0x4000;
     pub const SUFFIX_SIZE: usize = 0x100;
-    pub const BUF_SIZE: usize = Self::MAX_LEN + Self::SUFFIX_SIZE;
+    pub const BUF_SIZE: usize = Self::PREFIIX_SIZE + Self::MAX_LEN + Self::SUFFIX_SIZE;
 
     pub fn init(record: &mut MaybeUninit<Self>, msg_type: ContentType, io: Io) -> &mut Self {
         let ptr = record.write(Self {
@@ -117,7 +133,7 @@ impl RecordLayer {
     }
 
     pub fn push(&mut self, value: u8) {
-        if self.len() == Self::BUF_SIZE {
+        if self.len() == Self::MAX_LEN + Self::PREFIIX_SIZE {
             self.finish_and_send();
             self.start();
         }
@@ -126,7 +142,7 @@ impl RecordLayer {
     }
 
     pub fn extend_from_slice(&mut self, slice: &[u8]) {
-        let diff = Self::MAX_LEN - self.len();
+        let diff = (Self::MAX_LEN + Self::PREFIIX_SIZE) - self.len();
 
         if slice.len() <= diff {
             self.buf[self.len..][..slice.len()].copy_from_slice(slice);
@@ -135,9 +151,9 @@ impl RecordLayer {
         }
 
         self.buf[self.len..].copy_from_slice(&slice[..diff]);
-        self.len = Self::MAX_LEN;
+        self.len = Self::MAX_LEN + Self::PREFIIX_SIZE;
 
-        for chunk in slice[diff..].chunks(Self::MAX_LEN - Self::PREFIIX_SIZE) {
+        for chunk in slice[diff..].chunks(Self::MAX_LEN) {
             self.finish_and_send();
             self.start();
             self.buf[Self::PREFIIX_SIZE..][..chunk.len()].copy_from_slice(chunk);
@@ -164,22 +180,23 @@ impl RecordLayer {
         io: &Io,
         timeout: Duration,
     ) -> Result<usize, ReadError> {
+        /// Parse the error message.
         fn handle_alert(alert: &[u8; Alert::SIZE], io: &Io) -> AlertDescription {
             io.close();
-            todo!()
+            AlertDescription::from_byte(alert[1])
         }
 
-        fn byte_reader(buf: &mut [u8], io: &Io, timeout: Duration, start: Instant) -> Result<usize, ReadError> {
+        /// Read until the buffer is full or the timer runs out.
+        fn fill_buff(buf: &mut [u8], io: &Io, timeout: Duration, start: Instant) -> Result<(), ReadError> {
             let mut bytes_read = 0;
 
-            let mut new_bytes = 0;
-            while new_bytes == 0 {
+            while bytes_read < buf.len() {
 
                 if start.elapsed() > timeout {
                     return Err(ReadError::Timeout);
                 }
 
-                new_bytes = io.read(&mut buf[bytes_read..]);
+                let new_bytes = io.read(&mut buf[bytes_read..]);
 
                 if new_bytes < 0 {
                     io.alert(AlertDescription::InternalError);
@@ -188,15 +205,14 @@ impl RecordLayer {
 
                 bytes_read += new_bytes as usize
             }
-            Ok(bytes_read)
+            Ok(())
         }
 
         let start = Instant::now();
         let mut header_buf = [0; Self::PREFIIX_SIZE];
 
-        match byte_reader(&mut header_buf, io, timeout, start) {
-            Ok(_) => {},
-            err => return err,
+        if let Err(err) = fill_buff(&mut header_buf, io, timeout, start) {
+            return Err(err);
         }
 
         let len = u16::from_be_bytes(
@@ -205,7 +221,7 @@ impl RecordLayer {
                 .unwrap(),
         ) as usize;
 
-        if len > Self::MAX_LEN - Self::PREFIIX_SIZE {
+        if len > Self::MAX_LEN + Self::SUFFIX_SIZE {
             io.alert(AlertDescription::RecordOverflow);
             return Err(ReadError::RecordOverflow);
         }
@@ -224,7 +240,7 @@ impl RecordLayer {
             return Err(ReadError::UnexpectedMessage);
         }
 
-        byte_reader(buf, io, timeout, start)
+        fill_buff(&mut buf[..len], io, timeout, start).map(|_| len)
     }
 
     /// Reads a single record into [`RecordLayer`]'s internal buffer.
