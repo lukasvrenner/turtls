@@ -12,10 +12,7 @@
 
 #define turtls_CipherSuites_AES_128_GCM_SHA256 1
 
-
-
 #define turtls_SignatureAlgorithms_ECDSA_SECP256R1 1
-
 
 #define turtls_SupportedVersions_TLS_ONE_THREE 1
 
@@ -39,7 +36,6 @@ struct turtls_ShakeResult {
 struct turtls_Io {
     ptrdiff_t (*write_fn)(const void *buf, size_t amt, const void *ctx);
     ptrdiff_t (*read_fn)(void *buf, size_t amt, const void *ctx);
-    int (*poll_fn)(const void *ctx, int timeout);
     void (*close_fn)(const void *ctx);
     const void *ctx;
 };

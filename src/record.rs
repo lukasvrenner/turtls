@@ -12,7 +12,6 @@ use std::usize;
 pub struct Io {
     pub write_fn: extern "C" fn(buf: *const c_void, amt: usize, ctx: *const c_void) -> isize,
     pub read_fn: extern "C" fn(buf: *mut c_void, amt: usize, ctx: *const c_void) -> isize,
-    pub poll_fn: extern "C" fn(ctx: *const c_void, timeout: c_int) -> c_int,
     pub close_fn: extern "C" fn(ctx: *const c_void),
     pub ctx: *const c_void,
 }
@@ -28,10 +27,6 @@ impl Io {
 
     pub fn close(&self) {
         (self.close_fn)(self.ctx);
-    }
-
-    pub fn poll(&self, timeout: Duration) -> i32 {
-        (self.poll_fn)(self.ctx, timeout.as_millis() as c_int)
     }
 
     pub fn alert(&self, alert: AlertDescription) -> isize {
@@ -179,13 +174,12 @@ impl RecordLayer {
         let start = Instant::now();
         let mut header_buf = [0; Self::PREFIIX_SIZE];
 
-        match io.poll(timeout) {
-            ..0 => return Err(ReadError::IoError),
-            0 => return Err(ReadError::Timeout),
-            1.. => {},
+        while io.read(&mut header_buf) < 0 {
+            if start.elapsed() > timeout {
+                io.close();
+                return Err(ReadError::Timeout);
+            }
         }
-
-        io.read(&mut header_buf);
 
         let len = u16::from_be_bytes(
             header_buf[Self::PREFIIX_SIZE - Self::LEN_SIZE..]
@@ -211,24 +205,19 @@ impl RecordLayer {
             return Err(ReadError::UnexpectedMessage);
         }
 
-
         let mut bytes_read = 0;
         while bytes_read < len {
-            // make sure we don't listen indefinetly
-            let Some(remaining_time) = timeout.checked_sub(start.elapsed()) else {
-                return Err(ReadError::Timeout);
-            };
+            let mut new_bytes = io.read(&mut buf[bytes_read..]);
 
-            match io.poll(remaining_time) {
-                ..0 => return Err(ReadError::IoError),
-                0 => return Err(ReadError::Timeout),
-                1.. => {},
+            while new_bytes < 0 {
+                if start.elapsed() > timeout {
+                    io.close();
+                    return Err(ReadError::Timeout);
+                }
+                new_bytes = io.read(&mut buf[bytes_read..]);
             }
 
-            match io.read(&mut buf[bytes_read..]) {
-                ..0 => return Err(ReadError::IoError),
-                non_negative => bytes_read += non_negative as usize,
-            }
+            bytes_read += new_bytes as usize;
         }
         Ok(len)
     }
