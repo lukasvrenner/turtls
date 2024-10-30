@@ -70,7 +70,9 @@ pub extern "C" fn shake_hands_client(
 
     let timeout = Duration::from_secs(10);
 
-    let len = record_layer.read(ContentType::Handshake, timeout).expect("please work");
+    let len = record_layer
+        .read(ContentType::Handshake, timeout)
+        .expect("it all went perfectly");
     println!("{}", len);
     todo!();
 }

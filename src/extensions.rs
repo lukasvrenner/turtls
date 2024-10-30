@@ -2,7 +2,7 @@ use crylib::ec::{EllipticCurve, Secp256r1};
 use crylib::finite_field::FieldElement;
 
 use crate::cipher_suites::{GroupKeys, NamedGroup, SignatureScheme};
-use crate::record::{self, RecordLayer};
+use crate::record::RecordLayer;
 use crate::versions::ProtocolVersion;
 
 #[repr(u16)]
@@ -116,18 +116,18 @@ impl MaxFragmentLength {
     pub const fn len(&self) -> usize {
         // TODO: don't cast to u8 once const traits are stabilized
         if *self as u8 == Self::Nil as u8 {
-            0
-        } else {
-            size_of::<MaxFragmentLength>()
+            return 0;
         }
+        size_of::<MaxFragmentLength>()
     }
 
     pub fn write_to(&self, record_layer: &mut RecordLayer) {
-        if *self != Self::Nil {
-            record_layer.extend_from_slice(&ExtensionType::MaxFragmentLength.to_be_bytes());
-            record_layer.extend_from_slice(&(size_of::<MaxFragmentLength>() as u16).to_be_bytes());
-            record_layer.push(self.to_byte());
+        if *self == Self::Nil {
+            return;
         }
+        record_layer.extend_from_slice(&ExtensionType::MaxFragmentLength.to_be_bytes());
+        record_layer.extend_from_slice(&(size_of::<MaxFragmentLength>() as u16).to_be_bytes());
+        record_layer.push(self.to_byte());
     }
 }
 
@@ -152,16 +152,17 @@ impl SupportedGroups {
     }
 
     pub fn write_to(&self, record_layer: &mut RecordLayer) {
-        if self.groups > 0 {
-            let inner_len = self.inner_len();
-            record_layer.extend_from_slice(&Self::TAG);
-            record_layer.extend_from_slice(&((inner_len + Self::LEN_SIZE) as u16).to_be_bytes());
+        if self.groups == 0 {
+            return;
+        }
+        let inner_len = self.inner_len();
+        record_layer.extend_from_slice(&Self::TAG);
+        record_layer.extend_from_slice(&((inner_len + Self::LEN_SIZE) as u16).to_be_bytes());
 
-            record_layer.extend_from_slice(&((inner_len) as u16).to_be_bytes());
+        record_layer.extend_from_slice(&((inner_len) as u16).to_be_bytes());
 
-            if self.groups & Self::SECP256R1 > 0 {
-                record_layer.extend_from_slice(&NamedGroup::Secp256r1.to_be_bytes());
-            }
+        if self.groups & Self::SECP256R1 > 0 {
+            record_layer.extend_from_slice(&NamedGroup::Secp256r1.to_be_bytes());
         }
     }
 }
@@ -191,15 +192,15 @@ impl SignatureAlgorithms {
     }
 
     pub fn write_to(&self, record_layer: &mut RecordLayer) {
-        if self.algorithms > 0 {
-            record_layer.extend_from_slice(&Self::TAG);
-            record_layer.extend_from_slice(&(self.len() as u16).to_be_bytes());
+        if self.algorithms == 0 {
+            return;
+        }
+        record_layer.extend_from_slice(&Self::TAG);
+        record_layer.extend_from_slice(&(self.len() as u16).to_be_bytes());
 
-            record_layer.extend_from_slice(&(self.inner_len() as u16).to_be_bytes());
-            if self.algorithms & Self::ECDSA_SECP256R1 > 0 {
-                record_layer
-                    .extend_from_slice(&SignatureScheme::EcdsaSecp256r1Sha256.to_be_bytes());
-            }
+        record_layer.extend_from_slice(&(self.inner_len() as u16).to_be_bytes());
+        if self.algorithms & Self::ECDSA_SECP256R1 > 0 {
+            record_layer.extend_from_slice(&SignatureScheme::EcdsaSecp256r1Sha256.to_be_bytes());
         }
     }
 }
@@ -232,16 +233,17 @@ impl SupportedVersions {
     }
 
     pub fn write_to(&self, record_layer: &mut RecordLayer) {
-        if self.versions > 0 {
-            record_layer.extend_from_slice(&Self::TAG);
-            let inner_len = self.inner_len();
-            record_layer.extend_from_slice(&((inner_len + Self::LEN_SIZE) as u16).to_be_bytes());
+        if self.versions == 0 {
+            return;
+        }
+        record_layer.extend_from_slice(&Self::TAG);
+        let inner_len = self.inner_len();
+        record_layer.extend_from_slice(&((inner_len + Self::LEN_SIZE) as u16).to_be_bytes());
 
-            record_layer.extend_from_slice(&(inner_len as u8).to_be_bytes());
+        record_layer.extend_from_slice(&(inner_len as u8).to_be_bytes());
 
-            if self.versions & Self::TLS_ONE_THREE > 0 {
-                record_layer.extend_from_slice(&ProtocolVersion::TlsOnePointThree.to_be_bytes());
-            }
+        if self.versions & Self::TLS_ONE_THREE > 0 {
+            record_layer.extend_from_slice(&ProtocolVersion::TlsOnePointThree.to_be_bytes());
         }
     }
 }
@@ -271,12 +273,11 @@ impl KeyShare {
     }
 
     const fn inner_inner_len(&self, groups: &SupportedGroups) -> usize {
-        if groups.groups & SupportedGroups::SECP256R1 > 0 {
-            // TODO: use size_of_val(&Self::LEGACY_FORM) once const-stabilized
-            1 + 2 * size_of::<FieldElement<<Secp256r1 as EllipticCurve>::Order>>()
-        } else {
-            0
+        if groups.groups & SupportedGroups::SECP256R1 == 0 {
+            return 0;
         }
+        // TODO: use size_of_val(&Self::LEGACY_FORM) once const-stabilized
+        1 + 2 * size_of::<FieldElement<<Secp256r1 as EllipticCurve>::Order>>()
     }
     pub fn write_to(
         &self,
@@ -284,31 +285,32 @@ impl KeyShare {
         groups: &SupportedGroups,
         keys: &GroupKeys,
     ) {
-        if groups.groups > 0 {
-            let mut len = self.len(groups);
-            record_layer.extend_from_slice(&Self::TAG);
+        if groups.groups == 0 {
+            return;
+        }
+        let mut len = self.len(groups);
+        record_layer.extend_from_slice(&Self::TAG);
+        record_layer.extend_from_slice(&(len as u16).to_be_bytes());
+
+        len -= Self::LEN_SIZE;
+        record_layer.extend_from_slice(&(len as u16).to_be_bytes());
+
+        if groups.groups & SupportedGroups::SECP256R1 > 0 {
+            record_layer.extend_from_slice(&NamedGroup::Secp256r1.to_be_bytes());
+
+            len -= size_of::<NamedGroup>() + Self::INNER_LEN_SIZE;
             record_layer.extend_from_slice(&(len as u16).to_be_bytes());
 
-            len -= Self::LEN_SIZE;
-            record_layer.extend_from_slice(&(len as u16).to_be_bytes());
+            record_layer.push(Self::LEGACY_FORM);
 
-            if groups.groups & SupportedGroups::SECP256R1 > 0 {
-                record_layer.extend_from_slice(&NamedGroup::Secp256r1.to_be_bytes());
+            let point = Secp256r1::BASE_POINT
+                .as_projective()
+                .mul_scalar(&keys.secp256r1)
+                .as_affine()
+                .expect("private key isn't 0");
 
-                len -= size_of::<NamedGroup>() + Self::INNER_LEN_SIZE;
-                record_layer.extend_from_slice(&(len as u16).to_be_bytes());
-
-                record_layer.push(Self::LEGACY_FORM);
-
-                let point = Secp256r1::BASE_POINT
-                    .as_projective()
-                    .mul_scalar(&keys.secp256r1)
-                    .as_affine()
-                    .expect("private key isn't 0");
-
-                record_layer.extend_from_slice(&point.x().into_inner().to_be_bytes());
-                record_layer.extend_from_slice(&point.y().into_inner().to_be_bytes());
-            }
+            record_layer.extend_from_slice(&point.x().into_inner().to_be_bytes());
+            record_layer.extend_from_slice(&point.y().into_inner().to_be_bytes());
         }
     }
 }

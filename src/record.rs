@@ -1,12 +1,8 @@
-use crate::aead::AeadWriter;
 use crate::alert::{Alert, AlertDescription};
-use crate::state;
 use crate::versions::LEGACY_PROTO_VERS;
-use crylib::aead;
 use std::ffi::{c_int, c_void};
 use std::mem::MaybeUninit;
 use std::time::{Duration, Instant};
-use std::usize;
 
 #[repr(C)]
 pub struct Io {
@@ -21,6 +17,8 @@ pub struct Io {
     /// `buf`: the buffer to read to.
     /// `amt`: the maximum number of bytes to read.
     /// `ctx`: any contextual data (e.g. where to read to).
+    ///
+    /// This function must return a negative value on error, and `0` when no bytes are read.
     pub read_fn: extern "C" fn(buf: *mut c_void, amt: usize, ctx: *const c_void) -> isize,
 
     /// Any function to close io.
@@ -33,18 +31,22 @@ pub struct Io {
 }
 
 impl Io {
+    #[must_use]
     fn read(&self, buf: &mut [u8]) -> isize {
         (self.read_fn)(buf as *mut _ as *mut c_void, buf.len(), self.ctx)
     }
 
+    #[must_use]
     fn write(&self, buf: &[u8]) -> isize {
         (self.write_fn)(buf as *const _ as *const c_void, buf.len(), self.ctx)
     }
 
+    /// Closes the connection
     fn close(&self) {
         (self.close_fn)(self.ctx);
     }
 
+    /// Sends an alert to the peer and closes the connection.
     fn alert(&self, alert: AlertDescription) -> isize {
         let mut alert_buf = [0; RecordLayer::PREFIIX_SIZE + Alert::SIZE];
 
@@ -175,7 +177,7 @@ impl RecordLayer {
     ///
     /// If the read takes more than `timeout`, a timeout error is returned.
     pub fn read_to(
-        buf: &mut [u8; Self::BUF_SIZE],
+        buf: &mut [u8; Self::MAX_LEN + Self::SUFFIX_SIZE],
         expected_type: ContentType,
         io: &Io,
         timeout: Duration,
@@ -187,12 +189,17 @@ impl RecordLayer {
         }
 
         /// Read until the buffer is full or the timer runs out.
-        fn fill_buff(buf: &mut [u8], io: &Io, timeout: Duration, start: Instant) -> Result<(), ReadError> {
+        fn fill_buff(
+            buf: &mut [u8],
+            io: &Io,
+            timeout: Duration,
+            start: Instant,
+        ) -> Result<(), ReadError> {
             let mut bytes_read = 0;
 
             while bytes_read < buf.len() {
-
                 if start.elapsed() > timeout {
+                    io.alert(AlertDescription::CloseNotify);
                     return Err(ReadError::Timeout);
                 }
 
@@ -230,7 +237,8 @@ impl RecordLayer {
 
         if msg_type == ContentType::Alert.to_byte() {
             let mut alert = [0; Alert::SIZE];
-            io.read(&mut alert);
+            // we don't need to handle errors because we're already returning an error
+            let _ = fill_buff(&mut alert, io, timeout, start);
             return Err(ReadError::RecievedAlert(handle_alert(&alert, io)));
         }
 
@@ -249,7 +257,12 @@ impl RecordLayer {
         expected_type: ContentType,
         timeout: Duration,
     ) -> Result<usize, ReadError> {
-        Self::read_to(&mut self.buf, expected_type, &self.io, timeout)
+        Self::read_to(
+            (&mut self.buf[Self::PREFIIX_SIZE..]).try_into().unwrap(),
+            expected_type,
+            &self.io,
+            timeout,
+        )
     }
 }
 
