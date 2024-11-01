@@ -21,6 +21,7 @@ mod versions;
 use std::time::Duration;
 
 use aead::{AeadReader, AeadWriter};
+pub use alert::AlertDescription;
 use cipher_suites::{CipherSuite, CipherSuites, GroupKeys};
 use client_hello::{CliHelError, ClientHello};
 use crylib::big_int::UBigInt;
@@ -32,11 +33,13 @@ use record::ContentType;
 pub use record::Io;
 use state::State;
 
+#[must_use]
 #[repr(C)]
 pub enum ShakeResult {
     Ok(Box<State>),
     RngError,
     IoError,
+    RecievedAlert(AlertDescription),
 }
 
 impl From<CliHelError> for ShakeResult {

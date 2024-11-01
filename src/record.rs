@@ -182,11 +182,6 @@ impl RecordLayer {
         io: &Io,
         timeout: Duration,
     ) -> Result<usize, ReadError> {
-        /// Parse the error message.
-        fn handle_alert(alert: &[u8; Alert::SIZE], io: &Io) -> AlertDescription {
-            io.close();
-            AlertDescription::from_byte(alert[1])
-        }
 
         /// Read until the buffer is full or the timer runs out.
         fn fill_buff(
@@ -239,12 +234,15 @@ impl RecordLayer {
             let mut alert = [0; Alert::SIZE];
             // we don't need to handle errors because we're already returning an error
             let _ = fill_buff(&mut alert, io, timeout, start);
-            return Err(ReadError::RecievedAlert(handle_alert(&alert, io)));
+            io.close();
+
+            return Err(ReadError::RecievedAlert(AlertDescription::from_byte(
+                alert[1],
+            )));
         }
 
         if msg_type != expected_type.to_byte() {
             io.alert(AlertDescription::UnexpectedMessage);
-
             return Err(ReadError::UnexpectedMessage);
         }
 

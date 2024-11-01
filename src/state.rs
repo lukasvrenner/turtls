@@ -8,7 +8,6 @@ use crate::record::{ContentType, Io, RecordLayer};
 pub struct State {
     aead_writer: AeadWriter,
     aead_reader: AeadReader,
-    group_keys: GroupKeys,
     msg_buf: RecordLayer,
     config: Config,
 }
@@ -37,10 +36,11 @@ impl State {
     }
 
     pub fn get_uninit_config(state: &mut MaybeUninit<Self>) -> &mut MaybeUninit<Config> {
-        let ptr = state.as_mut_ptr();
+        let state_ptr = state.as_mut_ptr();
         // SAFETY: `MaybeUninit<T>` has the same memory layout as `T` so we can
         // access pointers to fields as long as we cast the pointer back into a `MaybeUninit`.
-        let config_ptr = unsafe { &raw mut (*ptr).config.read_timeout as *mut MaybeUninit<Config> };
+        let config_ptr =
+            unsafe { &raw mut (*state_ptr).config.read_timeout as *mut MaybeUninit<Config> };
         // SAFETY: The pointer was just grabbed from a valid field.
         unsafe { &mut *config_ptr }
     }
