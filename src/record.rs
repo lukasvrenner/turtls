@@ -1,6 +1,6 @@
-use crate::alert::{Alert, AlertDescription};
+use crate::alert::{Alert, AlertMsg};
 use crate::versions::LEGACY_PROTO_VERS;
-use std::ffi::{c_int, c_void};
+use std::ffi::c_void;
 use std::mem::MaybeUninit;
 use std::time::{Duration, Instant};
 
@@ -47,15 +47,15 @@ impl Io {
     }
 
     /// Sends an alert to the peer and closes the connection.
-    fn alert(&self, alert: AlertDescription) -> isize {
-        let mut alert_buf = [0; RecordLayer::PREFIIX_SIZE + Alert::SIZE];
+    fn alert(&self, alert: Alert) -> isize {
+        let mut alert_buf = [0; RecordLayer::PREFIIX_SIZE + AlertMsg::SIZE];
 
         alert_buf[0] = ContentType::Alert.to_byte();
         alert_buf[1..3].copy_from_slice(&LEGACY_PROTO_VERS.to_be_bytes());
         alert_buf[RecordLayer::PREFIIX_SIZE - RecordLayer::LEN_SIZE..RecordLayer::PREFIIX_SIZE]
-            .copy_from_slice(&(Alert::SIZE as u16).to_be_bytes());
+            .copy_from_slice(&(AlertMsg::SIZE as u16).to_be_bytes());
 
-        Alert::new_in(
+        AlertMsg::new_in(
             (&mut alert_buf[RecordLayer::PREFIIX_SIZE..])
                 .try_into()
                 .unwrap(),
@@ -70,7 +70,7 @@ impl Io {
 
 #[repr(u8)]
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub enum ContentType {
+pub(crate) enum ContentType {
     Invalid = 0,
     ChangeCipherSpec = 20,
     Alert = 21,
@@ -79,12 +79,12 @@ pub enum ContentType {
 }
 
 impl ContentType {
-    pub fn to_byte(self) -> u8 {
+    pub(crate) fn to_byte(self) -> u8 {
         self as u8
     }
 }
 
-pub struct RecordLayer {
+pub(crate) struct RecordLayer {
     buf: [u8; Self::BUF_SIZE],
     len: usize,
     msg_type: ContentType,
@@ -92,13 +92,13 @@ pub struct RecordLayer {
 }
 
 impl RecordLayer {
-    pub const LEN_SIZE: usize = 0x2;
-    pub const PREFIIX_SIZE: usize = 0x5;
-    pub const MAX_LEN: usize = 0x4000;
-    pub const SUFFIX_SIZE: usize = 0x100;
-    pub const BUF_SIZE: usize = Self::PREFIIX_SIZE + Self::MAX_LEN + Self::SUFFIX_SIZE;
+    pub(crate) const LEN_SIZE: usize = 0x2;
+    pub(crate) const PREFIIX_SIZE: usize = 0x5;
+    pub(crate) const MAX_LEN: usize = 0x4000;
+    pub(crate) const SUFFIX_SIZE: usize = 0x100;
+    pub(crate) const BUF_SIZE: usize = Self::PREFIIX_SIZE + Self::MAX_LEN + Self::SUFFIX_SIZE;
 
-    pub fn init(record: &mut MaybeUninit<Self>, msg_type: ContentType, io: Io) -> &mut Self {
+    pub(crate) fn init(record: &mut MaybeUninit<Self>, msg_type: ContentType, io: Io) -> &mut Self {
         let ptr = record.write(Self {
             buf: [0; Self::BUF_SIZE],
             len: 0,
@@ -109,32 +109,32 @@ impl RecordLayer {
         ptr
     }
 
-    pub fn start_as(&mut self, msg_type: ContentType) {
+    pub(crate) fn start_as(&mut self, msg_type: ContentType) {
         self.msg_type = msg_type;
         self.start();
     }
 
-    pub fn start(&mut self) {
+    pub(crate) fn start(&mut self) {
         self.buf[0] = self.msg_type.to_byte();
         self.buf[1..3].copy_from_slice(&LEGACY_PROTO_VERS.to_be_bytes());
         self.len = Self::PREFIIX_SIZE;
     }
 
-    pub fn finish(&mut self) {
+    pub(crate) fn finish(&mut self) {
         let len = ((self.len() - Self::PREFIIX_SIZE) as u16).to_be_bytes();
         self.buf[Self::PREFIIX_SIZE - Self::LEN_SIZE..Self::PREFIIX_SIZE].copy_from_slice(&len);
     }
 
-    pub fn finish_and_send(&mut self) {
+    pub(crate) fn finish_and_send(&mut self) {
         self.finish();
         self.io.write(&self.buf);
     }
 
-    pub fn len(&self) -> usize {
+    pub(crate) fn len(&self) -> usize {
         self.len
     }
 
-    pub fn push(&mut self, value: u8) {
+    pub(crate) fn push(&mut self, value: u8) {
         if self.len() == Self::MAX_LEN + Self::PREFIIX_SIZE {
             self.finish_and_send();
             self.start();
@@ -143,7 +143,7 @@ impl RecordLayer {
         self.len += 1;
     }
 
-    pub fn extend_from_slice(&mut self, slice: &[u8]) {
+    pub(crate) fn extend_from_slice(&mut self, slice: &[u8]) {
         let diff = (Self::MAX_LEN + Self::PREFIIX_SIZE) - self.len();
 
         if slice.len() <= diff {
@@ -163,11 +163,11 @@ impl RecordLayer {
         }
     }
 
-    pub fn extend(&mut self, amt: usize) {
+    pub(crate) fn extend(&mut self, amt: usize) {
         self.extend_with(0, amt);
     }
 
-    pub fn extend_with(&mut self, value: u8, amt: usize) {
+    pub(crate) fn extend_with(&mut self, value: u8, amt: usize) {
         for _ in 0..amt {
             self.push(value);
         }
@@ -176,13 +176,12 @@ impl RecordLayer {
     /// Reads a single record into `buf`.
     ///
     /// If the read takes more than `timeout`, a timeout error is returned.
-    pub fn read_to(
+    pub(crate) fn read_to(
         buf: &mut [u8; Self::MAX_LEN + Self::SUFFIX_SIZE],
         expected_type: ContentType,
         io: &Io,
         timeout: Duration,
     ) -> Result<usize, ReadError> {
-
         /// Read until the buffer is full or the timer runs out.
         fn fill_buff(
             buf: &mut [u8],
@@ -194,14 +193,14 @@ impl RecordLayer {
 
             while bytes_read < buf.len() {
                 if start.elapsed() > timeout {
-                    io.alert(AlertDescription::CloseNotify);
+                    io.alert(Alert::CloseNotify);
                     return Err(ReadError::Timeout);
                 }
 
                 let new_bytes = io.read(&mut buf[bytes_read..]);
 
                 if new_bytes < 0 {
-                    io.alert(AlertDescription::InternalError);
+                    io.alert(Alert::InternalError);
                     return Err(ReadError::IoError);
                 }
 
@@ -224,25 +223,23 @@ impl RecordLayer {
         ) as usize;
 
         if len > Self::MAX_LEN + Self::SUFFIX_SIZE {
-            io.alert(AlertDescription::RecordOverflow);
+            io.alert(Alert::RecordOverflow);
             return Err(ReadError::RecordOverflow);
         }
 
         let msg_type = header_buf[0];
 
         if msg_type == ContentType::Alert.to_byte() {
-            let mut alert = [0; Alert::SIZE];
+            let mut alert = [0; AlertMsg::SIZE];
             // we don't need to handle errors because we're already returning an error
             let _ = fill_buff(&mut alert, io, timeout, start);
             io.close();
 
-            return Err(ReadError::RecievedAlert(AlertDescription::from_byte(
-                alert[1],
-            )));
+            return Err(ReadError::RecievedAlert(Alert::from_byte(alert[1])));
         }
 
         if msg_type != expected_type.to_byte() {
-            io.alert(AlertDescription::UnexpectedMessage);
+            io.alert(Alert::UnexpectedMessage);
             return Err(ReadError::UnexpectedMessage);
         }
 
@@ -250,7 +247,7 @@ impl RecordLayer {
     }
 
     /// Reads a single record into [`RecordLayer`]'s internal buffer.
-    pub fn read(
+    pub(crate) fn read(
         &mut self,
         expected_type: ContentType,
         timeout: Duration,
@@ -265,10 +262,10 @@ impl RecordLayer {
 }
 
 #[derive(Debug)]
-pub enum ReadError {
+pub(crate) enum ReadError {
     RecordOverflow,
     IoError,
-    RecievedAlert(AlertDescription),
+    RecievedAlert(Alert),
     UnexpectedMessage,
     Timeout,
 }

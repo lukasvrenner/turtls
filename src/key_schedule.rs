@@ -1,5 +1,5 @@
 use crylib::{hash::BlockHasher, hkdf::expand};
-pub fn hkdf_expand_label<const H_LEN: usize, const B_LEN: usize, const K_LEN: usize, H>(
+pub(crate) fn hkdf_expand_label<const H_LEN: usize, const B_LEN: usize, const K_LEN: usize, H>(
     secret: &[u8; H_LEN],
     label: &[u8],
     context: &[u8],
@@ -20,7 +20,7 @@ where
     expand::<H_LEN, B_LEN, K_LEN, H>(secret, &hkdf_label)
 }
 
-pub fn hkdf_label<const H_LEN: usize, const B_LEN: usize, const K_LEN: usize, H>(
+pub(crate) fn hkdf_label<const H_LEN: usize, const B_LEN: usize, const K_LEN: usize, H>(
     secret: &[u8; H_LEN],
     label: &[u8],
     msgs: &[u8],

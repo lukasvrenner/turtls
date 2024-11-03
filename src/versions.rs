@@ -1,16 +1,16 @@
 #[repr(u16)]
-pub enum ProtocolVersion {
-    SslThreePointZero = 0x0300,
-    TlsOnePointZero = 0x0301,
-    TlsOnePointOne = 0x0302,
-    TlsOnePointTwo = 0x0303,
-    TlsOnePointThree = 0x0304,
+pub(crate) enum ProtocolVersion {
+    SslThreeZero = 0x0300,
+    TlsOneZero = 0x0301,
+    TlsOneOne = 0x0302,
+    TlsOneTwo = 0x0303,
+    TlsOneThree = 0x0304,
 }
 
-pub const LEGACY_PROTO_VERS: ProtocolVersion = ProtocolVersion::TlsOnePointTwo;
+pub(crate) const LEGACY_PROTO_VERS: ProtocolVersion = ProtocolVersion::TlsOneTwo;
 
 impl ProtocolVersion {
-    pub const fn to_be_bytes(self) -> [u8; 2] {
+    pub(crate) const fn to_be_bytes(self) -> [u8; 2] {
         (self as u16).to_be_bytes()
     }
 }

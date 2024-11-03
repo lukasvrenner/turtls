@@ -6,16 +6,16 @@ use crate::versions::ProtocolVersion;
 use crate::versions::LEGACY_PROTO_VERS;
 use getrandom::{getrandom, Error};
 
-pub struct ClientHello<'a, 'b> {
-    pub cipher_suites: &'b CipherSuites,
-    pub extensions: &'a Extensions,
+pub(crate) struct ClientHello<'a, 'b> {
+    pub(crate) cipher_suites: &'b CipherSuites,
+    pub(crate) extensions: &'a Extensions,
 }
 
 impl<'a, 'b> ClientHello<'a, 'b> {
-    pub const RANDOM_BYTES_LEN: usize = 32;
-    pub const LEGACY_SESSION_ID: u8 = 0;
-    pub const LEGACY_COMPRESSION_METHODS: [u8; 2] = [1, 0];
-    pub const fn len(&self) -> usize {
+    pub(crate) const RANDOM_BYTES_LEN: usize = 32;
+    pub(crate) const LEGACY_SESSION_ID: u8 = 0;
+    pub(crate) const LEGACY_COMPRESSION_METHODS: [u8; 2] = [1, 0];
+    pub(crate) const fn len(&self) -> usize {
         size_of::<ProtocolVersion>()
             + Self::RANDOM_BYTES_LEN
             // TODO use size_of_val once it is const-stabilized
@@ -28,7 +28,7 @@ impl<'a, 'b> ClientHello<'a, 'b> {
             + self.extensions.len()
     }
 
-    pub fn write_to(
+    pub(crate) fn write_to(
         &self,
         record_layer: &mut RecordLayer,
         keys: &GroupKeys,
@@ -62,7 +62,7 @@ impl<'a, 'b> ClientHello<'a, 'b> {
     }
 }
 
-pub enum CliHelError {
+pub(crate) enum CliHelError {
     RngError,
     IoError,
 }
@@ -73,20 +73,20 @@ impl From<Error> for CliHelError {
     }
 }
 
-pub enum CliHelloParseError {
+pub(crate) enum CliHelloParseError {
     MissingData,
     InvalidLengthEncoding,
 }
 
-pub struct ClientHelloRef<'a> {
-    pub random_bytes: &'a [u8; 32],
-    pub session_id: &'a [u8],
-    pub cipher_suites: &'a [u8],
-    pub extensions: &'a [u8],
+pub(crate) struct ClientHelloRef<'a> {
+    pub(crate) random_bytes: &'a [u8; 32],
+    pub(crate) session_id: &'a [u8],
+    pub(crate) cipher_suites: &'a [u8],
+    pub(crate) extensions: &'a [u8],
 }
 
 impl<'a> ClientHelloRef<'a> {
-    pub fn parse(client_hello: &'a [u8]) -> Result<Self, CliHelloParseError> {
+    pub(crate) fn parse(client_hello: &'a [u8]) -> Result<Self, CliHelloParseError> {
         let mut pos = size_of::<ProtocolVersion>();
         let random_bytes = <&[u8; ClientHello::RANDOM_BYTES_LEN]>::try_from(
             &client_hello[pos..][..ClientHello::RANDOM_BYTES_LEN],

@@ -1,5 +1,4 @@
-//! This crate has the long-term goal of
-//!becoming a fully compliant TLS 1.3 library, with C bindings.
+//! A WIP TLS 1.3 library with a C ABI.
 //!
 //! <div class="warning">
 //! WARNING: This code has not been audited. Use at your own risk.
@@ -10,6 +9,7 @@ mod aead;
 mod alert;
 mod cipher_suites;
 mod client_hello;
+mod config;
 mod extensions;
 mod handshake;
 mod key_schedule;
@@ -20,18 +20,15 @@ mod versions;
 
 use std::time::Duration;
 
-use aead::{AeadReader, AeadWriter};
-pub use alert::AlertDescription;
-use cipher_suites::{CipherSuite, CipherSuites, GroupKeys};
+use cipher_suites::GroupKeys;
 use client_hello::{CliHelError, ClientHello};
-use crylib::big_int::UBigInt;
-use crylib::ec::Secp256r1;
-use crylib::finite_field::FieldElement;
-use extensions::Extensions;
-use getrandom::{getrandom, Error};
 use record::ContentType;
-pub use record::Io;
 use state::State;
+
+pub use alert::Alert;
+pub use cipher_suites::CipherSuites;
+pub use config::Config;
+pub use record::Io;
 
 #[must_use]
 #[repr(C)]
@@ -39,7 +36,8 @@ pub enum ShakeResult {
     Ok(Box<State>),
     RngError,
     IoError,
-    RecievedAlert(AlertDescription),
+    RecievedAlert(Alert),
+    NullPtr,
 }
 
 impl From<CliHelError> for ShakeResult {
@@ -51,38 +49,53 @@ impl From<CliHelError> for ShakeResult {
     }
 }
 
-/// Performs a TLS handshake as the client, returning the connection state
+/// Generates a default configuration struct.
 #[no_mangle]
-pub extern "C" fn shake_hands_client(
+pub extern "C" fn turtls_generate_config() -> Config {
+    Config::default()
+}
+
+/// Performs a TLS handshake as the client, returning the connection state or an error.
+#[no_mangle]
+pub extern "C" fn turtls_client_handshake(
     // TODO: use c_size_t and c_ssize_t once stabilized
     io: Io,
+    config: *const Config,
 ) -> ShakeResult {
-    let cipher_suites = CipherSuites::default();
-    let extensions = Extensions::default();
+    if config.is_null() {
+        return ShakeResult::NullPtr;
+    }
+    // SAFETY: we just checked to ensure the pointer was non-null.
+    let config = unsafe { &*config };
+
     let mut state = State::new_uninit();
-    let record_layer = State::init_buf_with(&mut state, ContentType::Handshake, io);
+
+    let record_layer = State::init_record_layer(&mut state, ContentType::Handshake, io);
+
     let client_hello = ClientHello {
-        cipher_suites: &cipher_suites,
-        extensions: &extensions,
+        cipher_suites: &config.cipher_suites,
+        extensions: &config.extensions,
     };
 
-    let keys = GroupKeys::generate(extensions.supported_groups);
+    let keys = GroupKeys::generate(config.extensions.sup_groups);
+
     if let Err(err) = client_hello.write_to(record_layer, &keys) {
         return err.into();
     }
 
-    let timeout = Duration::from_secs(10);
-
     let len = record_layer
-        .read(ContentType::Handshake, timeout)
+        .read(
+            ContentType::Handshake,
+            Duration::from_millis(config.timeout_millis),
+        )
         .expect("it all went perfectly");
     println!("{}", len);
     todo!();
 }
 
-/// Listens for and performs a TLS handshake as the server, returning the connection state
+/// Performs a TLS handshake as the server, returning the connection state or an error.
 #[no_mangle]
-pub extern "C" fn shake_hands_server(
+pub extern "C" fn turtls_server_handshake(
     // TODO: use c_size_t and c_ssize_t once stabilized
     io: Io,
 ) -> ShakeResult {

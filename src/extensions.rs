@@ -6,7 +6,7 @@ use crate::record::RecordLayer;
 use crate::versions::ProtocolVersion;
 
 #[repr(u16)]
-pub enum ExtensionType {
+pub(crate) enum ExtensionType {
     ServerName = 0,
     MaxFragmentLength = 1,
     StatusRequest = 5,
@@ -38,18 +38,18 @@ impl ExtensionType {
 }
 
 #[derive(Default)]
+#[repr(C)]
 pub struct Extensions {
-    pub server_name: ServerName,
-    pub signature_algorithms: SignatureAlgorithms,
-    pub supported_groups: SupportedGroups,
-    pub supported_versions: SupportedVersions,
-    pub key_share: KeyShare,
-    pub max_frag_len: MaxFragmentLength,
+    pub sig_algs: SigAlgs,
+    pub sup_groups: SupGroups,
+    pub sup_versions: SupVersions,
+    pub max_frag_len: MaxFragLen,
 }
 
 impl Extensions {
-    pub const LEN_SIZE: usize = 2;
-    pub const HEADER_SIZE: usize = size_of::<ExtensionType>() + Self::LEN_SIZE;
+    pub(crate) const LEN_SIZE: usize = 2;
+    const EXTENSION_LEN_SIZE: usize = 2;
+    const HEADER_SIZE: usize = size_of::<ExtensionType>() + Self::EXTENSION_LEN_SIZE;
 
     pub const fn len(&self) -> usize {
         const fn new_len(new_len: usize) -> usize {
@@ -57,56 +57,39 @@ impl Extensions {
         }
 
         let mut len = 0;
-        len += new_len(self.signature_algorithms.len());
-        len += new_len(self.supported_groups.len());
-        len += new_len(self.supported_versions.len());
-        len += new_len(self.key_share.len(&self.supported_groups));
+        len += new_len(self.sig_algs.len());
+        len += new_len(self.sup_groups.len());
+        len += new_len(self.sup_versions.len());
+        len += new_len(KeyShare::len(&self.sup_groups));
 
         len
     }
 
     pub fn write_to(&self, record_layer: &mut RecordLayer, keys: &GroupKeys) {
-        self.signature_algorithms.write_to(record_layer);
-        self.supported_versions.write_to(record_layer);
-        self.supported_groups.write_to(record_layer);
-        self.key_share
-            .write_to(record_layer, &self.supported_groups, keys);
+        self.sig_algs.write_to(record_layer);
+        self.sup_versions.write_to(record_layer);
+        self.sup_groups.write_to(record_layer);
+        KeyShare::write_to(record_layer, &self.sup_groups, keys);
     }
-}
-
-pub struct ServerName {}
-
-impl Default for ServerName {
-    fn default() -> Self {
-        Self {}
-    }
-}
-
-impl ServerName {
-    pub const fn len(&self) -> usize {
-        0
-    }
-
-    pub fn write_to(&self, _record_layer: &mut RecordLayer) {}
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
-pub enum MaxFragmentLength {
-    Nil = 0,
+pub enum MaxFragLen {
+    Default = 0,
     Hex200 = 1,
     Hex400 = 2,
     Hex500 = 3,
     Hex600 = 4,
 }
 
-impl Default for MaxFragmentLength {
+impl Default for MaxFragLen {
     fn default() -> Self {
-        Self::Nil
+        Self::Default
     }
 }
 
-impl MaxFragmentLength {
+impl MaxFragLen {
     pub const TAG: [u8; 2] = ExtensionType::MaxFragmentLength.to_be_bytes();
 
     pub const fn to_byte(self) -> u8 {
@@ -115,30 +98,29 @@ impl MaxFragmentLength {
 
     pub const fn len(&self) -> usize {
         // TODO: don't cast to u8 once const traits are stabilized
-        if *self as u8 == Self::Nil as u8 {
+        if *self as u8 == Self::Default as u8 {
             return 0;
         }
-        size_of::<MaxFragmentLength>()
+        size_of::<MaxFragLen>()
     }
 
     pub fn write_to(&self, record_layer: &mut RecordLayer) {
-        if *self == Self::Nil {
+        if *self == Self::Default {
             return;
         }
         record_layer.extend_from_slice(&ExtensionType::MaxFragmentLength.to_be_bytes());
-        record_layer.extend_from_slice(&(size_of::<MaxFragmentLength>() as u16).to_be_bytes());
+        record_layer.extend_from_slice(&(size_of::<MaxFragLen>() as u16).to_be_bytes());
         record_layer.push(self.to_byte());
     }
 }
 
-pub struct StatusRequest {}
-
 #[derive(Clone, Copy)]
-pub struct SupportedGroups {
+#[repr(transparent)]
+pub struct SupGroups {
     pub groups: u16,
 }
 
-impl SupportedGroups {
+impl SupGroups {
     pub const TAG: [u8; 2] = [0, 10];
     const LEN_SIZE: usize = 2;
     pub const SECP256R1: u16 = 0b0000000000000001;
@@ -167,7 +149,7 @@ impl SupportedGroups {
     }
 }
 
-impl Default for SupportedGroups {
+impl Default for SupGroups {
     fn default() -> Self {
         Self {
             groups: Self::SECP256R1,
@@ -175,11 +157,12 @@ impl Default for SupportedGroups {
     }
 }
 
-pub struct SignatureAlgorithms {
+#[repr(transparent)]
+pub struct SigAlgs {
     pub algorithms: u16,
 }
 
-impl SignatureAlgorithms {
+impl SigAlgs {
     pub const ECDSA_SECP256R1: u16 = 0b0000000000000001;
     pub const TAG: [u8; 2] = [0, 13];
     const LEN_SIZE: usize = 2;
@@ -205,7 +188,7 @@ impl SignatureAlgorithms {
     }
 }
 
-impl Default for SignatureAlgorithms {
+impl Default for SigAlgs {
     fn default() -> Self {
         Self {
             algorithms: Self::ECDSA_SECP256R1,
@@ -213,13 +196,15 @@ impl Default for SignatureAlgorithms {
     }
 }
 
+#[repr(transparent)]
 pub struct UseSrtp {}
 
-pub struct SupportedVersions {
+#[repr(transparent)]
+pub struct SupVersions {
     pub versions: u8,
 }
 
-impl SupportedVersions {
+impl SupVersions {
     pub const TLS_ONE_THREE: u8 = 0b00000001;
     const LEN_SIZE: usize = 1;
     pub const TAG: [u8; 2] = [0, 43];
@@ -243,12 +228,12 @@ impl SupportedVersions {
         record_layer.extend_from_slice(&(inner_len as u8).to_be_bytes());
 
         if self.versions & Self::TLS_ONE_THREE > 0 {
-            record_layer.extend_from_slice(&ProtocolVersion::TlsOnePointThree.to_be_bytes());
+            record_layer.extend_from_slice(&ProtocolVersion::TlsOneThree.to_be_bytes());
         }
     }
 }
 
-impl Default for SupportedVersions {
+impl Default for SupVersions {
     fn default() -> Self {
         Self {
             versions: Self::TLS_ONE_THREE,
@@ -264,38 +249,33 @@ impl KeyShare {
     const INNER_LEN_SIZE: usize = 2;
     pub const TAG: [u8; 2] = [0, 51];
 
-    pub const fn len(&self, groups: &SupportedGroups) -> usize {
-        self.inner_len(groups) + Self::LEN_SIZE
+    pub const fn len(groups: &SupGroups) -> usize {
+        Self::inner_len(groups) + Self::LEN_SIZE
     }
 
-    const fn inner_len(&self, groups: &SupportedGroups) -> usize {
-        self.inner_inner_len(groups) + Self::INNER_LEN_SIZE + size_of::<NamedGroup>()
+    const fn inner_len(groups: &SupGroups) -> usize {
+        Self::inner_inner_len(groups) + Self::INNER_LEN_SIZE + size_of::<NamedGroup>()
     }
 
-    const fn inner_inner_len(&self, groups: &SupportedGroups) -> usize {
-        if groups.groups & SupportedGroups::SECP256R1 == 0 {
+    const fn inner_inner_len(groups: &SupGroups) -> usize {
+        if groups.groups & SupGroups::SECP256R1 == 0 {
             return 0;
         }
         // TODO: use size_of_val(&Self::LEGACY_FORM) once const-stabilized
         1 + 2 * size_of::<FieldElement<<Secp256r1 as EllipticCurve>::Order>>()
     }
-    pub fn write_to(
-        &self,
-        record_layer: &mut RecordLayer,
-        groups: &SupportedGroups,
-        keys: &GroupKeys,
-    ) {
+    pub fn write_to(record_layer: &mut RecordLayer, groups: &SupGroups, keys: &GroupKeys) {
         if groups.groups == 0 {
             return;
         }
-        let mut len = self.len(groups);
+        let mut len = Self::len(groups);
         record_layer.extend_from_slice(&Self::TAG);
         record_layer.extend_from_slice(&(len as u16).to_be_bytes());
 
         len -= Self::LEN_SIZE;
         record_layer.extend_from_slice(&(len as u16).to_be_bytes());
 
-        if groups.groups & SupportedGroups::SECP256R1 > 0 {
+        if groups.groups & SupGroups::SECP256R1 > 0 {
             record_layer.extend_from_slice(&NamedGroup::Secp256r1.to_be_bytes());
 
             len -= size_of::<NamedGroup>() + Self::INNER_LEN_SIZE;

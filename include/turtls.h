@@ -10,18 +10,66 @@
 #include <stdlib.h>
 
 
-#define turtls_CipherSuites_AES_128_GCM_SHA256 1
+enum turtls_Alert
+#ifdef __cplusplus
+  : uint8_t
+#endif // __cplusplus
+ {
+    TURTLS_ALERT_CLOSE_NOTIFY = 0,
+    TURTLS_ALERT_UNEXPECTED_MESSAGE = 10,
+    TURTLS_ALERT_BAD_RECORD_MAC = 20,
+    TURTLS_ALERT_RECORD_OVERFLOW = 22,
+    TURTLS_ALERT_HANDSHAKE_FAILURE = 40,
+    TURTLS_ALERT_BAD_CERT = 42,
+    TURTLS_ALERT_UNSUPPORTED_CERT = 43,
+    TURTLS_ALERT_CERT_REVOKED = 44,
+    TURTLS_ALERT_CERT_EXPIRED = 45,
+    TURTLS_ALERT_CERT_UNKNOWN = 46,
+    TURTLS_ALERT_ILLEGAL_PARAM = 47,
+    TURTLS_ALERT_UNKNOWN_CA = 48,
+    TURTLS_ALERT_ACCESS_DENIED = 49,
+    TURTLS_ALERT_DECODE_ERROR = 50,
+    TURTLS_ALERT_DECRYPT_ERORR = 51,
+    TURTLS_ALERT_PROTOCOL_VERSION = 70,
+    TURTLS_ALERT_INSUFFICIENT_SECURITY = 71,
+    TURTLS_ALERT_INTERNAL_ERROR = 80,
+    TURTLS_ALERT_INAPPROPRIATE_FALLBACK = 86,
+    TURTLS_ALERT_USER_CANCELLED = 90,
+    TURTLS_ALERT_MISSING_EXTENSION = 109,
+    TURTLS_ALERT_UNSUPPORTED_EXTENSION = 110,
+    TURTLS_ALERT_UNRECOGNIZED_NAME = 112,
+    TURTLS_ALERT_BAD_CERT_STATUS_RESPONSE = 113,
+    TURTLS_ALERT_UNKNOWN_PSK_IDENTITY = 115,
+    TURTLS_ALERT_CERT_REQUIRED = 116,
+    TURTLS_ALERT_NO_APP_PROTOCOL = 120,
+};
+#ifndef __cplusplus
+typedef uint8_t turtls_Alert;
+#endif // __cplusplus
 
-#define turtls_SignatureAlgorithms_ECDSA_SECP256R1 1
-
-#define turtls_SupportedVersions_TLS_ONE_THREE 1
+enum turtls_MaxFragLen
+#ifdef __cplusplus
+  : uint8_t
+#endif // __cplusplus
+ {
+    TURTLS_MAX_FRAG_LEN_DEFAULT = 0,
+    TURTLS_MAX_FRAG_LEN_HEX200 = 1,
+    TURTLS_MAX_FRAG_LEN_HEX400 = 2,
+    TURTLS_MAX_FRAG_LEN_HEX500 = 3,
+    TURTLS_MAX_FRAG_LEN_HEX600 = 4,
+};
+#ifndef __cplusplus
+typedef uint8_t turtls_MaxFragLen;
+#endif // __cplusplus
 
 struct turtls_State;
 
 enum turtls_ShakeResult_Tag {
-    Ok,
-    RngError,
-    IoError,
+    TURTLS_SHAKE_RESULT_OK,
+    TURTLS_SHAKE_RESULT_RNG_ERROR,
+    TURTLS_SHAKE_RESULT_IO_ERROR,
+    TURTLS_SHAKE_RESULT_RECIEVED_ALERT,
+    TURTLS_SHAKE_RESULT_NULL_PTR,
 };
 
 struct turtls_ShakeResult {
@@ -30,14 +78,67 @@ struct turtls_ShakeResult {
         struct {
             struct turtls_State *ok;
         };
+        struct {
+            turtls_Alert recieved_alert;
+        };
     };
 };
 
 struct turtls_Io {
+    /**
+     * Any io write function.
+     *
+     * `buf`: the buffer to write.
+     * `amt`: the number of bytes to write.
+     * `ctx`: any contextual data (e.g. where to write to).
+     */
     ptrdiff_t (*write_fn)(const void *buf, size_t amt, const void *ctx);
+    /**
+     * Any *non-blocking* io read function.
+     *
+     * `buf`: the buffer to read to.
+     * `amt`: the maximum number of bytes to read.
+     * `ctx`: any contextual data (e.g. where to read to).
+     *
+     * This function must return a negative value on error, and `0` when no bytes are read.
+     */
     ptrdiff_t (*read_fn)(void *buf, size_t amt, const void *ctx);
+    /**
+     * Any function to close io.
+     *
+     * `ctx`: any contextual data (e.g. what socket to close).
+     */
     void (*close_fn)(const void *ctx);
+    /**
+     * Any contextual data.
+     */
     const void *ctx;
+};
+
+typedef uint16_t turtls_SigAlgs;
+#define turtls_SigAlgs_ECDSA_SECP256R1 1
+
+typedef uint16_t turtls_SupGroups;
+
+typedef uint8_t turtls_SupVersions;
+#define turtls_SupVersions_TLS_ONE_THREE 1
+
+struct turtls_Extensions {
+    turtls_SigAlgs sig_algs;
+    turtls_SupGroups sup_groups;
+    turtls_SupVersions sup_versions;
+    turtls_MaxFragLen max_frag_len;
+};
+
+/**
+ * The supported ciphersuites.
+ */
+typedef uint8_t turtls_CipherSuites;
+
+struct turtls_Config {
+    uint64_t timeout_millis;
+    struct turtls_Extensions extensions;
+    turtls_CipherSuites cipher_suites;
 };
 
 #ifdef __cplusplus
@@ -45,14 +146,20 @@ extern "C" {
 #endif // __cplusplus
 
 /**
- * Performs a TLS handshake as the client, returning the connection state
+ * Performs a TLS handshake as the client, returning the connection state or an error.
  */
-struct turtls_ShakeResult shake_hands_client(struct turtls_Io io);
+struct turtls_ShakeResult turtls_client_handshake(struct turtls_Io io,
+                                                  const struct turtls_Config *config);
 
 /**
- * Listens for and performs a TLS handshake as the server, returning the connection state
+ * Generates a default configuration struct.
  */
-struct turtls_ShakeResult shake_hands_server(struct turtls_Io io);
+struct turtls_Config turtls_generate_config(void);
+
+/**
+ * Performs a TLS handshake as the server, returning the connection state or an error.
+ */
+struct turtls_ShakeResult turtls_server_handshake(struct turtls_Io io);
 
 #ifdef __cplusplus
 }  // extern "C"

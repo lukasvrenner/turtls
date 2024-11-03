@@ -6,7 +6,7 @@ pub enum AlertLevel {
 
 #[derive(Debug)]
 #[repr(u8)]
-pub enum AlertDescription {
+pub enum Alert {
     CloseNotify = 0,
     UnexpectedMessage = 10,
     BadRecordMac = 20,
@@ -36,9 +36,9 @@ pub enum AlertDescription {
     NoAppProtocol = 120,
 }
 
-impl AlertDescription {
+impl Alert {
     pub fn from_byte(byte: u8) -> Self {
-        use AlertDescription::*;
+        use Alert::*;
         // TODO: use inline const once stabilized
         match byte {
             x if x == CloseNotify as u8 => CloseNotify,
@@ -73,26 +73,26 @@ impl AlertDescription {
     }
 }
 
-pub struct Alert {
+pub(crate) struct AlertMsg {
     level: AlertLevel,
-    pub description: AlertDescription,
+    pub description: Alert,
 }
 
-impl Alert {
-    pub const SIZE: usize = 2;
-    pub fn new(description: AlertDescription) -> Self {
+impl AlertMsg {
+    pub(crate) const SIZE: usize = 2;
+    pub(crate) fn new(description: Alert) -> Self {
         Self {
             level: AlertLevel::Fatal,
             description,
         }
     }
 
-    pub fn new_in(buf: &mut [u8; 2], description: AlertDescription) {
+    pub(crate) fn new_in(buf: &mut [u8; 2], description: Alert) {
         buf[0] = AlertLevel::Fatal as u8;
         buf[1] = description as u8;
     }
 
-    pub const fn to_be_bytes(self) -> [u8; Self::SIZE] {
+    pub(crate) const fn to_be_bytes(self) -> [u8; Self::SIZE] {
         [self.level as u8, self.description as u8]
     }
 }

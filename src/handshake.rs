@@ -1,5 +1,5 @@
 #[repr(u8)]
-pub enum ShakeType {
+pub(crate) enum ShakeType {
     ClientHello = 1,
     ServerHello = 2,
     NewSessionTicket = 4,

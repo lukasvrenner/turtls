@@ -1,42 +1,26 @@
-use crylib::{
-    big_int::UBigInt,
-    ec::{EllipticCurve, Secp256r1},
-    finite_field::FieldElement,
-};
+use crylib::big_int::UBigInt;
+use crylib::ec::{EllipticCurve, Secp256r1};
+use crylib::finite_field::FieldElement;
 use getrandom::getrandom;
 
-use crate::{extensions::SupportedGroups, record::RecordLayer};
+use crate::{extensions::SupGroups, record::RecordLayer};
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-#[repr(u16)]
-pub enum CipherSuite {
-    Aes128GcmSha256 = 0x1301,
-    Aes256GcmSha384 = 0x1302,
-    ChaCha20Poly1305Sha256 = 0x1303,
-    Aes128CcmSha256 = 0x1304,
-    Aes128Ccm8Sha256 = 0x1305,
-}
-
-impl CipherSuite {
-    pub const fn to_be_bytes(self) -> [u8; 2] {
-        (self as u16).to_be_bytes()
-    }
-}
-
+/// The supported ciphersuites.
+#[repr(transparent)]
 pub struct CipherSuites {
-    pub suites: u8,
+    pub(crate) suites: u8,
 }
 
 impl CipherSuites {
-    pub const AES_128_GCM_SHA256: u8 = 0b00000001;
+    pub(crate) const AES_128_GCM_SHA256: u8 = 0b00000001;
 
-    pub const LEN_SIZE: usize = 2;
+    pub(crate) const LEN_SIZE: usize = 2;
 
-    pub const fn len(&self) -> usize {
+    pub(crate) const fn len(&self) -> usize {
         self.suites.count_ones() as usize * size_of::<CipherSuite>()
     }
 
-    pub fn write_to(&self, record_layer: &mut RecordLayer) {
+    pub(crate) fn write_to(&self, record_layer: &mut RecordLayer) {
         if self.suites & Self::AES_128_GCM_SHA256 > 0 {
             record_layer.extend_from_slice(&CipherSuite::Aes128GcmSha256.to_be_bytes());
         }
@@ -51,10 +35,27 @@ impl Default for CipherSuites {
     }
 }
 
-pub struct NoSharedSuites;
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[repr(u16)]
+pub(crate) enum CipherSuite {
+    Aes128GcmSha256 = 0x1301,
+    Aes256GcmSha384 = 0x1302,
+    ChaCha20Poly1305Sha256 = 0x1303,
+    Aes128CcmSha256 = 0x1304,
+    Aes128Ccm8Sha256 = 0x1305,
+}
+
+impl CipherSuite {
+    pub(crate) const fn to_be_bytes(self) -> [u8; 2] {
+        (self as u16).to_be_bytes()
+    }
+}
+
+
+pub(crate) struct NoSharedSuites;
 
 #[repr(u16)]
-pub enum NamedGroup {
+pub(crate) enum NamedGroup {
     Secp256r1 = 0x17,
     Secp384r1 = 0x18,
     Secp521r1 = 0x19,
@@ -70,18 +71,18 @@ pub enum NamedGroup {
 }
 
 impl NamedGroup {
-    pub const fn to_be_bytes(self) -> [u8; 2] {
+    pub(crate) const fn to_be_bytes(self) -> [u8; 2] {
         (self as u16).to_be_bytes()
     }
 }
 
-pub struct GroupKeys {
-    pub secp256r1: FieldElement<<Secp256r1 as EllipticCurve>::Order>,
+pub(crate) struct GroupKeys {
+    pub(crate) secp256r1: FieldElement<<Secp256r1 as EllipticCurve>::Order>,
 }
 
 impl GroupKeys {
-    pub fn generate(groups: SupportedGroups) -> Self {
-        if groups.groups & SupportedGroups::SECP256R1 > 0 {
+    pub(crate) fn generate(groups: SupGroups) -> Self {
+        if groups.groups & SupGroups::SECP256R1 > 0 {
             let mut buf = [0; 32];
             getrandom(&mut buf);
             return Self {
@@ -93,7 +94,7 @@ impl GroupKeys {
 }
 
 #[repr(u16)]
-pub enum SignatureScheme {
+pub(crate) enum SignatureScheme {
     RsaPkcs1Sha256 = 0x401,
     RsaPkcs1Sha384 = 0x501,
     RsaPkcs1Sha512 = 0x601,
@@ -118,7 +119,7 @@ pub enum SignatureScheme {
 }
 
 impl SignatureScheme {
-    pub const fn to_be_bytes(self) -> [u8; 2] {
+    pub(crate) const fn to_be_bytes(self) -> [u8; 2] {
         (self as u16).to_be_bytes()
     }
 }
