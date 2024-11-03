@@ -32,22 +32,22 @@ pub struct Io {
 
 impl Io {
     #[must_use]
-    fn read(&self, buf: &mut [u8]) -> isize {
+    pub(crate) fn read(&self, buf: &mut [u8]) -> isize {
         (self.read_fn)(buf as *mut _ as *mut c_void, buf.len(), self.ctx)
     }
 
     #[must_use]
-    fn write(&self, buf: &[u8]) -> isize {
+    pub(crate) fn write(&self, buf: &[u8]) -> isize {
         (self.write_fn)(buf as *const _ as *const c_void, buf.len(), self.ctx)
     }
 
     /// Closes the connection
-    fn close(&self) {
+    pub(crate) fn close(&self) {
         (self.close_fn)(self.ctx);
     }
 
     /// Sends an alert to the peer and closes the connection.
-    fn alert(&self, alert: Alert) -> isize {
+    pub(crate) fn alert(&self, alert: Alert) -> isize {
         let mut alert_buf = [0; RecordLayer::PREFIIX_SIZE + AlertMsg::SIZE];
 
         alert_buf[0] = ContentType::Alert.to_byte();
@@ -142,7 +142,7 @@ impl RecordLayer {
     }
 
     pub(crate) fn buf(&self) -> &[u8] {
-        &self.buf[..self.len()]
+        &self.buf[Self::PREFIIX_SIZE..self.len()]
     }
 
     pub(crate) fn push(&mut self, value: u8) {
@@ -226,7 +226,6 @@ impl RecordLayer {
         if let Err(err) = fill_buff(&mut header_buf, io, timeout, start) {
             return Err(err);
         }
-
         let len = u16::from_be_bytes(
             header_buf[Self::PREFIIX_SIZE - Self::LEN_SIZE..]
                 .try_into()
@@ -265,7 +264,7 @@ impl RecordLayer {
             &self.io,
             self.read_timeout,
         )?;
-        self.len = len;
+        self.len = len + Self::PREFIIX_SIZE;
         Ok(())
     }
 

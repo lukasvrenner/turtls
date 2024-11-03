@@ -22,7 +22,8 @@ use std::time::Duration;
 
 use cipher_suites::GroupKeys;
 use client_hello::{CliHelError, ClientHello};
-use record::ContentType;
+use record::{ContentType, ReadError};
+use server_hello::{RecvdSerHello, SerHelParseError};
 use state::State;
 
 pub use alert::Alert;
@@ -34,10 +35,12 @@ pub use record::Io;
 #[repr(C)]
 pub enum ShakeResult {
     Ok(Box<State>),
+    RecievedAlert(Alert),
     RngError,
     IoError,
-    RecievedAlert(Alert),
     NullPtr,
+    Timeout,
+    HandshakeFailed,
 }
 
 impl From<CliHelError> for ShakeResult {
@@ -45,6 +48,28 @@ impl From<CliHelError> for ShakeResult {
         match value {
             CliHelError::IoError => Self::IoError,
             CliHelError::RngError => Self::RngError,
+        }
+    }
+}
+
+impl From<SerHelParseError> for ShakeResult {
+    fn from(value: SerHelParseError) -> Self {
+        match value {
+            SerHelParseError::ReadError(err) => Self::from(err),
+            SerHelParseError::Failed => Self::HandshakeFailed,
+
+        }
+    }
+}
+
+impl From<ReadError> for ShakeResult {
+    fn from(value: ReadError) -> Self {
+        match value {
+            ReadError::IoError => Self::IoError,
+            ReadError::Timeout => Self::Timeout,
+            ReadError::RecordOverflow => Self::HandshakeFailed,
+            ReadError::UnexpectedMessage => Self::HandshakeFailed,
+            ReadError::RecievedAlert(alert) => Self::RecievedAlert(alert),
         }
     }
 }
@@ -88,10 +113,10 @@ pub extern "C" fn turtls_client_handshake(
         return err.into();
     }
 
-    //let len = record_layer
-    //    .read(ContentType::Handshake)
-    //    .expect("it all went perfectly");
-    //println!("{}", len);
+    let server_hello = match RecvdSerHello::parse(record_layer) {
+        Ok(server_hello) => server_hello,
+        Err(err) => return err.into(),
+    };
     todo!();
 }
 

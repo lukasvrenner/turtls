@@ -28,7 +28,7 @@ impl CipherList {
         }
     }
 
-    pub(crate) fn parse_singular(suite: [u8; 2]) -> Self {
+    pub(crate) fn parse_singular(suite: [u8; size_of::<CipherSuite>()]) -> Self {
         // fill in more values once more ciphersuites are supported
         match suite {
             x if x == (CipherSuite::Aes128GcmSha256 as u16).to_be_bytes() => Self {

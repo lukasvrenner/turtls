@@ -1,6 +1,7 @@
 use crate::{
     cipher_suites::CipherSuite,
     extensions::{Extensions, ExtensionsRef},
+    handshake::{ShakeType, SHAKE_HEADER_SIZE},
     record::{ContentType, ReadError, RecordLayer},
     versions::ProtocolVersion,
     Alert, CipherList, Config,
@@ -31,14 +32,35 @@ pub struct RecvdSerHello<'a> {
 impl<'a> RecvdSerHello<'a> {
     pub(crate) fn parse(
         record_layer: &'a mut RecordLayer,
-        config: &Config,
     ) -> Result<Self, SerHelParseError> {
         record_layer.read(ContentType::Handshake)?;
-        let server_hello = record_layer.buf();
+        let handshake_msg = record_layer.buf();
+        if handshake_msg.len() < SHAKE_HEADER_SIZE + ServerHello::MIN_LEN {
+            record_layer.alert(Alert::DecodeError);
+            return Err(SerHelParseError::Failed);
+        }
+        if handshake_msg[0] != ShakeType::ServerHello.to_byte() {
+            record_layer.alert(Alert::UnexpectedMessage);
+            return Err(SerHelParseError::Failed);
+        }
+        let len =
+            u32::from_be_bytes([0, handshake_msg[1], handshake_msg[2], handshake_msg[3]]) as usize;
+
+        if len < handshake_msg.len() - SHAKE_HEADER_SIZE {
+            record_layer.alert(Alert::DecodeError);
+            return Err(SerHelParseError::Failed);
+        }
+
+        if len > handshake_msg.len() - SHAKE_HEADER_SIZE {
+            record_layer.alert(Alert::HandshakeFailure);
+            return Err(SerHelParseError::Failed);
+        }
+
+        let server_hello = &handshake_msg[SHAKE_HEADER_SIZE..];
 
         if server_hello.len() < ServerHello::MIN_LEN {
             record_layer.alert(Alert::DecodeError);
-            return Err(SerHelParseError::DecodeError);
+            return Err(SerHelParseError::Failed);
         }
 
         let mut pos = size_of::<ProtocolVersion>() + ServerHello::RANDOM_BYTES_LEN;
@@ -46,11 +68,15 @@ impl<'a> RecvdSerHello<'a> {
         let leg_session_id_len = server_hello[pos];
         if leg_session_id_len > 32 {
             record_layer.alert(Alert::DecodeError);
-            return Err(SerHelParseError::DecodeError);
+            return Err(SerHelParseError::Failed);
         }
         pos += size_of_val(&leg_session_id_len) + leg_session_id_len as usize;
 
-        let cipher_suite = CipherList::parse_singular(server_hello[pos..][..1].try_into().unwrap());
+        let cipher_suite = CipherList::parse_singular(
+            server_hello[pos..][..size_of::<CipherSuite>()]
+                .try_into()
+                .unwrap(),
+        );
         pos += size_of::<CipherSuite>();
 
         pos += size_of_val(&ServerHello::LEGACY_COMPRESSION_METHOD);
@@ -58,11 +84,11 @@ impl<'a> RecvdSerHello<'a> {
         let extensions_len =
             u16::from_be_bytes(server_hello[pos..][..2].try_into().unwrap()) as usize;
 
+        pos += Extensions::LEN_SIZE;
         if extensions_len != server_hello.len() - pos {
             record_layer.alert(Alert::DecodeError);
-            return Err(SerHelParseError::DecodeError);
+            return Err(SerHelParseError::Failed);
         }
-        pos += size_of_val(&extensions_len);
 
         let extensions = ExtensionsRef::parse(&server_hello[pos..]);
 
@@ -75,7 +101,7 @@ impl<'a> RecvdSerHello<'a> {
 
 pub(crate) enum SerHelParseError {
     ReadError(ReadError),
-    DecodeError,
+    Failed,
 }
 
 impl From<ReadError> for SerHelParseError {
