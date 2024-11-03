@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use crylib::ec::{EllipticCurve, Secp256r1};
 use crylib::finite_field::FieldElement;
 
@@ -37,7 +39,7 @@ impl ExtensionType {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, PartialEq, Eq, Clone, Copy)]
 #[repr(C)]
 pub struct Extensions {
     pub sig_algs: SigAlgs,
@@ -65,11 +67,21 @@ impl Extensions {
         len
     }
 
-    pub fn write_to(&self, record_layer: &mut RecordLayer, keys: &GroupKeys) {
+    pub(crate) fn write_to(&self, record_layer: &mut RecordLayer, keys: &GroupKeys) {
         self.sig_algs.write_to(record_layer);
         self.sup_versions.write_to(record_layer);
         self.sup_groups.write_to(record_layer);
         KeyShare::write_to(record_layer, &self.sup_groups, keys);
+    }
+}
+
+pub(crate) struct ExtensionsRef<'a> {
+    rm_me: &'a (),
+}
+
+impl<'a> ExtensionsRef<'a> {
+    pub(crate) fn parse(extensions: &'a [u8]) -> Self {
+        todo!()
     }
 }
 
@@ -114,7 +126,7 @@ impl MaxFragLen {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct SupGroups {
     pub groups: u16,
@@ -157,6 +169,7 @@ impl Default for SupGroups {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct SigAlgs {
     pub algorithms: u16,
@@ -196,9 +209,11 @@ impl Default for SigAlgs {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct UseSrtp {}
 
+#[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct SupVersions {
     pub versions: u8,

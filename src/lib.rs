@@ -26,7 +26,7 @@ use record::ContentType;
 use state::State;
 
 pub use alert::Alert;
-pub use cipher_suites::CipherSuites;
+pub use cipher_suites::CipherList;
 pub use config::Config;
 pub use record::Io;
 
@@ -70,11 +70,16 @@ pub extern "C" fn turtls_client_handshake(
 
     let mut state = State::new_uninit();
 
-    let record_layer = State::init_record_layer(&mut state, ContentType::Handshake, io);
+    let record_layer = State::init_record_layer(
+        &mut state,
+        ContentType::Handshake,
+        io,
+        Duration::from_millis(config.timeout_millis),
+    );
 
     let client_hello = ClientHello {
-        cipher_suites: &config.cipher_suites,
-        extensions: &config.extensions,
+        cipher_suites: config.cipher_suites,
+        extensions: config.extensions,
     };
 
     let keys = GroupKeys::generate(config.extensions.sup_groups);
@@ -83,13 +88,10 @@ pub extern "C" fn turtls_client_handshake(
         return err.into();
     }
 
-    let len = record_layer
-        .read(
-            ContentType::Handshake,
-            Duration::from_millis(config.timeout_millis),
-        )
-        .expect("it all went perfectly");
-    println!("{}", len);
+    //let len = record_layer
+    //    .read(ContentType::Handshake)
+    //    .expect("it all went perfectly");
+    //println!("{}", len);
     todo!();
 }
 

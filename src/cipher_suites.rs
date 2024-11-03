@@ -6,13 +6,15 @@ use getrandom::getrandom;
 use crate::{extensions::SupGroups, record::RecordLayer};
 
 /// The supported ciphersuites.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(transparent)]
-pub struct CipherSuites {
+pub struct CipherList {
     pub(crate) suites: u8,
 }
 
-impl CipherSuites {
-    pub(crate) const AES_128_GCM_SHA256: u8 = 0b00000001;
+impl CipherList {
+    // add more once more cipher suites are supported
+    pub const AES_128_GCM_SHA256: u8 = 0b00000001;
 
     pub(crate) const LEN_SIZE: usize = 2;
 
@@ -25,9 +27,25 @@ impl CipherSuites {
             record_layer.extend_from_slice(&CipherSuite::Aes128GcmSha256.to_be_bytes());
         }
     }
+
+    pub(crate) fn parse_singular(suite: [u8; 2]) -> Self {
+        // fill in more values once more ciphersuites are supported
+        match suite {
+            x if x == (CipherSuite::Aes128GcmSha256 as u16).to_be_bytes() => Self {
+                suites: Self::AES_128_GCM_SHA256,
+            },
+            x if x == (CipherSuite::Aes256GcmSha384 as u16).to_be_bytes() => Self { suites: 0 },
+            x if x == (CipherSuite::ChaCha20Poly1305Sha256 as u16).to_be_bytes() => {
+                Self { suites: 0 }
+            },
+            x if x == (CipherSuite::Aes128CcmSha256 as u16).to_be_bytes() => Self { suites: 0 },
+            x if x == (CipherSuite::Aes128Ccm8Sha256 as u16).to_be_bytes() => Self { suites: 0 },
+            _ => Self { suites: 0 },
+        }
+    }
 }
 
-impl Default for CipherSuites {
+impl Default for CipherList {
     fn default() -> Self {
         Self {
             suites: Self::AES_128_GCM_SHA256,
@@ -50,7 +68,6 @@ impl CipherSuite {
         (self as u16).to_be_bytes()
     }
 }
-
 
 pub(crate) struct NoSharedSuites;
 

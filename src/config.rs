@@ -1,10 +1,10 @@
-use crate::{cipher_suites::CipherSuites, extensions::Extensions};
+use crate::{cipher_suites::CipherList, extensions::Extensions};
 
 #[repr(C)]
 pub struct Config {
     pub timeout_millis: u64,
     pub extensions: Extensions,
-    pub cipher_suites: CipherSuites,
+    pub cipher_suites: CipherList,
 }
 
 impl Default for Config {
@@ -12,7 +12,7 @@ impl Default for Config {
         Self {
             timeout_millis: 10_000,
             extensions: Extensions::default(),
-            cipher_suites: CipherSuites::default(),
+            cipher_suites: CipherList::default(),
         }
     }
 }

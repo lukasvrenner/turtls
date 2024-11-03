@@ -89,6 +89,7 @@ pub(crate) struct RecordLayer {
     len: usize,
     msg_type: ContentType,
     io: Io,
+    pub(crate) read_timeout: Duration,
 }
 
 impl RecordLayer {
@@ -98,12 +99,18 @@ impl RecordLayer {
     pub(crate) const SUFFIX_SIZE: usize = 0x100;
     pub(crate) const BUF_SIZE: usize = Self::PREFIIX_SIZE + Self::MAX_LEN + Self::SUFFIX_SIZE;
 
-    pub(crate) fn init(record: &mut MaybeUninit<Self>, msg_type: ContentType, io: Io) -> &mut Self {
+    pub(crate) fn init(
+        record: &mut MaybeUninit<Self>,
+        msg_type: ContentType,
+        io: Io,
+        read_timeout: Duration,
+    ) -> &mut Self {
         let ptr = record.write(Self {
             buf: [0; Self::BUF_SIZE],
             len: 0,
             msg_type,
             io,
+            read_timeout,
         });
         ptr.start();
         ptr
@@ -132,6 +139,10 @@ impl RecordLayer {
 
     pub(crate) fn len(&self) -> usize {
         self.len
+    }
+
+    pub(crate) fn buf(&self) -> &[u8] {
+        &self.buf[..self.len()]
     }
 
     pub(crate) fn push(&mut self, value: u8) {
@@ -247,17 +258,19 @@ impl RecordLayer {
     }
 
     /// Reads a single record into [`RecordLayer`]'s internal buffer.
-    pub(crate) fn read(
-        &mut self,
-        expected_type: ContentType,
-        timeout: Duration,
-    ) -> Result<usize, ReadError> {
-        Self::read_to(
+    pub(crate) fn read(&mut self, expected_type: ContentType) -> Result<(), ReadError> {
+        let len = Self::read_to(
             (&mut self.buf[Self::PREFIIX_SIZE..]).try_into().unwrap(),
             expected_type,
             &self.io,
-            timeout,
-        )
+            self.read_timeout,
+        )?;
+        self.len = len;
+        Ok(())
+    }
+
+    pub(crate) fn alert(&self, alert: Alert) -> isize {
+        self.io.alert(alert)
     }
 }
 

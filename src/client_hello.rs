@@ -1,4 +1,4 @@
-use crate::cipher_suites::{CipherSuites, GroupKeys};
+use crate::cipher_suites::{CipherList, GroupKeys};
 use crate::extensions::Extensions;
 use crate::handshake::ShakeType;
 use crate::record::{ContentType, RecordLayer};
@@ -6,12 +6,12 @@ use crate::versions::ProtocolVersion;
 use crate::versions::LEGACY_PROTO_VERS;
 use getrandom::{getrandom, Error};
 
-pub(crate) struct ClientHello<'a, 'b> {
-    pub(crate) cipher_suites: &'b CipherSuites,
-    pub(crate) extensions: &'a Extensions,
+pub(crate) struct ClientHello {
+    pub(crate) cipher_suites: CipherList,
+    pub(crate) extensions: Extensions,
 }
 
-impl<'a, 'b> ClientHello<'a, 'b> {
+impl ClientHello {
     pub(crate) const RANDOM_BYTES_LEN: usize = 32;
     pub(crate) const LEGACY_SESSION_ID: u8 = 0;
     pub(crate) const LEGACY_COMPRESSION_METHODS: [u8; 2] = [1, 0];
@@ -20,7 +20,7 @@ impl<'a, 'b> ClientHello<'a, 'b> {
             + Self::RANDOM_BYTES_LEN
             // TODO use size_of_val once it is const-stabilized
             + 1
-            + CipherSuites::LEN_SIZE
+            + CipherList::LEN_SIZE
             + self.cipher_suites.len()
             // TODO use size_of_val once it is const-stabilized
             + 2
