@@ -1,8 +1,8 @@
 use crate::big_int::UBigInt;
 use crate::finite_field::{FieldElement, FiniteField};
 
-use super::AffinePoint;
 use super::EllipticCurve;
+use super::{AffinePoint, ProjectivePoint};
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Default, Hash)]
 pub struct Secp256r1;
@@ -29,7 +29,7 @@ unsafe impl FiniteField for P256Order {
 }
 
 impl EllipticCurve for Secp256r1 {
-    const BASE_POINT: AffinePoint<Self> = unsafe {
+    const BASE_POINT: ProjectivePoint<Self> = unsafe {
         AffinePoint::new_unchecked(
             FieldElement::new_unchecked(UBigInt([
                 0xf4a13945d898c296,
@@ -44,6 +44,7 @@ impl EllipticCurve for Secp256r1 {
                 0x4fe342e2fe1a7f9b,
             ])),
         )
+        .as_projective()
     };
 
     const A: FieldElement<Self> = unsafe {

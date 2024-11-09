@@ -69,13 +69,13 @@ pub(crate) const SHAKE_HEADER_SIZE: usize = size_of::<ShakeType>() + SHAKE_LEN_S
 //    todo!()
 //}
 //
-pub(crate) enum ShakeMsgParseError {
-    RecordError(ReadError),
-    Failed,
-}
-
-impl From<ReadError> for ShakeMsgParseError {
-    fn from(value: ReadError) -> Self {
-        Self::RecordError(value)
-    }
-}
+//pub(crate) enum ShakeMsgParseError {
+//    RecordError(ReadError),
+//    Failed,
+//}
+//
+//impl From<ReadError> for ShakeMsgParseError {
+//    fn from(value: ReadError) -> Self {
+//        Self::RecordError(value)
+//    }
+//}

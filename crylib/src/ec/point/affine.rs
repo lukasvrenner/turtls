@@ -33,6 +33,22 @@ impl<C: EllipticCurve> core::fmt::Debug for AffinePoint<C> {
 }
 
 impl<C: EllipticCurve> AffinePoint<C> {
+    pub fn is_on_curve(x: &FieldElement<C>, y: &FieldElement<C>) -> bool {
+        let mut x_cube_ax_b = x.sqr();
+        x_cube_ax_b.mul_assign(x);
+
+        x_cube_ax_b.add_assign(&x.mul(&C::A));
+        x_cube_ax_b.add_assign(&C::B);
+        y.sqr() == x_cube_ax_b
+    }
+
+    pub fn new(x: FieldElement<C>, y: FieldElement<C>) -> Option<Self> {
+        match Self::is_on_curve(&x, &y) {
+            true => Some(Self { x, y }),
+            false => None,
+        }
+    }
+
     /// Returns the x-value of `self`.
     pub fn x(&self) -> FieldElement<C> {
         self.x
@@ -65,6 +81,7 @@ impl<C: EllipticCurve> AffinePoint<C> {
     pub const unsafe fn new_unchecked(x: FieldElement<C>, y: FieldElement<C>) -> Self {
         Self { x, y }
     }
+
     pub fn add(&self, rhs: &Self) -> Self {
         let slope = rhs.y.sub(&self.y).div(&rhs.x.sub(&self.x));
         self.third_point_on_line(rhs, &slope)
@@ -162,10 +179,10 @@ mod tests {
         // Secp256r1::BASE_POINT * 3
         let k_3 = unsafe { AffinePoint::new_unchecked(x, y) };
 
-        let sum = k_2.add(&Secp256r1::BASE_POINT);
+        let sum = k_2.add(&Secp256r1::BASE_POINT.as_affine().unwrap());
         assert_eq!(sum, k_3);
 
-        let also_sum = Secp256r1::BASE_POINT.add(&k_2);
+        let also_sum = Secp256r1::BASE_POINT.as_affine().unwrap().add(&k_2);
         assert_eq!(also_sum, k_3);
     }
 
@@ -190,7 +207,7 @@ mod tests {
         // Secp256r1::BASE_POINT * 2
         let k_2 = unsafe { AffinePoint::new_unchecked(x, y) };
 
-        let sum = Secp256r1::BASE_POINT.double();
+        let sum = Secp256r1::BASE_POINT.as_affine().unwrap().double();
         assert_eq!(sum, k_2);
     }
 }

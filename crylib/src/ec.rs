@@ -14,7 +14,7 @@ use crate::finite_field::{FieldElement, FiniteField};
 /// The curve is defined by the equation `Y^2 = X^3 + A*X + B`.
 pub trait EllipticCurve: FiniteField {
     /// The generator point used for elliptic-curve cryptography.
-    const BASE_POINT: AffinePoint<Self>;
+    const BASE_POINT: ProjectivePoint<Self>;
 
     /// The linear-term coefficient of the curve.
     const A: FieldElement<Self>;

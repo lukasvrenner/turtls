@@ -102,13 +102,13 @@ impl Default for MaxFragLen {
 }
 
 impl MaxFragLen {
-    pub const TAG: [u8; 2] = ExtensionType::MaxFragmentLength.to_be_bytes();
+    pub(crate) const TAG: [u8; 2] = ExtensionType::MaxFragmentLength.to_be_bytes();
 
-    pub const fn to_byte(self) -> u8 {
+    pub(crate) const fn to_byte(self) -> u8 {
         self as u8
     }
 
-    pub const fn len(&self) -> usize {
+    pub(crate)  const fn len(&self) -> usize {
         // TODO: don't cast to u8 once const traits are stabilized
         if *self as u8 == Self::Default as u8 {
             return 0;
@@ -116,7 +116,7 @@ impl MaxFragLen {
         size_of::<MaxFragLen>()
     }
 
-    pub fn write_to(&self, record_layer: &mut RecordLayer) {
+    pub(crate) fn write_to(&self, record_layer: &mut RecordLayer) {
         if *self == Self::Default {
             return;
         }
@@ -133,7 +133,7 @@ pub struct SupGroups {
 }
 
 impl SupGroups {
-    pub const TAG: [u8; 2] = [0, 10];
+    pub(crate) const TAG: [u8; 2] = [0, 10];
     const LEN_SIZE: usize = 2;
     pub const SECP256R1: u16 = 0b0000000000000001;
 
@@ -145,7 +145,7 @@ impl SupGroups {
         self.groups.count_ones() as usize * size_of::<NamedGroup>()
     }
 
-    pub fn write_to(&self, record_layer: &mut RecordLayer) {
+    pub(crate) fn write_to(&self, record_layer: &mut RecordLayer) {
         if self.groups == 0 {
             return;
         }
@@ -187,7 +187,7 @@ impl SigAlgs {
         self.algorithms.count_ones() as usize * size_of::<SignatureScheme>()
     }
 
-    pub fn write_to(&self, record_layer: &mut RecordLayer) {
+    pub(crate) fn write_to(&self, record_layer: &mut RecordLayer) {
         if self.algorithms == 0 {
             return;
         }
@@ -222,7 +222,7 @@ pub struct SupVersions {
 impl SupVersions {
     pub const TLS_ONE_THREE: u8 = 0b00000001;
     const LEN_SIZE: usize = 1;
-    pub const TAG: [u8; 2] = [0, 43];
+    pub(crate) const TAG: [u8; 2] = [0, 43];
 
     pub const fn len(&self) -> usize {
         self.inner_len() + Self::LEN_SIZE
@@ -232,7 +232,7 @@ impl SupVersions {
         self.versions.count_ones() as usize * size_of::<ProtocolVersion>()
     }
 
-    pub fn write_to(&self, record_layer: &mut RecordLayer) {
+    pub(crate) fn write_to(&self, record_layer: &mut RecordLayer) {
         if self.versions == 0 {
             return;
         }
@@ -262,7 +262,7 @@ impl KeyShare {
     const LEGACY_FORM: u8 = 4;
     const LEN_SIZE: usize = 2;
     const INNER_LEN_SIZE: usize = 2;
-    pub const TAG: [u8; 2] = [0, 51];
+    pub(crate) const TAG: [u8; 2] = [0, 51];
 
     pub const fn len(groups: &SupGroups) -> usize {
         Self::inner_len(groups) + Self::LEN_SIZE
@@ -299,7 +299,6 @@ impl KeyShare {
             record_layer.push(Self::LEGACY_FORM);
 
             let point = Secp256r1::BASE_POINT
-                .as_projective()
                 .mul_scalar(&keys.secp256r1)
                 .as_affine()
                 .expect("private key isn't 0");

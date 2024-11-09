@@ -1,5 +1,5 @@
 use super::{super::EllipticCurve, AffinePoint};
-use crate::{big_int::UBigInt, finite_field::FieldElement};
+use crate::finite_field::FieldElement;
 
 /// A point on [`EllipticCurve`] `C` in projective representation.
 #[derive(Debug, Clone, Copy)]
@@ -198,7 +198,7 @@ impl<C: EllipticCurve> ProjectivePoint<C> {
         self.y.neg_assign();
     }
 
-    pub fn mul_scalar(&self, scalar: &UBigInt<4>) -> Self {
+    pub fn mul_scalar(&self, scalar: &FieldElement<C::Order>) -> Self {
         let mut result = Self::POINT_AT_INF;
         let mut temp = *self;
         let num_bits = scalar.count_bits();
@@ -214,8 +214,20 @@ impl<C: EllipticCurve> ProjectivePoint<C> {
         result
     }
 
-    pub fn mul_scalar_assign(&mut self, scalar: UBigInt<4>) {
-        *self = self.mul_scalar(&scalar);
+    // TODO: add a test for this
+    pub fn mul_scalar_assign(&mut self, scalar: &FieldElement<C::Order>) {
+        let mut result = Self::POINT_AT_INF;
+        let num_bits = scalar.count_bits();
+        for i in (0..num_bits).rev() {
+            if scalar.get_bit(i) {
+                result.add_assign(self);
+                self.double_assign();
+            } else {
+                self.add_assign(&result);
+                result.double_assign();
+            }
+        }
+        *self = result;
     }
 }
 
@@ -370,10 +382,10 @@ mod tests {
     fn mul_scalar() {
         let point = Secp256r1::BASE_POINT
             .as_projective()
-            .mul_scalar(&UBigInt::ONE);
+            .mul_scalar(&FieldElement::ONE);
         assert_eq!(point, Secp256r1::BASE_POINT.as_projective());
 
-        let scalar = UBigInt::from(112233445566778899);
+        let scalar = unsafe { FieldElement::new_unchecked(UBigInt::from(112233445566778899)) };
 
         let x = unsafe {
             FieldElement::new_unchecked(UBigInt([

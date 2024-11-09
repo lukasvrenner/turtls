@@ -59,8 +59,7 @@ pub fn sign<C: EllipticCurve>(
         let mut inverse = secret_num.inverse();
 
         let Some(new_point) = C::BASE_POINT
-            .as_projective()
-            .mul_scalar(secret_num.inner())
+            .mul_scalar(&secret_num)
             .as_affine()
         else {
             continue;
@@ -92,9 +91,8 @@ pub fn verify_signature<C: EllipticCurve>(
     let v = sig.r.mul(&inverse);
 
     let r = match C::BASE_POINT
-        .as_projective()
-        .mul_scalar(u.inner())
-        .add(&pub_key.mul_scalar(v.inner()))
+        .mul_scalar(&u)
+        .add(&pub_key.mul_scalar(&v))
         .as_affine()
     {
         Some(point) => point.x_ref().convert(),
