@@ -98,7 +98,7 @@ impl NamedGroup {
 }
 
 pub(crate) struct GroupKeys {
-    pub(crate) secp256r1: FieldElement<<Secp256r1 as EllipticCurve>::Order>,
+    pub(crate) secp256r1: FieldElement<4, <Secp256r1 as EllipticCurve>::Order>,
 }
 
 impl GroupKeys {

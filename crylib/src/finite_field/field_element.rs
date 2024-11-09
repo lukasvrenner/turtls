@@ -8,40 +8,33 @@ use super::FiniteField;
 /// All operations are performed modulo [`F::MODULUS`](super::FiniteField::MODULUS).
 #[derive(Eq, PartialOrd, Ord, PartialEq, Clone, Copy)]
 #[repr(transparent)]
-// TODO: use const generics instead of a type once custom const generics types are stabilized
-// TODO: allow different-sized fields once const generic operations are stabilized
-pub struct FieldElement<F: FiniteField>(UBigInt<4>, PhantomData<F>);
+// TODO: use const generics instead of a type once custom const generics types are stabilized.
+// TODO: remove `N` once const generic operations are stabilized.
+pub struct FieldElement<const N: usize, F>(UBigInt<N>, PhantomData<F>)
+where
+    F: FiniteField<N>;
 
-impl<F: FiniteField> core::fmt::Display for FieldElement<F> {
+impl<const N: usize, F> core::fmt::Display for FieldElement<N, F>
+where
+    F: FiniteField<N>,
+{
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         core::fmt::Display::fmt(&self.0, f)
     }
 }
 
-impl<F: FiniteField> core::fmt::Debug for FieldElement<F> {
+impl<const N: usize, F: FiniteField<N>> core::fmt::Debug for FieldElement<N, F> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         core::fmt::Debug::fmt(&self.0, f)
     }
 }
 
-impl<F: FiniteField> FieldElement<F> {
+impl<const N: usize, F: FiniteField<N>> FieldElement<N, F> {
     // SAFETY: `FiniteField` implementors guarantee that `ZERO` is in the field.
     pub const ZERO: Self = unsafe { Self::new_unchecked(UBigInt::ZERO) };
 
-    pub const LEN: usize = 4;
-
     // SAFETY: `FiniteField` implementors guarantee that `ONE` is in the field.
     pub const ONE: Self = unsafe { Self::new_unchecked(UBigInt::ONE) };
-    /// Creates a new `FieldElement` from `value`.
-    ///
-    /// If `value` is greater than [`F::MODULUS`](super::FiniteField::MODULUS), it is properly reduced.
-    ///
-    /// Because it always performs a division operation, this function is much slower than a simple
-    /// type conversion. If higher performance, at the cost of falibility, is necessary, use
-    /// [`Self::try_new()`] or its unsafe counterpart, [`Self::new_unchecked()`]
-    pub fn new(value: UBigInt<4>) -> Self {
-        Self(value.div(&F::MODULUS).1, PhantomData)
-    }
 
     /// Creates a new [`FieldElement`] without checking if `int` is less than [`F::MODULUS`](super::FiniteField::MODULUS).
     ///
@@ -50,7 +43,7 @@ impl<F: FiniteField> FieldElement<F> {
     /// behavior.
     ///
     /// In most cases, it's better to use the safe version: [`Self::try_new()`]
-    pub const unsafe fn new_unchecked(int: UBigInt<4>) -> Self {
+    pub const unsafe fn new_unchecked(int: UBigInt<N>) -> Self {
         Self(int, PhantomData)
     }
 
@@ -58,53 +51,19 @@ impl<F: FiniteField> FieldElement<F> {
     /// is greater than or equal to [`F::MODULUS`](super::FiniteField::MODULUS).
     ///
     /// This is the safe version of [`Self::new_unchecked()`]
-    pub fn try_new(int: UBigInt<4>) -> Result<Self, InputTooLargeError> {
+    pub fn try_new(int: UBigInt<N>) -> Result<Self, InputTooLargeError> {
         if int >= F::MODULUS {
             return Err(InputTooLargeError);
         };
-        // SAFETY: we already checked to guarantee that `int` is less than `F::MODULUS`.
-        Ok(unsafe { Self::new_unchecked(int) })
+        Ok(Self(int, PhantomData))
     }
 
-    pub fn inner(&self) -> &UBigInt<4> {
+    pub fn inner(&self) -> &UBigInt<N> {
         self
     }
 
-    pub fn into_inner(self) -> UBigInt<4> {
+    pub fn into_inner(self) -> UBigInt<N> {
         self.0
-    }
-
-    /// Returns the modular multiplicative inverse of `self`.
-    ///
-    /// This value has the property that `self.inverse() * self == 1`
-    ///
-    /// # Panics
-    /// This function panics if `self` is `FieldElement::ZERO` in debug mode.
-    ///
-    /// In release mode, `FieldElement::ZERO.inverse()` returns `FieldElement::ZERO`.
-    /// # Constant-timedness
-    /// TODO: document constant-timedness
-    pub fn inverse(&self) -> Self {
-        debug_assert_ne!(self, &Self::ZERO);
-        let mut t = BigInt::ZERO;
-        let mut new_t = BigInt::ONE;
-        let mut r: BigInt<4> = F::MODULUS.into();
-        let mut new_r: BigInt<4> = self.0.into();
-
-        while new_r != BigInt::ZERO {
-            let (quotient, remainder) = r.div(&new_r);
-            (t, new_t) = (new_t, t.sub(&quotient.widening_mul(&new_t).resize()));
-            (r, new_r) = (new_r, remainder);
-        }
-        debug_assert_eq!(r, BigInt::ONE);
-        // TODO: is it better to use a mask for branchlessness?
-        if t.is_negative() {
-            t.add_assign(&F::MODULUS.into())
-        }
-        debug_assert!(t.is_positive());
-        debug_assert!(t.digits < F::MODULUS);
-        // TODO: is it better to use safe or unsafe version?
-        unsafe { Self::new_unchecked(t.digits) }
     }
 
     /// Returns the number of digits in `self`, not counting leading zeros
@@ -165,59 +124,6 @@ impl<F: FiniteField> FieldElement<F> {
         self.0.add_assign(&(F::MODULUS.and_bool(mask)));
     }
 
-    /// Returns `self * rhs` modulo [`F::MODULUS`](super::FiniteField::MODULUS).
-    ///
-    /// # Constant-timedness
-    /// TODO: document constant-timedness
-    pub fn mul(&self, rhs: &Self) -> Self {
-        // TODO: use barret reduction instead of division.
-        let product = self
-            .0
-            .widening_mul(&rhs.0)
-            .div(&F::MODULUS.resize())
-            .1
-            .resize();
-        //debug_assert!(product < F::MODULUS)
-        unsafe { Self::new_unchecked(product) }
-    }
-
-    /// Sets `self` to `self * rhs` modulo [`F::MODULUS`](super::FiniteField::MODULUS).
-    pub fn mul_assign(&mut self, rhs: &Self) {
-        *self = self.mul(rhs);
-    }
-
-    pub fn mul_digit_assign(&mut self, digit: u64) {
-        *self = self.mul_digit(digit)
-    }
-
-    pub fn mul_digit(&self, digit: u64) -> Self {
-        let mut carry = 0;
-        let mut buf = UBigInt::<5>::ZERO;
-        for i in 0..self.0.len() {
-            (buf.0[i], carry) = crate::big_int::carry_mul(self.0 .0[i], digit, carry);
-        }
-        buf.0[buf.len() - 1] = carry;
-        unsafe { Self::new_unchecked(buf.div(&F::MODULUS.resize()).1.resize()) }
-    }
-
-    /// Returns `self / rhs` modulo [`F::MODULUS`](super::FiniteField::MODULUS).
-    ///
-    /// # Constant-timedness
-    /// TODO: document constant-timedness
-    pub fn div(&self, rhs: &Self) -> Self {
-        self.mul(&rhs.inverse())
-    }
-
-    /// Returns the square of `self` modulo [`F::MODULUS`](super::FiniteField::MODULUS).
-    pub fn sqr(&self) -> Self {
-        self.mul(self)
-    }
-
-    /// Squares `self` module [`F::MODULUS`](super::FiniteField::MODULUS) and stores the result of `self`.
-    pub fn sqr_assign(&mut self) {
-        *self = self.sqr();
-    }
-
     /// Returns the modular additive inverse of `self`.
     ///
     /// The returned value has the property that, when added to `self`, the sum is
@@ -253,21 +159,123 @@ impl<F: FiniteField> FieldElement<F> {
         // SAFETY: the caller guarnantees that `self` isn't zero.
         *self = unsafe { self.neg_unchecked() }
     }
-
-    pub fn convert<G: FiniteField>(&self) -> FieldElement<G> {
-        FieldElement::new(self.0)
-    }
 }
 
-impl<F: FiniteField> TryFrom<UBigInt<4>> for FieldElement<F> {
+macro_rules! impl_field_element {
+    ($n:literal) => {
+        impl<F: FiniteField<$n>> FieldElement<$n, F> {
+            /// Creates a new `FieldElement` from `value`.
+            ///
+            /// If `value` is greater than [`F::MODULUS`](super::FiniteField::MODULUS), it is properly reduced.
+            ///
+            /// Because it always performs a division operation, this function is much slower than a simple
+            /// type conversion. If higher performance, at the cost of falibility, is necessary, use
+            /// [`Self::try_new()`] or its unsafe counterpart, [`Self::new_unchecked()`]
+            pub fn new(value: UBigInt<$n>) -> Self {
+                Self(value.div(&F::MODULUS).1, PhantomData)
+            }
+            pub fn convert<G: FiniteField<$n>>(&self) -> FieldElement<$n, G> {
+                FieldElement::new(self.0.resize())
+            }
+            /// Returns `self * rhs` modulo [`F::MODULUS`](super::FiniteField::MODULUS).
+            ///
+            /// # Constant-timedness
+            /// TODO: document constant-timedness
+            pub fn mul(&self, rhs: &Self) -> Self {
+                // TODO: use barret reduction instead of division.
+                let product = self
+                    .0
+                    .widening_mul(&rhs.0)
+                    .div(&F::MODULUS.resize())
+                    .1
+                    .resize();
+                //debug_assert!(product < F::MODULUS)
+                unsafe { Self::new_unchecked(product) }
+            }
+
+            /// Sets `self` to `self * rhs` modulo [`F::MODULUS`](super::FiniteField::MODULUS).
+            pub fn mul_assign(&mut self, rhs: &Self) {
+                *self = self.mul(rhs);
+            }
+
+            pub fn mul_digit_assign(&mut self, digit: u64) {
+                *self = self.mul_digit(digit)
+            }
+
+            pub fn mul_digit(&self, digit: u64) -> Self {
+                let mut carry = 0;
+                let mut buf = UBigInt::<5>::ZERO;
+                for i in 0..$n {
+                    (buf.0[i], carry) = crate::big_int::carry_mul(self.0 .0[i], digit, carry);
+                }
+                buf.0[buf.len() - 1] = carry;
+                unsafe { Self::new_unchecked(buf.div(&F::MODULUS.resize()).1.resize()) }
+            }
+
+            /// Returns `self / rhs` modulo [`F::MODULUS`](super::FiniteField::MODULUS).
+            ///
+            /// # Constant-timedness
+            /// TODO: document constant-timedness
+            pub fn div(&self, rhs: &Self) -> Self {
+                self.mul(&rhs.inverse())
+            }
+
+            /// Returns the square of `self` modulo [`F::MODULUS`](super::FiniteField::MODULUS).
+            pub fn sqr(&self) -> Self {
+                self.mul(self)
+            }
+
+            /// Squares `self` module [`F::MODULUS`](super::FiniteField::MODULUS) and stores the result of `self`.
+            pub fn sqr_assign(&mut self) {
+                *self = self.sqr();
+            }
+            /// Returns the modular multiplicative inverse of `self`.
+            ///
+            /// This value has the property that `self.inverse() * self == 1`
+            ///
+            /// # Panics
+            /// This function panics if `self` is `FieldElement::ZERO` in debug mode.
+            ///
+            /// In release mode, `FieldElement::ZERO.inverse()` returns `FieldElement::ZERO`.
+            /// # Constant-timedness
+            /// TODO: document constant-timedness
+            pub fn inverse(&self) -> Self {
+                debug_assert_ne!(self, &Self::ZERO);
+                let mut t = BigInt::ZERO;
+                let mut new_t = BigInt::ONE;
+                let mut r: BigInt<$n> = F::MODULUS.into();
+                let mut new_r: BigInt<$n> = self.0.into();
+
+                while new_r != BigInt::ZERO {
+                    let (quotient, remainder) = r.div(&new_r);
+                    (t, new_t) = (new_t, t.sub(&quotient.widening_mul(&new_t).resize()));
+                    (r, new_r) = (new_r, remainder);
+                }
+                debug_assert_eq!(r, BigInt::ONE);
+                // TODO: is it better to use a mask for branchlessness?
+                if t.is_negative() {
+                    t.add_assign(&F::MODULUS.into())
+                }
+                debug_assert!(t.is_positive());
+                debug_assert!(t.digits < F::MODULUS);
+                // TODO: is it better to use safe or unsafe version?
+                unsafe { Self::new_unchecked(t.digits) }
+            }
+        }
+    };
+}
+
+impl_field_element!(4);
+
+impl<const N: usize, F: FiniteField<N>> TryFrom<UBigInt<N>> for FieldElement<N, F> {
     type Error = InputTooLargeError;
-    fn try_from(value: UBigInt<4>) -> Result<Self, Self::Error> {
+    fn try_from(value: UBigInt<N>) -> Result<Self, Self::Error> {
         FieldElement::try_new(value)
     }
 }
 
-impl<F: FiniteField> Deref for FieldElement<F> {
-    type Target = UBigInt<4>;
+impl<const N: usize, F: FiniteField<N>> Deref for FieldElement<N, F> {
+    type Target = UBigInt<N>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
@@ -284,7 +292,7 @@ mod tests {
 
     #[test]
     fn inverse() {
-        let a = FieldElement::<Secp256r1>(
+        let a = FieldElement::<4, Secp256r1>(
             UBigInt([
                 0x0123456789abcdef,
                 0xfedcba9876543210,
@@ -303,8 +311,11 @@ mod tests {
             PhantomData,
         );
         assert_eq!(a.inverse(), inverse);
-        assert_eq!(FieldElement::<Secp256r1>::ONE.inverse(), FieldElement::ONE);
-        let a = FieldElement::<Secp256r1>(
+        assert_eq!(
+            FieldElement::<4, Secp256r1>::ONE.inverse(),
+            FieldElement::ONE
+        );
+        let a = FieldElement::<4, Secp256r1>(
             UBigInt([
                 0x1001039120910903,
                 0x12012ae213030aef,
@@ -328,7 +339,7 @@ mod tests {
 
     #[test]
     fn mul() {
-        let a = FieldElement::<Secp256r1>(
+        let a = FieldElement::<4, Secp256r1>(
             UBigInt([
                 0x0123456789abcdef,
                 0xfedcba9876543210,
@@ -357,7 +368,7 @@ mod tests {
             ]),
             PhantomData,
         );
-        let a = FieldElement::<Secp256r1>(
+        let a = FieldElement::<4, Secp256r1>(
             UBigInt([
                 0x1001039120910903,
                 0x12012ae213030aef,
@@ -382,7 +393,7 @@ mod tests {
             PhantomData,
         );
 
-        let b = FieldElement::<Secp256r1>(
+        let b = FieldElement::<4, Secp256r1>(
             UBigInt([
                 0x9e04b79d227873d1,
                 0xba7dade63ce98229,
@@ -429,7 +440,7 @@ mod tests {
             PhantomData,
         );
 
-        let mut b = FieldElement::<Secp256r1>(
+        let mut b = FieldElement::<4, Secp256r1>(
             UBigInt([
                 0x9e04b79d227873d1,
                 0xba7dade63ce98229,
@@ -464,7 +475,7 @@ mod tests {
             PhantomData,
         );
 
-        let b = FieldElement::<Secp256r1>(
+        let b = FieldElement::<4, Secp256r1>(
             UBigInt([
                 0x9e04b79d227873d1,
                 0xba7dade63ce98229,
@@ -500,7 +511,7 @@ mod tests {
 
     #[test]
     fn neg() {
-        let a = FieldElement::<Secp256r1>(
+        let a = FieldElement::<4, Secp256r1>(
             UBigInt([
                 0x2db188cb1546de24,
                 0x715085712e47dca5,
@@ -521,7 +532,7 @@ mod tests {
         );
         assert_eq!(a.neg(), b);
 
-        let c = FieldElement::<Secp256r1>(
+        let c = FieldElement::<4, Secp256r1>(
             UBigInt([
                 0xb16a0fb66ecdd6e2,
                 0x4985ec614a06e794,
@@ -542,19 +553,19 @@ mod tests {
         );
 
         assert_eq!(c.neg(), d);
-        assert_eq!(FieldElement::<Secp256r1>::ZERO.neg(), FieldElement::ZERO);
+        assert_eq!(FieldElement::<4, Secp256r1>::ZERO.neg(), FieldElement::ZERO);
     }
 
     #[test]
     fn neg_assign() {
-        let mut zero = FieldElement::<Secp256r1>::ZERO;
+        let mut zero = FieldElement::<4, Secp256r1>::ZERO;
         zero.neg_assign();
         assert_eq!(zero, FieldElement::ZERO);
     }
 
     #[test]
     fn div() {
-        let a = FieldElement::<Secp256r1>(
+        let a = FieldElement::<4, Secp256r1>(
             UBigInt([
                 0xd24e7734eab921db,
                 0x8eaf7a8fd1b8235a,
@@ -574,7 +585,7 @@ mod tests {
             PhantomData,
         );
 
-        let c = FieldElement::<Secp256r1>(
+        let c = FieldElement::<4, Secp256r1>(
             UBigInt([
                 0x2db188cb1546de24,
                 0x715085712e47dca5,

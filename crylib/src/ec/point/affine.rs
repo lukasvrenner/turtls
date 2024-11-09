@@ -4,8 +4,8 @@ use super::{super::EllipticCurve, AffineInfinity, ProjectivePoint};
 /// A point on an elliptic curve in affine representation.
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub struct AffinePoint<C: EllipticCurve> {
-    x: FieldElement<C>,
-    y: FieldElement<C>,
+    x: FieldElement<4, C>,
+    y: FieldElement<4, C>,
 }
 
 impl<C: EllipticCurve> core::fmt::Display for AffinePoint<C> {
@@ -33,7 +33,7 @@ impl<C: EllipticCurve> core::fmt::Debug for AffinePoint<C> {
 }
 
 impl<C: EllipticCurve> AffinePoint<C> {
-    pub fn is_on_curve(x: &FieldElement<C>, y: &FieldElement<C>) -> bool {
+    pub fn is_on_curve(x: &FieldElement<4, C>, y: &FieldElement<4, C>) -> bool {
         let mut x_cube_ax_b = x.sqr();
         x_cube_ax_b.mul_assign(x);
 
@@ -42,7 +42,7 @@ impl<C: EllipticCurve> AffinePoint<C> {
         y.sqr() == x_cube_ax_b
     }
 
-    pub fn new(x: FieldElement<C>, y: FieldElement<C>) -> Option<Self> {
+    pub fn new(x: FieldElement<4, C>, y: FieldElement<4, C>) -> Option<Self> {
         match Self::is_on_curve(&x, &y) {
             true => Some(Self { x, y }),
             false => None,
@@ -50,20 +50,20 @@ impl<C: EllipticCurve> AffinePoint<C> {
     }
 
     /// Returns the x-value of `self`.
-    pub fn x(&self) -> FieldElement<C> {
+    pub fn x(&self) -> FieldElement<4, C> {
         self.x
     }
 
-    pub fn x_ref(&self) -> &FieldElement<C> {
+    pub fn x_ref(&self) -> &FieldElement<4, C> {
         &self.x
     }
 
     /// Returns the y-value of `self`.
-    pub fn y(&self) -> FieldElement<C> {
+    pub fn y(&self) -> FieldElement<4, C> {
         self.y
     }
 
-    pub fn y_ref(&self) -> &FieldElement<C> {
+    pub fn y_ref(&self) -> &FieldElement<4, C> {
         &self.y
     }
 
@@ -78,7 +78,7 @@ impl<C: EllipticCurve> AffinePoint<C> {
     /// # Safety
     /// The point must be on the curve. If the point isn't on the curve, it will result in
     /// undefined behavior.
-    pub const unsafe fn new_unchecked(x: FieldElement<C>, y: FieldElement<C>) -> Self {
+    pub const unsafe fn new_unchecked(x: FieldElement<4, C>, y: FieldElement<4, C>) -> Self {
         Self { x, y }
     }
 
@@ -113,7 +113,7 @@ impl<C: EllipticCurve> AffinePoint<C> {
         *self = self.double();
     }
 
-    fn third_point_on_line(&self, other: &Self, slope: &FieldElement<C>) -> Self {
+    fn third_point_on_line(&self, other: &Self, slope: &FieldElement<4, C>) -> Self {
         let mut x = slope.sqr();
         x.sub_assign(&self.x);
         x.sub_assign(&other.x);
@@ -142,7 +142,7 @@ mod tests {
     #[test]
     fn add() {
         let x = unsafe {
-            FieldElement::new_unchecked(UBigInt([
+            FieldElement::<4, Secp256r1>::new_unchecked(UBigInt([
                 0xa60b48fc47669978,
                 0xc08969e277f21b35,
                 0x8a52380304b51ac3,
@@ -189,7 +189,7 @@ mod tests {
     #[test]
     fn double() {
         let x = unsafe {
-            FieldElement::new_unchecked(UBigInt([
+            FieldElement::<4, Secp256r1>::new_unchecked(UBigInt([
                 0xa60b48fc47669978,
                 0xc08969e277f21b35,
                 0x8a52380304b51ac3,

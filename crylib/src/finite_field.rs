@@ -9,7 +9,7 @@ use crate::big_int::UBigInt;
 ///
 /// # Safety
 /// `MODULUS` *MUST* be prime.
-pub unsafe trait FiniteField
+pub unsafe trait FiniteField<const N: usize>
 where
     Self: Sized + PartialEq + Copy + Clone + core::fmt::Debug,
 {
@@ -17,8 +17,8 @@ where
     ///
     /// This value *MUST* be prime.
     /// Using a non-prime number will result in undefined behavior.
-    const MODULUS: UBigInt<4>;
+    const MODULUS: UBigInt<N>;
 
     /// The smallest value in the finite field.
-    const MIN: FieldElement<Self> = FieldElement::ZERO;
+    const MIN: FieldElement<N, Self> = FieldElement::ZERO;
 }

@@ -281,6 +281,7 @@ impl Default for SupGroups {
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct SigAlgs {
+    #[allow(missing_docs)]
     pub algorithms: u16,
 }
 
@@ -360,7 +361,7 @@ impl Default for SupVersions {
     }
 }
 
-pub struct KeyShare {}
+pub(crate) struct KeyShare {}
 
 impl KeyShare {
     const LEGACY_FORM: u8 = 4;
@@ -373,13 +374,13 @@ impl KeyShare {
             return 0;
         }
         // TODO: use size_of_val(&Self::LEGACY_FORM) once const-stabilized
-        1 + 2 * size_of::<FieldElement<<Secp256r1 as EllipticCurve>::Order>>()
+        1 + 2 * size_of::<FieldElement<4, <Secp256r1 as EllipticCurve>::Order>>()
             + Self::INNER_LEN_SIZE
             + size_of::<NamedGroup>()
             + Self::LEN_SIZE
     }
 
-    pub fn write_to(record_layer: &mut RecordLayer, groups: &SupGroups, keys: &GroupKeys) {
+    pub(crate) fn write_to(record_layer: &mut RecordLayer, groups: &SupGroups, keys: &GroupKeys) {
         if groups.groups == 0 {
             return;
         }

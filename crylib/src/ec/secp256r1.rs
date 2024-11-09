@@ -7,7 +7,7 @@ use super::{AffinePoint, ProjectivePoint};
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Default, Hash)]
 pub struct Secp256r1;
 // SAFETY: `Self::MODULUS` is prime.
-unsafe impl FiniteField for Secp256r1 {
+unsafe impl FiniteField<4> for Secp256r1 {
     const MODULUS: UBigInt<4> = UBigInt([
         0xffffffffffffffff,
         0x00000000ffffffff,
@@ -19,7 +19,7 @@ unsafe impl FiniteField for Secp256r1 {
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Default, Hash)]
 pub struct P256Order;
 // SAFETY: `Self::MODULUS` is prime.
-unsafe impl FiniteField for P256Order {
+unsafe impl FiniteField<4> for P256Order {
     const MODULUS: UBigInt<4> = UBigInt([
         0xf3b9cac2fc632551,
         0xbce6faada7179e84,
@@ -37,7 +37,7 @@ impl EllipticCurve for Secp256r1 {
                 0xf8bce6e563a440f2,
                 0x6b17d1f2e12c4247,
             ])),
-            FieldElement::new_unchecked(UBigInt([
+            FieldElement::<4, Self>::new_unchecked(UBigInt([
                 0xcbb6406837bf51f5,
                 0x2bce33576b315ece,
                 0x8ee7eb4a7c0f9e16,
@@ -47,7 +47,7 @@ impl EllipticCurve for Secp256r1 {
         .as_projective()
     };
 
-    const A: FieldElement<Self> = unsafe {
+    const A: FieldElement<4, Self> = unsafe {
         FieldElement::new_unchecked(UBigInt([
             0xfffffffffffffffc,
             0x00000000ffffffff,
@@ -56,7 +56,7 @@ impl EllipticCurve for Secp256r1 {
         ]))
     };
 
-    const B: FieldElement<Self> = unsafe {
+    const B: FieldElement<4, Self> = unsafe {
         FieldElement::new_unchecked(UBigInt([
             0x3bce3c3e27d2604b,
             0x651d06b0cc53b0f6,

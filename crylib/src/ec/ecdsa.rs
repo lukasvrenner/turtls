@@ -5,13 +5,13 @@ use crate::big_int::UBigInt;
 use crate::finite_field::{FieldElement, FiniteField};
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
-pub struct Signature<C: FiniteField> {
-    r: FieldElement<C>,
-    s: FieldElement<C>,
+pub struct Signature<C: FiniteField<4>> {
+    r: FieldElement<4, C>,
+    s: FieldElement<4, C>,
 }
 
-impl<C: FiniteField> Signature<C> {
-    pub const fn new(r: FieldElement<C>, s: FieldElement<C>) -> Self {
+impl<C: FiniteField<4>> Signature<C> {
+    pub const fn new(r: FieldElement<4, C>, s: FieldElement<4, C>) -> Self {
         Self { r, s }
     }
 }
@@ -47,11 +47,11 @@ impl core::error::Error for InvalidSig {}
 /// `priv_key`.
 pub fn sign<C: EllipticCurve>(
     msg: &[u8],
-    priv_key: &FieldElement<C::Order>,
+    priv_key: &FieldElement<4, C::Order>,
     hash_func: impl FnOnce(&[u8]) -> [u8; 32],
-    random_num_gen: impl Fn() -> FieldElement<C::Order>,
+    random_num_gen: impl Fn() -> FieldElement<4, C::Order>,
 ) -> Signature<C::Order> {
-    let mut hash: FieldElement<C::Order> =
+    let mut hash: FieldElement<4, C::Order> =
         FieldElement::new(UBigInt::<4>::from_be_bytes(hash_func(msg)));
 
     loop {
@@ -80,7 +80,7 @@ pub fn verify_signature<C: EllipticCurve>(
     hash_func: impl FnOnce(&[u8]) -> [u8; 32],
     sig: &Signature<C::Order>,
 ) -> Result<ValidSig, InvalidSig> {
-    let hash: FieldElement<C::Order> =
+    let hash: FieldElement<4, C::Order> =
         FieldElement::new(UBigInt::<4>::from_be_bytes(hash_func(msg)));
     let inverse = sig.s.inverse();
 
@@ -251,7 +251,7 @@ mod tests {
         ];
 
         let pub_key_x = unsafe {
-            FieldElement::<Secp256r1>::new_unchecked(UBigInt([
+            FieldElement::<4, Secp256r1>::new_unchecked(UBigInt([
                 0x3c59ff46c271bf83,
                 0xd3565de94bbfb12f,
                 0xf033bfa248db8fcc,
@@ -260,7 +260,7 @@ mod tests {
         };
 
         let pub_key_y = unsafe {
-            FieldElement::<Secp256r1>::new_unchecked(UBigInt([
+            FieldElement::<4, Secp256r1>::new_unchecked(UBigInt([
                 0xdc7ccd5ca89a4ca9,
                 0x6db7ca93b7404e78,
                 0x1a1fdb2c0e6113e0,
@@ -347,7 +347,7 @@ mod tests {
         let signature = Signature::new(r, s);
 
         let pub_key_x = unsafe {
-            FieldElement::<Secp256r1>::new_unchecked(UBigInt([
+            FieldElement::<4, Secp256r1>::new_unchecked(UBigInt([
                 0x0bf3d4012aeffa8a,
                 0x2c416044f2d2b8c1,
                 0x30d4ca3e8f774943,
@@ -356,7 +356,7 @@ mod tests {
         };
 
         let pub_key_y = unsafe {
-            FieldElement::<Secp256r1>::new_unchecked(UBigInt([
+            FieldElement::<4, Secp256r1>::new_unchecked(UBigInt([
                 0x6928973ab5b1cb39,
                 0xf456b863b4d02cfc,
                 0x7d47c587ef7a97a7,

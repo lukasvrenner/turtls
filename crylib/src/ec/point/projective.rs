@@ -4,9 +4,9 @@ use crate::finite_field::FieldElement;
 /// A point on [`EllipticCurve`] `C` in projective representation.
 #[derive(Debug, Clone, Copy)]
 pub struct ProjectivePoint<C: EllipticCurve> {
-    x: FieldElement<C>,
-    y: FieldElement<C>,
-    z: FieldElement<C>,
+    x: FieldElement<4, C>,
+    y: FieldElement<4, C>,
+    z: FieldElement<4, C>,
 }
 
 impl<C: EllipticCurve> PartialEq for ProjectivePoint<C> {
@@ -50,9 +50,9 @@ impl<C: EllipticCurve> ProjectivePoint<C> {
     /// # Safety
     /// The point must be on the curve.
     pub const unsafe fn new_unchecked(
-        x: FieldElement<C>,
-        y: FieldElement<C>,
-        z: FieldElement<C>,
+        x: FieldElement<4, C>,
+        y: FieldElement<4, C>,
+        z: FieldElement<4, C>,
     ) -> Self {
         Self { x, y, z }
     }
@@ -198,7 +198,7 @@ impl<C: EllipticCurve> ProjectivePoint<C> {
         self.y.neg_assign();
     }
 
-    pub fn mul_scalar(&self, scalar: &FieldElement<C::Order>) -> Self {
+    pub fn mul_scalar(&self, scalar: &FieldElement<4, C::Order>) -> Self {
         let mut result = Self::POINT_AT_INF;
         let mut temp = *self;
         let num_bits = scalar.count_bits();
@@ -215,7 +215,7 @@ impl<C: EllipticCurve> ProjectivePoint<C> {
     }
 
     // TODO: add a test for this
-    pub fn mul_scalar_assign(&mut self, scalar: &FieldElement<C::Order>) {
+    pub fn mul_scalar_assign(&mut self, scalar: &FieldElement<4, C::Order>) {
         let mut result = Self::POINT_AT_INF;
         let num_bits = scalar.count_bits();
         for i in (0..num_bits).rev() {
@@ -287,19 +287,18 @@ mod tests {
         // Secp256r1::BASE_POINT * 3
         let k_3 = unsafe { AffinePoint::new_unchecked(x, y) }.as_projective();
 
-        let sum = k_2.add(&Secp256r1::BASE_POINT.as_projective());
+        let sum = k_2.add(&Secp256r1::BASE_POINT);
         assert_eq!(sum, k_3);
 
-        let also_sum = Secp256r1::BASE_POINT.as_projective().add(&k_2);
+        let also_sum = Secp256r1::BASE_POINT.add(&k_2);
         assert_eq!(also_sum, k_3);
 
         let sum = Secp256r1::BASE_POINT
-            .as_projective()
             .add(&ProjectivePoint::POINT_AT_INF);
-        assert_eq!(sum, Secp256r1::BASE_POINT.as_projective());
+        assert_eq!(sum, Secp256r1::BASE_POINT);
 
-        let sum = ProjectivePoint::POINT_AT_INF.add(&Secp256r1::BASE_POINT.as_projective());
-        assert_eq!(sum, Secp256r1::BASE_POINT.as_projective());
+        let sum = ProjectivePoint::POINT_AT_INF.add(&Secp256r1::BASE_POINT);
+        assert_eq!(sum, Secp256r1::BASE_POINT);
     }
 
     #[test]
@@ -343,11 +342,10 @@ mod tests {
         // Secp256r1::BASE_POINT * 3
         let k_3 = unsafe { AffinePoint::new_unchecked(x, y) }.as_projective();
 
-        let sum = k_2.add_fast(&Secp256r1::BASE_POINT.as_projective());
+        let sum = k_2.add_fast(&Secp256r1::BASE_POINT);
         assert_eq!(sum, k_3);
 
         let inf = Secp256r1::BASE_POINT
-            .as_projective()
             .add_fast(&ProjectivePoint::POINT_AT_INF);
         assert_eq!(inf, ProjectivePoint::POINT_AT_INF);
 
@@ -357,7 +355,7 @@ mod tests {
 
     #[test]
     fn double() {
-        let point = Secp256r1::BASE_POINT.as_projective().double();
+        let point = Secp256r1::BASE_POINT.double();
         let x = unsafe {
             FieldElement::new_unchecked(UBigInt([
                 0xa60b48fc47669978,
@@ -380,10 +378,8 @@ mod tests {
 
     #[test]
     fn mul_scalar() {
-        let point = Secp256r1::BASE_POINT
-            .as_projective()
-            .mul_scalar(&FieldElement::ONE);
-        assert_eq!(point, Secp256r1::BASE_POINT.as_projective());
+        let point = Secp256r1::BASE_POINT.mul_scalar(&FieldElement::ONE);
+        assert_eq!(point, Secp256r1::BASE_POINT);
 
         let scalar = unsafe { FieldElement::new_unchecked(UBigInt::from(112233445566778899)) };
 
@@ -407,7 +403,7 @@ mod tests {
 
         let product = unsafe { AffinePoint::new_unchecked(x, y) }.as_projective();
 
-        let point = Secp256r1::BASE_POINT.as_projective().mul_scalar(&scalar);
+        let point = Secp256r1::BASE_POINT.mul_scalar(&scalar);
 
         assert_eq!(point, product)
     }

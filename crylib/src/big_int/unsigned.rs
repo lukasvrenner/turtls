@@ -55,6 +55,20 @@ impl<const N: usize> UBigInt<N> {
         Self(value)
     }
 
+    pub fn from_ref(value: &[u64; N]) -> &Self {
+        let ptr = value as *const [u64; N] as *const UBigInt<N>;
+        // SAFETY: `UBigInt<N>` is repr(transparent) and therefore has the same memory layout as
+        // `[u64; N]`.
+        unsafe { &*ptr }
+    }
+
+    pub fn from_ref_mut(value: &mut [u64; N]) -> &mut Self {
+        let ptr = value as *mut [u64; N] as *mut UBigInt<N>;
+        // SAFETY: `UBigInt<N>` is repr(transparent) and therefore has the same memory layout as
+        // `[u64; N]`.
+        unsafe { &mut *ptr }
+    }
+
     /// The zero value of [`UBigInt<N>`]
     ///
     /// # Examples
@@ -850,6 +864,30 @@ impl<const N: usize> TryFrom<BigInt<N>> for UBigInt<N> {
             return Err(FromNegErr);
         };
         Ok(value.digits)
+    }
+}
+
+impl<const N: usize> AsRef<[u64; N]> for UBigInt<N> {
+    fn as_ref(&self) -> &[u64; N] {
+        &self.0
+    }
+}
+
+impl<const N: usize> AsMut<[u64; N]> for UBigInt<N> {
+    fn as_mut(&mut self) -> &mut [u64; N] {
+        &mut self.0
+    }
+}
+
+impl<const N: usize> AsRef<UBigInt<N>> for [u64; N] {
+    fn as_ref(&self) -> &UBigInt<N> {
+        todo!()
+    }
+}
+
+impl<const N: usize> AsMut<UBigInt<N>> for [u64; N] {
+    fn as_mut(&mut self) -> &mut UBigInt<N> {
+        UBigInt::from_ref_mut(self)
     }
 }
 
