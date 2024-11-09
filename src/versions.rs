@@ -11,6 +11,10 @@ pub(crate) const LEGACY_PROTO_VERS: ProtocolVersion = ProtocolVersion::TlsOneTwo
 
 impl ProtocolVersion {
     pub(crate) const fn to_be_bytes(self) -> [u8; 2] {
-        (self as u16).to_be_bytes()
+        self.as_int().to_be_bytes()
+    }
+
+    pub(crate) const fn as_int(self) -> u16 {
+        self as u16
     }
 }

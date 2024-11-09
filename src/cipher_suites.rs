@@ -88,8 +88,12 @@ pub(crate) enum NamedGroup {
 }
 
 impl NamedGroup {
+    pub(crate) const fn as_int(self) -> u16 {
+        self as u16
+    }
+
     pub(crate) const fn to_be_bytes(self) -> [u8; 2] {
-        (self as u16).to_be_bytes()
+        self.as_int().to_be_bytes()
     }
 }
 
@@ -136,7 +140,10 @@ pub(crate) enum SignatureScheme {
 }
 
 impl SignatureScheme {
+    pub(crate) const fn as_int(self) -> u16 {
+        self as u16
+    }
     pub(crate) const fn to_be_bytes(self) -> [u8; 2] {
-        (self as u16).to_be_bytes()
+        self.as_int().to_be_bytes()
     }
 }

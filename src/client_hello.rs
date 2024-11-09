@@ -15,15 +15,15 @@ impl ClientHello {
     pub(crate) const RANDOM_BYTES_LEN: usize = 32;
     pub(crate) const LEGACY_SESSION_ID: u8 = 0;
     pub(crate) const LEGACY_COMPRESSION_METHODS: [u8; 2] = [1, 0];
-    pub(crate) const fn len(&self) -> usize {
+    pub(crate) fn len(&self) -> usize {
         size_of::<ProtocolVersion>()
             + Self::RANDOM_BYTES_LEN
             // TODO use size_of_val once it is const-stabilized
-            + 1
+            + size_of_val(&Self::LEGACY_SESSION_ID)
             + CipherList::LEN_SIZE
             + self.cipher_suites.len()
             // TODO use size_of_val once it is const-stabilized
-            + 2
+            + size_of_val(&Self::LEGACY_COMPRESSION_METHODS)
             + Extensions::LEN_SIZE
             + self.extensions.len()
     }
@@ -36,10 +36,10 @@ impl ClientHello {
         record_layer.start_as(ContentType::Handshake);
         record_layer.push(ShakeType::ClientHello.to_byte());
 
-        let len = (self.len() as u32).to_be_bytes();
-        record_layer.extend_from_slice(&len[1..]);
+        let len = self.len() as u32;
+        record_layer.push_u24(len);
 
-        record_layer.extend_from_slice(&LEGACY_PROTO_VERS.to_be_bytes());
+        record_layer.push_u16(LEGACY_PROTO_VERS.as_int());
 
         let mut random_bytes = [0; Self::RANDOM_BYTES_LEN];
         getrandom(&mut random_bytes)?;
@@ -47,14 +47,14 @@ impl ClientHello {
 
         record_layer.push(Self::LEGACY_SESSION_ID);
 
-        let len = (self.cipher_suites.len() as u16).to_be_bytes();
-        record_layer.extend_from_slice(&len);
+        let len = self.cipher_suites.len() as u16;
+        record_layer.push_u16(len);
         self.cipher_suites.write_to(record_layer);
 
         record_layer.extend_from_slice(&Self::LEGACY_COMPRESSION_METHODS);
 
-        let len = (self.extensions.len() as u16).to_be_bytes();
-        record_layer.extend_from_slice(&len);
+        let len = self.extensions.len() as u16;
+        record_layer.push_u16(len);
         self.extensions.write_to(record_layer, keys);
 
         record_layer.finish_and_send();

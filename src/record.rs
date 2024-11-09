@@ -154,6 +154,38 @@ impl RecordLayer {
         self.len += 1;
     }
 
+    pub(crate) fn push_u16(&mut self, value: u16) {
+        self.push((value >> 8) as u8);
+        self.push(value as u8);
+    }
+
+    pub(crate) fn push_u24(&mut self, value: u32) {
+        self.push((value >> 16) as u8);
+
+        self.push((value >> 8) as u8);
+        self.push(value as u8);
+    }
+
+    pub(crate) fn push_u32(&mut self, value: u32) {
+        self.push((value >> 24) as u8);
+        self.push((value >> 16) as u8);
+
+        self.push((value >> 8) as u8);
+        self.push(value as u8);
+    }
+
+    pub(crate) fn push_u64(&mut self, value: u64) {
+        self.push((value >> 56) as u8);
+        self.push((value >> 48) as u8);
+        self.push((value >> 40) as u8);
+        self.push((value >> 32) as u8);
+
+        self.push((value >> 24) as u8);
+        self.push((value >> 16) as u8);
+        self.push((value >> 8) as u8);
+        self.push(value as u8);
+    }
+
     pub(crate) fn extend_from_slice(&mut self, slice: &[u8]) {
         let diff = (Self::MAX_LEN + Self::PREFIIX_SIZE) - self.len();
 

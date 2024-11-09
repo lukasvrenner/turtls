@@ -30,6 +30,11 @@ pub struct RecvdSerHello<'a> {
 }
 
 impl<'a> RecvdSerHello<'a> {
+    /// Recieve and parse a ServerHello message.
+    ///
+    /// Note: this function makes the assumption that the ServerHello will be exactly one record.
+    /// If the server sends a ServerHello that is broken into multiple records, it will alert
+    /// `HandshakeFailed` and return an error.
     pub(crate) fn parse(
         record_layer: &'a mut RecordLayer,
     ) -> Result<Self, SerHelParseError> {

@@ -117,6 +117,11 @@ struct turtls_Io {
     const void *ctx;
 };
 
+struct turtls_ServerName {
+    const char *name;
+    size_t len;
+};
+
 typedef uint16_t turtls_SigAlgs;
 #define turtls_SigAlgs_ECDSA_SECP256R1 1
 
@@ -126,6 +131,7 @@ typedef uint8_t turtls_SupVersions;
 #define turtls_SupVersions_TLS_ONE_THREE 1
 
 struct turtls_Extensions {
+    struct turtls_ServerName server_name;
     turtls_SigAlgs sig_algs;
     turtls_SupGroups sup_groups;
     turtls_SupVersions sup_versions;

@@ -30,6 +30,7 @@ pub use alert::Alert;
 pub use cipher_suites::CipherList;
 pub use config::Config;
 pub use record::Io;
+pub use extensions::Extensions;
 
 #[must_use]
 #[repr(C)]
