@@ -45,13 +45,33 @@ impl ExtensionType {
     }
 }
 
+/// The extensions to use in the handshake.
+///
+/// Refer to each extension's individual documentation for specific usage information.
 #[derive(Default, PartialEq, Eq, Clone, Copy)]
 #[repr(C)]
 pub struct Extensions {
+    /// The server name to send to the server or to expect from the client.
+    ///
+    /// Refer to its specific documentation for more information.
     pub server_name: ServerName,
+    /// A list of signature algorithms to support.
+    ///
+    /// Refer to its specific documentation for more information.
     pub sig_algs: SigAlgs,
+    /// A list of curves to use for key exchange.
+    ///
+    /// Refer to its specific documentation for more information.
     pub sup_groups: SupGroups,
+    /// A list of TLS versions to support.
+    ///
+    /// For now, this must be set to `TLS_ONE_THREE`.
+    ///
+    /// Refer to its specific documentation for more information.
     pub sup_versions: SupVersions,
+    /// The maximum length of a record.
+    ///
+    /// Refer to its specific documentation for more information.
     pub max_frag_len: MaxFragLen,
 }
 
@@ -97,10 +117,20 @@ impl<'a> ExtensionsRef<'a> {
     }
 }
 
+/// The server name to send to the server or expect from the client.
+///
+/// If no server name is to be sent or expected, set `name` to `NULL` and `len` to `0`.
+/// By default, no name will be sent or expected.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(C)]
 pub struct ServerName {
+    /// The name of the server.
+    ///
+    /// The string need not be null-terminated.
+    ///
+    /// Lifetime: this pointer must be valid for the duration of the handshake.
     pub name: *const c_char,
+    /// The length of the server name in bytes.
     pub len: usize,
 }
 
@@ -110,7 +140,7 @@ impl ServerName {
     const LEN_SIZE: usize = 2;
     const INNER_LEN_SIZE: usize = 2;
 
-    pub fn len(&self) -> usize {
+    pub(crate) fn len(&self) -> usize {
         if self.name.is_null() {
             return 0;
         }
@@ -122,6 +152,7 @@ impl ServerName {
             return;
         }
         record_layer.push_u16(Self::TAG.as_int());
+
         let mut len = self.len();
         record_layer.push_u16(len as u16);
 
@@ -150,13 +181,21 @@ impl Default for ServerName {
     }
 }
 
+/// The maximum length of a record.
+///
+/// This is useful in constrained environments.
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum MaxFragLen {
+    /// Use the default record length of 0x4000 bytes.
     Default = 0,
+    /// 0x200 bytes.
     Hex200 = 1,
+    /// 0x400 bytes.
     Hex400 = 2,
+    /// 0x500 bytes.
     Hex500 = 3,
+    /// 0x600 bytes.
     Hex600 = 4,
 }
 
@@ -167,7 +206,7 @@ impl Default for MaxFragLen {
 }
 
 impl MaxFragLen {
-    pub(crate) const TAG: [u8; 2] = ExtensionType::MaxFragmentLength.to_be_bytes();
+    pub(crate) const TAG: ExtensionType = ExtensionType::MaxFragmentLength;
 
     pub(crate) const fn to_byte(self) -> u8 {
         self as u8
@@ -191,18 +230,25 @@ impl MaxFragLen {
     }
 }
 
+/// A list of curves to use for key exchange.
+///
+/// Use bit-OR to turn an option on and bit-NAND to turn an option off.
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct SupGroups {
+    #[allow(missing_docs)]
     pub groups: u16,
 }
 
 impl SupGroups {
     const TAG: ExtensionType = ExtensionType::SupportedGroups;
     const LEN_SIZE: usize = 2;
+    /// NIST-P 256.
+    ///
+    /// This is a reasonable default curve to enable.
     pub const SECP256R1: u16 = 0b0000000000000001;
 
-    pub const fn len(&self) -> usize {
+    pub(crate) const fn len(&self) -> usize {
         self.groups.count_ones() as usize * size_of::<NamedGroup>() + Self::LEN_SIZE
     }
 
@@ -231,6 +277,9 @@ impl Default for SupGroups {
     }
 }
 
+/// A list of algorithms to use for signatures.
+///
+/// Use bit-OR to turn an option on and bit-NAND to turn an option off.
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct SigAlgs {
@@ -238,11 +287,12 @@ pub struct SigAlgs {
 }
 
 impl SigAlgs {
+    /// The Elliptic Curve Digital Signature Algorithm with curve Secp256r1 (NIST-P 256).
     pub const ECDSA_SECP256R1: u16 = 0b0000000000000001;
     const TAG: ExtensionType = ExtensionType::SignatureAlgorithms;
     const LEN_SIZE: usize = 2;
 
-    pub const fn len(&self) -> usize {
+    pub(crate) const fn len(&self) -> usize {
         self.algorithms.count_ones() as usize * size_of::<SignatureScheme>() + Self::LEN_SIZE
     }
 
@@ -284,7 +334,7 @@ impl SupVersions {
     const LEN_SIZE: usize = 1;
     const TAG: [u8; 2] = [0, 43];
 
-    pub const fn len(&self) -> usize {
+    pub(crate) const fn len(&self) -> usize {
         self.versions.count_ones() as usize * size_of::<ProtocolVersion>() + Self::LEN_SIZE
     }
 
@@ -320,7 +370,7 @@ impl KeyShare {
     const INNER_LEN_SIZE: usize = 2;
     const TAG: ExtensionType = ExtensionType::KeyShare;
 
-    pub const fn len(groups: &SupGroups) -> usize {
+    pub(crate) const fn len(groups: &SupGroups) -> usize {
         if groups.groups & SupGroups::SECP256R1 == 0 {
             return 0;
         }

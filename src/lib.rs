@@ -10,13 +10,14 @@ mod alert;
 mod cipher_suites;
 mod client_hello;
 mod config;
-mod extensions;
 mod handshake;
 mod key_schedule;
 mod record;
 mod server_hello;
 mod state;
 mod versions;
+
+pub mod extensions;
 
 use std::time::Duration;
 
@@ -30,7 +31,6 @@ pub use alert::Alert;
 pub use cipher_suites::CipherList;
 pub use config::Config;
 pub use record::Io;
-pub use extensions::Extensions;
 
 #[must_use]
 #[repr(C)]

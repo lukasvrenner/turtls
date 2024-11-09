@@ -27,6 +27,8 @@ pub struct Io {
     pub close_fn: extern "C" fn(ctx: *const c_void),
 
     /// Any contextual data.
+    ///
+    /// Lifetime: this pointer must be valid for the duration of the connection.
     pub ctx: *const c_void,
 }
 
