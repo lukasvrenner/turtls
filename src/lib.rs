@@ -82,7 +82,7 @@ pub extern "C" fn turtls_generate_config() -> Config {
 
 /// Performs a TLS handshake as the client, returning the connection state or an error.
 #[no_mangle]
-pub extern "C" fn turtls_client_handshake(
+pub unsafe extern "C" fn turtls_client_handshake(
     // TODO: use c_size_t and c_ssize_t once stabilized
     io: Io,
     config: *const Config,
@@ -122,9 +122,10 @@ pub extern "C" fn turtls_client_handshake(
 
 /// Performs a TLS handshake as the server, returning the connection state or an error.
 #[no_mangle]
-pub extern "C" fn turtls_server_handshake(
+pub unsafe extern "C" fn turtls_server_handshake(
     // TODO: use c_size_t and c_ssize_t once stabilized
     io: Io,
+    config: *const Config,
 ) -> ShakeResult {
     todo!();
 }

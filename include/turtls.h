@@ -251,7 +251,8 @@ struct turtls_Config turtls_generate_config(void);
 /**
  * Performs a TLS handshake as the server, returning the connection state or an error.
  */
-struct turtls_ShakeResult turtls_server_handshake(struct turtls_Io io);
+struct turtls_ShakeResult turtls_server_handshake(struct turtls_Io io,
+                                                  const struct turtls_Config *config);
 
 #ifdef __cplusplus
 }  // extern "C"
