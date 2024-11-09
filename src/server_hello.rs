@@ -35,9 +35,7 @@ impl<'a> RecvdSerHello<'a> {
     /// Note: this function makes the assumption that the ServerHello will be exactly one record.
     /// If the server sends a ServerHello that is broken into multiple records, it will alert
     /// `HandshakeFailed` and return an error.
-    pub(crate) fn parse(
-        record_layer: &'a mut RecordLayer,
-    ) -> Result<Self, SerHelParseError> {
+    pub(crate) fn parse(record_layer: &'a mut RecordLayer) -> Result<Self, SerHelParseError> {
         record_layer.read(ContentType::Handshake)?;
         let handshake_msg = record_layer.buf();
         if handshake_msg.len() < SHAKE_HEADER_SIZE + ServerHello::MIN_LEN {

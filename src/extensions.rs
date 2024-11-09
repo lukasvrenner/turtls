@@ -165,9 +165,7 @@ impl ServerName {
         record_layer.push_u16(len as u16);
 
         // SAFETY: the creator of `ServerName` guarantees the length and pointer are valid.
-        let server_name = unsafe {
-            slice::from_raw_parts(self.name as *const u8, self.len * size_of::<c_char>())
-        };
+        let server_name = unsafe { slice::from_raw_parts(self.name as *const u8, self.len) };
         record_layer.extend_from_slice(server_name);
     }
 }

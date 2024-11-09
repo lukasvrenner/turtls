@@ -58,10 +58,7 @@ pub fn sign<C: EllipticCurve>(
         let secret_num = random_num_gen();
         let mut inverse = secret_num.inverse();
 
-        let Some(new_point) = C::BASE_POINT
-            .mul_scalar(&secret_num)
-            .as_affine()
-        else {
+        let Some(new_point) = C::BASE_POINT.mul_scalar(&secret_num).as_affine() else {
             continue;
         };
 

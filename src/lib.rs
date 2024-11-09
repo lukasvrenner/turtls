@@ -58,7 +58,6 @@ impl From<SerHelParseError> for ShakeResult {
         match value {
             SerHelParseError::ReadError(err) => Self::from(err),
             SerHelParseError::Failed => Self::HandshakeFailed,
-
         }
     }
 }
