@@ -25,25 +25,25 @@ impl CipherList {
 
     pub(crate) fn write_to(&self, record_layer: &mut RecordLayer) {
         if self.suites & Self::AES_128_GCM_SHA256 > 0 {
-            record_layer.extend_from_slice(&CipherSuite::Aes128GcmSha256.to_be_bytes());
+            record_layer.push_u16(CipherSuite::Aes128GcmSha256.as_int());
         }
         if self.suites & Self::CHA_CHA_POLY1305_SHA256 > 0 {
-            record_layer.extend_from_slice(&CipherSuite::Aes128GcmSha256.to_be_bytes());
+            record_layer.push_u16(CipherSuite::ChaCha20Poly1305Sha256.as_int());
         }
     }
 
     pub(crate) fn parse_singular(suite: [u8; size_of::<CipherSuite>()]) -> Self {
         // fill in more values once more ciphersuites are supported
         match suite {
-            x if x == (CipherSuite::Aes128GcmSha256 as u16).to_be_bytes() => Self {
+            x if x == CipherSuite::Aes128GcmSha256.as_int().to_be_bytes() => Self {
                 suites: Self::AES_128_GCM_SHA256,
             },
-            x if x == (CipherSuite::Aes256GcmSha384 as u16).to_be_bytes() => Self { suites: 0 },
-            x if x == (CipherSuite::ChaCha20Poly1305Sha256 as u16).to_be_bytes() => {
-                Self { suites: Self::CHA_CHA_POLY1305_SHA256 }
+            x if x == CipherSuite::Aes256GcmSha384.as_int().to_be_bytes() => Self { suites: 0 },
+            x if x == CipherSuite::ChaCha20Poly1305Sha256.as_int().to_be_bytes() => Self {
+                suites: Self::CHA_CHA_POLY1305_SHA256,
             },
-            x if x == (CipherSuite::Aes128CcmSha256 as u16).to_be_bytes() => Self { suites: 0 },
-            x if x == (CipherSuite::Aes128Ccm8Sha256 as u16).to_be_bytes() => Self { suites: 0 },
+            x if x == CipherSuite::Aes128CcmSha256.as_int().to_be_bytes() => Self { suites: 0 },
+            x if x == CipherSuite::Aes128Ccm8Sha256.as_int().to_be_bytes() => Self { suites: 0 },
             _ => Self { suites: 0 },
         }
     }
@@ -68,8 +68,12 @@ pub(crate) enum CipherSuite {
 }
 
 impl CipherSuite {
+    pub(crate) const fn as_int(self) -> u16 {
+        self as u16
+    }
+
     pub(crate) const fn to_be_bytes(self) -> [u8; 2] {
-        (self as u16).to_be_bytes()
+        self.as_int().to_be_bytes()
     }
 }
 

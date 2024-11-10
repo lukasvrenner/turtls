@@ -113,7 +113,7 @@ pub(crate) struct ExtensionsRef<'a> {
 
 impl<'a> ExtensionsRef<'a> {
     pub(crate) fn parse(extensions: &'a [u8]) -> Self {
-        todo!()
+        todo!("parse extensions");
     }
 }
 
