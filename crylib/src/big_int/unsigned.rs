@@ -76,7 +76,7 @@ impl<const N: usize> UBigInt<N> {
     /// use crylib::big_int::UBigInt;
     ///
     /// assert_eq!(UBigInt::<4>::ZERO, UBigInt::MIN);
-    /// assert_eq!(UBigInt::<4>::ZERO.count_digits(), 1);
+    /// assert_eq!(UBigInt::<4>::ZERO.count_digits(), 0);
     /// ```
     ///
     /// This has the same value as [`UBigInt<N>::MIN`].
@@ -172,15 +172,17 @@ impl<const N: usize> UBigInt<N> {
     /// This operation is *NOT* constant-time.
     /// If constant-time is needed, use [`Self::count_digits()`].
     pub fn count_digits_fast(&self) -> usize {
-        for (count, digit) in self.0.into_iter().skip(1).rev().enumerate() {
+        for (count, digit) in self.0.into_iter().rev().enumerate() {
             if digit != 0 {
                 return N - count;
             };
         }
-        1
+        0
     }
 
     /// Returns the number of digits in `self`.
+    ///
+    /// This is the same as `floor(log64(self))`
     ///
     /// This is *not* the same as [`Self::len()`].
     ///
@@ -193,15 +195,13 @@ impl<const N: usize> UBigInt<N> {
     /// assert_eq!(large_int.count_digits(), 2);
     /// ```
     ///
-    /// Note: this function has not yet been benchmarked. It may not actually be any slower.
-    ///
     /// # Constant-timedness
     /// This is a constant-time operation.
     /// If constant-time is not needed, consider using [`Self::count_digits_fast()`].
     pub fn count_digits(&self) -> usize {
-        let mut num_digts = 1;
+        let mut num_digts = 0;
         let mut digit_encounterd = false;
-        for digit in self.0.iter().skip(1).rev() {
+        for digit in self.0.iter().rev() {
             digit_encounterd |= *digit != 0;
             num_digts += digit_encounterd as usize;
         }
@@ -593,14 +593,29 @@ impl<const N: usize> UBigInt<N> {
         new
     }
 
-    pub fn get_bit(&self, bit: usize) -> bool {
-        assert!(bit < size_of::<[u64; N]>() * 8);
+    pub const fn get_bit(&self, bit: usize) -> bool {
+        assert!(bit < u64::BITS as usize * N);
         self.0[bit / (u64::BITS as usize)] & 1 << (bit % (u64::BITS as usize)) != 0
     }
 
-    pub fn count_bits(&self) -> usize {
+    pub fn set_bit(&mut self, bit: usize, value: bool) {
+        assert!(bit < u64::BITS as usize * N);
+        self.0[bit / (u64::BITS as usize)] |= (value as u64) << (bit % (u64::BITS as usize))
+    }
+
+    /// Adds one bit after the most significant bit.
+    pub fn add_bit(&mut self) {
         let num_ditis = self.count_digits().saturating_sub(1);
-        let bits = u64::BITS as usize - self.0[num_ditis].leading_zeros() as usize;
+        // TODO: use unbounded_shl once stabilized
+        self.0[num_ditis] |= 1 << u64::BITS - self.0[num_ditis].leading_zeros().clamp(0, u64::BITS - 1);
+    }
+
+    /// Counts the number of significant bits in `self`.
+    ///
+    /// This is the same as `floor(log2(self))`
+    pub fn count_bits(&self) -> usize {
+        let num_ditis = self.count_digits();
+        let bits = u64::BITS as usize - self.0[num_ditis.saturating_sub(1)].leading_zeros() as usize;
         num_ditis * u64::BITS as usize + bits
     }
 }
@@ -767,6 +782,18 @@ macro_rules! impl_non_generic {
                 output.into()
             }
 
+            /// converts a big-endian byte array to a [`UBigInt`]
+            // TODO: implement this for all values of `N` once const_generic operations are stabilized
+            pub fn from_le_bytes(bytes: [u8; $n * size_of::<u64>()]) -> Self {
+                // TODO: consider using uninitialized array
+                let mut output = [0; $n];
+                // TODO: use array_chunks once stabilized
+                for (chunk, digit) in bytes.chunks_exact(size_of::<u64>()).zip(output.iter_mut()) {
+                    *digit = u64::from_le_bytes(chunk.try_into().unwrap())
+                }
+                output.into()
+            }
+
             pub fn to_be_bytes(self) -> [u8; $n * size_of::<u64>()] {
                 let mut output = [0; $n * size_of::<u64>()];
                 for (digit, chunk) in self
@@ -778,10 +805,24 @@ macro_rules! impl_non_generic {
                 }
                 output
             }
+
+            pub fn to_le_bytes(self) -> [u8; $n * size_of::<u64>()] {
+                let mut output = [0; $n * size_of::<u64>()];
+                for (digit, chunk) in self
+                    .0
+                    .into_iter()
+                    .zip(output.chunks_exact_mut(size_of::<u64>()))
+                {
+                    chunk.copy_from_slice(&digit.to_le_bytes());
+                }
+                output
+            }
         }
     };
 }
 
+impl_non_generic!(2);
+impl_non_generic!(3);
 impl_non_generic!(4);
 impl_non_generic!(8);
 impl_non_generic!(5);
@@ -1106,7 +1147,7 @@ mod tests {
             0x0000000000000000,
         ]);
         assert_eq!(z.count_digits_fast(), 3);
-        assert_eq!(UBigInt::<4>::ZERO.count_digits_fast(), 1);
+        assert_eq!(UBigInt::<4>::ZERO.count_digits_fast(), 0);
     }
 
     #[test]
@@ -1134,7 +1175,7 @@ mod tests {
             0x0000000000000000,
         ]);
         assert_eq!(z.count_digits(), 3);
-        assert_eq!(UBigInt::<4>::ZERO.count_digits(), 1);
+        assert_eq!(UBigInt::<4>::ZERO.count_digits(), 0);
     }
 
     #[test]

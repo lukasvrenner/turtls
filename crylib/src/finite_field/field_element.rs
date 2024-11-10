@@ -265,6 +265,7 @@ macro_rules! impl_field_element {
     };
 }
 
+impl_field_element!(3);
 impl_field_element!(4);
 
 impl<const N: usize, F: FiniteField<N>> TryFrom<UBigInt<N>> for FieldElement<N, F> {

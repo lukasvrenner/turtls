@@ -269,6 +269,7 @@ macro_rules! impl_big_int {
     };
 }
 
+impl_big_int!(3);
 impl_big_int!(4);
 impl_big_int!(8);
 
