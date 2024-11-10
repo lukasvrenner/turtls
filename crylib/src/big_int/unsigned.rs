@@ -1,4 +1,9 @@
-//! The home to [`UBigInt`].
+//! Unsigned large integers.
+//!
+//! Unlike many multi-precision libraries, these integers have a fixed (but arbitrary) size.
+//!
+//! Due to current limitations in Rust, some functions can only be applied on a per-size basis,
+//! rather than being generic over any size. This will hopefully be fixed some day.
 
 use super::{carry_mul, BigInt, FromNegErr};
 use core::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
@@ -605,10 +610,14 @@ impl<const N: usize> UBigInt<N> {
 
     /// Adds one bit after the most significant bit.
     pub fn add_bit(&mut self) {
-        let num_ditis = self.count_digits().saturating_sub(1);
+        let num_digits = self.count_digits().saturating_sub(1);
         // TODO: use unbounded_shl once stabilized
-        self.0[num_ditis] |=
-            1 << u64::BITS - self.0[num_ditis].leading_zeros().clamp(0, u64::BITS - 1);
+        self.0[core::cmp::min(num_digits + 1, N - 1)] |= (self.0[num_digits] >= 1 << 63) as u64;
+        self.0[num_digits] |= 1
+            << core::cmp::min(
+                u64::BITS - self.0[num_digits].leading_zeros(),
+                u64::BITS - 1,
+            );
     }
 
     /// Counts the number of significant bits in `self`.
@@ -1213,5 +1222,110 @@ mod tests {
 
         assert_eq!(UBigInt::<4>::ZERO.count_bits(), 0);
         assert_eq!(UBigInt::<4>::ONE.count_bits(), 1);
+    }
+
+    #[test]
+    fn add_bit() {
+        let mut num = UBigInt([
+            0x0807060504030201,
+            0x100f0e0d0c0b0a09,
+            0x1817161514131211,
+            0x201f1e1d1c1b1a19,
+        ]);
+        let new_num = UBigInt([
+            0x0807060504030201,
+            0x100f0e0d0c0b0a09,
+            0x1817161514131211,
+            0x601f1e1d1c1b1a19,
+        ]);
+        num.add_bit();
+        assert_eq!(num, new_num);
+
+        let mut num = UBigInt([
+            0x0807060504030201,
+            0x100f0e0d0c0b0a09,
+            0x1817161514131211,
+            0x0000000000000000,
+        ]);
+        let new_num = UBigInt([
+            0x0807060504030201,
+            0x100f0e0d0c0b0a09,
+            0x3817161514131211,
+            0x0000000000000000,
+        ]);
+        num.add_bit();
+        assert_eq!(num, new_num);
+
+        let mut num = UBigInt::<4>::ZERO;
+        let new_num = UBigInt::ONE;
+        num.add_bit();
+        assert_eq!(num, new_num);
+
+        let mut num = UBigInt::<4>::MAX;
+        let new_num = UBigInt::MAX;
+        num.add_bit();
+        assert_eq!(num, new_num);
+
+        let mut num = UBigInt([
+            0xffffffffffffffff,
+            0xffffffffffffffff,
+            0x0000000000000000,
+            0x0000000000000000,
+        ]);
+        let new_num = UBigInt([
+            0xffffffffffffffff,
+            0xffffffffffffffff,
+            0x0000000000000001,
+            0x0000000000000000,
+        ]);
+        num.add_bit();
+        assert_eq!(num, new_num);
+
+        let mut num = UBigInt([
+            0x0000000000000000,
+            0x8000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+        ]);
+        let new_num = UBigInt([
+            0x0000000000000000,
+            0x8000000000000000,
+            0x0000000000000001,
+            0x0000000000000000,
+        ]);
+        num.add_bit();
+        assert_eq!(num, new_num);
+    }
+
+    #[test]
+    fn from_le_bytes() {
+        let bytes = [
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e,
+            0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c,
+            0x1d, 0x1e, 0x1f, 0x20,
+        ];
+        let num = UBigInt([
+            0x0807060504030201,
+            0x100f0e0d0c0b0a09,
+            0x1817161514131211,
+            0x201f1e1d1c1b1a19,
+        ]);
+        assert_eq!(UBigInt::<4>::from_le_bytes(bytes), num);
+    }
+
+    #[test]
+    fn to_le_bytes() {
+        let num = UBigInt([
+            0x0807060504030201,
+            0x100f0e0d0c0b0a09,
+            0x1817161514131211,
+            0x201f1e1d1c1b1a19,
+        ]);
+        let bytes = [
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e,
+            0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c,
+            0x1d, 0x1e, 0x1f, 0x20,
+        ];
+        assert_eq!(num.to_le_bytes(), bytes);
     }
 }
