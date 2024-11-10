@@ -45,8 +45,7 @@ impl Poly1305 {
     }
 
     pub fn update(&mut self, msg: &[u8; 16]) {
-        let mut as_int: UBigInt<3> =
-            UBigInt::<2>::from_le_bytes(*msg).resize();
+        let mut as_int: UBigInt<3> = UBigInt::<2>::from_le_bytes(*msg).resize();
         as_int.add_bit();
         // SAFETY: as_int is guaranteed to be less than `PolyField::MODULUS`.
         let as_fe: FieldElement<3, PolyField> = unsafe { FieldElement::new_unchecked(as_int) };

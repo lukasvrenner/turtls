@@ -607,7 +607,8 @@ impl<const N: usize> UBigInt<N> {
     pub fn add_bit(&mut self) {
         let num_ditis = self.count_digits().saturating_sub(1);
         // TODO: use unbounded_shl once stabilized
-        self.0[num_ditis] |= 1 << u64::BITS - self.0[num_ditis].leading_zeros().clamp(0, u64::BITS - 1);
+        self.0[num_ditis] |=
+            1 << u64::BITS - self.0[num_ditis].leading_zeros().clamp(0, u64::BITS - 1);
     }
 
     /// Counts the number of significant bits in `self`.

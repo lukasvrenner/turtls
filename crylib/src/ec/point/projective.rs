@@ -293,8 +293,7 @@ mod tests {
         let also_sum = Secp256r1::BASE_POINT.add(&k_2);
         assert_eq!(also_sum, k_3);
 
-        let sum = Secp256r1::BASE_POINT
-            .add(&ProjectivePoint::POINT_AT_INF);
+        let sum = Secp256r1::BASE_POINT.add(&ProjectivePoint::POINT_AT_INF);
         assert_eq!(sum, Secp256r1::BASE_POINT);
 
         let sum = ProjectivePoint::POINT_AT_INF.add(&Secp256r1::BASE_POINT);
@@ -345,8 +344,7 @@ mod tests {
         let sum = k_2.add_fast(&Secp256r1::BASE_POINT);
         assert_eq!(sum, k_3);
 
-        let inf = Secp256r1::BASE_POINT
-            .add_fast(&ProjectivePoint::POINT_AT_INF);
+        let inf = Secp256r1::BASE_POINT.add_fast(&ProjectivePoint::POINT_AT_INF);
         assert_eq!(inf, ProjectivePoint::POINT_AT_INF);
 
         let inf = k_3.neg().add_fast(&k_3);

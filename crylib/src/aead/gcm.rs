@@ -103,7 +103,6 @@ impl<C: aes::AesCipher> Aead for Gcm<C> {
         self.xor_bit_stream(msg, &counter);
         Ok(())
     }
-
 }
 
 impl<C: aes::AesCipher> Gcm<C> {
