@@ -604,8 +604,27 @@ impl<const N: usize> UBigInt<N> {
     }
 
     pub fn set_bit(&mut self, bit: usize, value: bool) {
-        assert!(bit < u64::BITS as usize * N);
-        self.0[bit / (u64::BITS as usize)] |= (value as u64) << (bit % (u64::BITS as usize))
+        let digit = bit / (u64::BITS) as usize;
+        assert!(digit < N);
+        let bit = bit % u64::BITS as usize;
+
+        // turn bit off
+        self.0[digit] &= !(1 << bit);
+
+        // set bit to value
+        self.0[digit] |= (value as u64) << bit;
+    }
+
+    pub fn set_byte(&mut self, byte: usize, value: u8) {
+        let digit = byte / size_of::<u64>();
+        assert!(digit < N);
+        let byte = byte % size_of::<u64>() * u8::BITS as usize;
+
+        // turn bit off
+        self.0[digit] &= !(0xff << byte);
+
+        // set bit to value
+        self.0[digit] |= (value as u64) << byte;
     }
 
     /// Adds one bit after the most significant bit.

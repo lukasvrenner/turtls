@@ -46,7 +46,7 @@ impl Poly1305 {
 
     pub fn update(&mut self, msg: &[u8; 16]) {
         let mut as_int: UBigInt<3> = UBigInt::<2>::from_le_bytes(*msg).resize();
-        as_int.add_bit();
+        as_int.0[2] = 1;
         // SAFETY: as_int is guaranteed to be less than `PolyField::MODULUS`.
         let as_fe: FieldElement<3, PolyField> = unsafe { FieldElement::new_unchecked(as_int) };
         self.accum.add_assign(&as_fe);
@@ -63,7 +63,13 @@ impl Poly1305 {
         }
         let mut last_block = [0; 16];
         last_block[..remainder.len()].copy_from_slice(remainder);
-        self.update(&last_block);
+
+        let mut as_int: UBigInt<3> = UBigInt::<2>::from_le_bytes(last_block).resize();
+        as_int.set_byte(remainder.len(), 1);
+        // SAFETY: as_int is guaranteed to be less than `PolyField::MODULUS`.
+        let as_fe: FieldElement<3, PolyField> = unsafe { FieldElement::new_unchecked(as_int) };
+        self.accum.add_assign(&as_fe);
+        self.accum.mul_assign(&self.r);
     }
 
     pub fn finish(&mut self) -> [u8; 16] {
