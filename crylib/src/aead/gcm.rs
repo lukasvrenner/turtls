@@ -84,26 +84,6 @@ impl<C: aes::AesCipher> Aead for Gcm<C> {
         self.g_hash(msg, add_data, &counter)
     }
 
-    /// Encrypts `msg`, writing the encrypted msg to `buf` and returning an authentication tag
-    ///
-    /// # Panics
-    ///
-    /// The function will panic if `msg.len()` > `buf.len()`
-    ///
-    ///
-    /// WARNING: for security purposes,
-    /// users MUST NOT use the same `init_vector` twice for the same key.
-    fn encrypt(
-        &self,
-        buf: &mut [u8],
-        msg: &[u8],
-        add_data: &[u8],
-        init_vector: &[u8; IV_SIZE],
-    ) -> [u8; aes::BLOCK_SIZE] {
-        buf[..msg.len()].copy_from_slice(msg);
-        self.encrypt_inline(buf, add_data, init_vector)
-    }
-
     fn decrypt_inline(
         &self,
         msg: &mut [u8],
@@ -124,23 +104,6 @@ impl<C: aes::AesCipher> Aead for Gcm<C> {
         Ok(())
     }
 
-    /// Retuns an `Err(BadData)` if the message has been modified
-    ///
-    /// # Panics
-    ///
-    /// The function will panic if `msg.len()` > `buf.len()`
-    fn decrypt(
-        &self,
-        buf: &mut [u8],
-        msg: &[u8],
-        add_data: &[u8],
-        init_vector: &[u8; IV_SIZE],
-        tag: &[u8; aes::BLOCK_SIZE],
-    ) -> Result<(), BadData> {
-        buf[..msg.len()].copy_from_slice(msg);
-        self.decrypt_inline(buf, add_data, init_vector, tag)?;
-        Ok(())
-    }
 }
 
 impl<C: aes::AesCipher> Gcm<C> {

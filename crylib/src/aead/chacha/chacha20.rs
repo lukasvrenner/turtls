@@ -41,7 +41,7 @@ fn inner_block(state: &mut [u32; 16]) {
         quarter_round(state[3], state[4], state[9], state[14]);
 }
 
-fn block(key: [u8; 32], nonce: [u8; 12], counter: u32) -> [u8; 64] {
+pub(super) fn block(key: &[u8; 32], nonce: &[u8; 12], counter: u32) -> [u8; 64] {
     let mut state = config_state(key, nonce, counter);
 
     let mut working_state = state;
@@ -64,7 +64,7 @@ fn block(key: [u8; 32], nonce: [u8; 12], counter: u32) -> [u8; 64] {
     output
 }
 
-fn config_state(key: [u8; 32], nonce: [u8; 12], counter: u32) -> [u32; 16] {
+fn config_state(key: &[u8; 32], nonce: &[u8; 12], counter: u32) -> [u32; 16] {
     // TODO: consider using uninitialized array
     let mut state = [
         0x61707865, 0x3320646e, 0x79622d32, 0x6b206574, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -94,7 +94,7 @@ fn config_state(key: [u8; 32], nonce: [u8; 12], counter: u32) -> [u32; 16] {
 ///
 /// WARNING: users MUST NOT use the same `nonce`
 /// more than once with the same key
-pub fn encrypt_inline(msg: &mut [u8], key: [u8; 32], nonce: [u8; 12], counter: u32) {
+pub fn encrypt_inline(msg: &mut [u8], key: &[u8; 32], nonce: &[u8; 12], counter: u32) {
     for (index, chunk) in msg.chunks_mut(64).enumerate() {
         let key_stream = block(key, nonce, counter + index as u32);
         for (chunk_byte, key_stream_byte) in chunk.iter_mut().zip(key_stream.iter()) {
@@ -115,7 +115,7 @@ pub fn encrypt_inline(msg: &mut [u8], key: [u8; 32], nonce: [u8; 12], counter: u
 ///
 /// WARNING: users MUST NOT use the same `nonce`
 /// more than once with the same key
-pub fn encrypt(msg: &[u8], key: [u8; 32], nonce: [u8; 12], counter: u32, buf: &mut [u8]) {
+pub fn encrypt(msg: &[u8], key: &[u8; 32], nonce: &[u8; 12], counter: u32, buf: &mut [u8]) {
     buf[..msg.len()].copy_from_slice(msg);
     encrypt_inline(buf, key, nonce, counter);
 }
@@ -155,7 +155,7 @@ mod tests {
             0xd7, 0x05, 0xd9, 0x8b, 0x02, 0xa2, 0xb5, 0x12, 0x9c, 0xd1, 0xde, 0x16, 0x4e, 0xb9,
             0xcb, 0xd0, 0x83, 0xe8, 0xa2, 0x50, 0x3c, 0x4e,
         ];
-        assert_eq!(output_state, super::block(key, nonce, counter));
+        assert_eq!(output_state, super::block(&key, &nonce, counter));
     }
 
     #[test]
@@ -191,7 +191,7 @@ mod tests {
             0x0b, 0xbf, 0x74, 0xa3, 0x5b, 0xe6, 0xb4, 0x0b, 0x8e, 0xed, 0xf2, 0x78, 0x5e, 0x42,
             0x87, 0x4d,
         ];
-        super::encrypt_inline(&mut plain_text, key, nonce, counter);
+        super::encrypt_inline(&mut plain_text, &key, &nonce, counter);
         assert_eq!(plain_text, cipher_text);
     }
 }

@@ -614,8 +614,8 @@ impl<const N: usize> UBigInt<N> {
     ///
     /// This is the same as `floor(log2(self))`
     pub fn count_bits(&self) -> usize {
-        let num_ditis = self.count_digits();
-        let bits = u64::BITS as usize - self.0[num_ditis.saturating_sub(1)].leading_zeros() as usize;
+        let num_ditis = self.count_digits().saturating_sub(1);
+        let bits = u64::BITS as usize - self.0[num_ditis].leading_zeros() as usize;
         num_ditis * u64::BITS as usize + bits
     }
 }
@@ -826,6 +826,7 @@ impl_non_generic!(3);
 impl_non_generic!(4);
 impl_non_generic!(8);
 impl_non_generic!(5);
+impl_non_generic!(6);
 
 impl<const N: usize> Ord for UBigInt<N> {
     // TODO: make this constant-time?

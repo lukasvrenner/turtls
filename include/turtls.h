@@ -226,6 +226,7 @@ struct turtls_Extensions {
  */
 typedef uint8_t turtls_CipherList;
 #define turtls_CipherList_AES_128_GCM_SHA256 1
+#define turtls_CipherList_CHA_CHA_POLY1305_SHA256 2
 
 struct turtls_Config {
     uint64_t timeout_millis;

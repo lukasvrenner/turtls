@@ -175,7 +175,7 @@ macro_rules! impl_field_element {
                 Self(value.div(&F::MODULUS).1, PhantomData)
             }
             pub fn convert<G: FiniteField<$n>>(&self) -> FieldElement<$n, G> {
-                FieldElement::new(self.0.resize())
+                FieldElement::<$n, G>::new(self.0.resize())
             }
             /// Returns `self * rhs` modulo [`F::MODULUS`](super::FiniteField::MODULUS).
             ///

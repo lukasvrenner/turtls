@@ -52,7 +52,7 @@ pub fn sign<C: EllipticCurve>(
     random_num_gen: impl Fn() -> FieldElement<4, C::Order>,
 ) -> Signature<C::Order> {
     let mut hash: FieldElement<4, C::Order> =
-        FieldElement::new(UBigInt::<4>::from_be_bytes(hash_func(msg)));
+        FieldElement::<4, _>::new(UBigInt::<4>::from_be_bytes(hash_func(msg)));
 
     loop {
         let secret_num = random_num_gen();
@@ -81,7 +81,7 @@ pub fn verify_signature<C: EllipticCurve>(
     sig: &Signature<C::Order>,
 ) -> Result<ValidSig, InvalidSig> {
     let hash: FieldElement<4, C::Order> =
-        FieldElement::new(UBigInt::<4>::from_be_bytes(hash_func(msg)));
+        FieldElement::<4, _>::new(UBigInt::<4>::from_be_bytes(hash_func(msg)));
     let inverse = sig.s.inverse();
 
     let u = hash.mul(&inverse);
