@@ -39,18 +39,28 @@ impl Aead for ChaCha20Poly1305 {
     }
 }
 
-fn poly_auth(key: &[u8; 32], iv: &[u8; IV_SIZE], add_data: &[u8], cipher_text: &[u8]) -> [u8; TAG_SIZE] {
-        let one_time_key = poly1305_key_gen(key, iv);
+fn poly_auth(
+    key: &[u8; 32],
+    iv: &[u8; IV_SIZE],
+    add_data: &[u8],
+    cipher_text: &[u8],
+) -> [u8; TAG_SIZE] {
+    let one_time_key = poly1305_key_gen(key, iv);
 
-        let mut poly = Poly1305::new(&one_time_key);
+    let mut poly = Poly1305::new(&one_time_key);
 
-        poly.update_with(add_data);
-        poly.update_with(cipher_text);
+    poly.update_with(add_data);
+    poly.update_with(cipher_text);
 
-        let mut lens = [0; 16];
-        lens[..size_of::<u64>()].copy_from_slice(&(add_data.len() as u64).to_be_bytes());
-        lens[size_of::<u64>()..].copy_from_slice(&(cipher_text.len() as u64).to_be_bytes());
+    let mut lens = [0; 16];
+    lens[..size_of::<u64>()].copy_from_slice(&(add_data.len() as u64).to_be_bytes());
+    lens[size_of::<u64>()..].copy_from_slice(&(cipher_text.len() as u64).to_be_bytes());
 
-        poly.update(&lens);
-        poly.finish()
+    poly.update(&lens);
+    poly.finish()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
 }
