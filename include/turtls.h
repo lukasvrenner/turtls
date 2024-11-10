@@ -81,22 +81,40 @@ typedef uint8_t turtls_MaxFragLen;
 
 struct turtls_State;
 
+/**
+ * The result of the handshake.
+ */
 enum turtls_ShakeResult_Tag {
-    TURTLS_SHAKE_RESULT_OK,
+    /**
+     * Indicates a successful handshake.
+     */
+    TURTLS_SHAKE_RESULT_SUCCESS,
+    /**
+     * Indicates that the peer sent an alert.
+     */
     TURTLS_SHAKE_RESULT_RECIEVED_ALERT,
+    /**
+     * Indicates that there was an error generating a random number.
+     */
     TURTLS_SHAKE_RESULT_RNG_ERROR,
+    /**
+     * Indicates that there was an error performing an IO operation.
+     */
     TURTLS_SHAKE_RESULT_IO_ERROR,
-    TURTLS_SHAKE_RESULT_NULL_PTR,
+    /**
+     * Indicates that data could not be read within the proper time.
+     */
     TURTLS_SHAKE_RESULT_TIMEOUT,
+    /**
+     * Indicates that the handshake failed for some unknown reason. This will be removed in the
+     * near future.
+     */
     TURTLS_SHAKE_RESULT_HANDSHAKE_FAILED,
 };
 
 struct turtls_ShakeResult {
     enum turtls_ShakeResult_Tag tag;
     union {
-        struct {
-            struct turtls_State *ok;
-        };
         struct {
             turtls_Alert recieved_alert;
         };
@@ -236,10 +254,35 @@ extern "C" {
 #endif // __cplusplus
 
 /**
- * Performs a TLS handshake as the client, returning the connection state or an error.
+ * Allocates global state buffer.
+ *
+ * This buffer can be reused, but only after the previous connection has closed. It must not be
+ * used in another connection if the current connection is still open.
+ *
+ * The allocation must be freed by `turtls_free_state` to avoid a memory leak. Do not free it with
+ * any other function.
+ */
+struct turtls_State *turtls_alloc_state(void);
+
+/**
+ * Performs a TLS handshake as the client, returning the status.
+ *
+ * If any error is returned, the connection is automatically closed.
+ *
+ * # Safety:
+ * `config` must be valid
  */
 struct turtls_ShakeResult turtls_client_handshake(struct turtls_Io io,
-                                                  const struct turtls_Config *config);
+                                                  const struct turtls_Config *config,
+                                                  struct turtls_State *state);
+
+/**
+ * Frees the global state allocation.
+ *
+ * # Safety:
+ * `state` must point to a valid allocation allocated by `turtls_alloc_state`.
+ */
+void turtls_free_state(struct turtls_State *state);
 
 /**
  * Generates a default configuration struct.
@@ -250,7 +293,8 @@ struct turtls_Config turtls_generate_config(void);
  * Performs a TLS handshake as the server, returning the connection state or an error.
  */
 struct turtls_ShakeResult turtls_server_handshake(struct turtls_Io io,
-                                                  const struct turtls_Config *config);
+                                                  const struct turtls_Config *config,
+                                                  struct turtls_State *state);
 
 #ifdef __cplusplus
 }  // extern "C"
