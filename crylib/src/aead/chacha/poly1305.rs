@@ -1,7 +1,7 @@
 //! The Poly1305 authenticator.
 
 use crate::{
-    aead::IV_SIZE,
+    aead::{IV_SIZE, TAG_SIZE},
     big_int::UBigInt,
     finite_field::{FieldElement, FiniteField},
 };
@@ -25,8 +25,7 @@ pub struct Poly1305 {
 impl Poly1305 {
     pub fn auth(msg: &[u8], key: &[u8; 32]) -> [u8; 16] {
         let mut poly = Self::new(key);
-        poly.update_with(msg);
-        poly.finish()
+        poly.finish_with(msg)
     }
 
     pub fn new(key: &[u8; 32]) -> Self {
@@ -53,8 +52,22 @@ impl Poly1305 {
         self.accum.mul_assign(&self.r);
     }
 
-    /// Updates `self` with `msg`, padding with zeros if necessary.
+    /// Updates `self` with `msg`, adding padding if necessary.
     pub fn update_with(&mut self, msg: &[u8]) {
+        let blocks = msg.chunks_exact(16);
+        let remainder = blocks.remainder();
+        for block in blocks {
+            self.update(block.try_into().unwrap());
+        }
+        if remainder.len() > 0 {
+            let mut last_block = [0; 16];
+            last_block[..remainder.len()].copy_from_slice(remainder);
+            self.update(&last_block);
+        }
+    }
+
+    /// Updates `self` with `msg` and finishes.
+    pub fn finish_with(mut self, msg: &[u8]) -> [u8; TAG_SIZE] {
         // TODO: use array_chunks once stabilized
         let blocks = msg.chunks_exact(16);
         let remainder = blocks.remainder();
@@ -72,6 +85,7 @@ impl Poly1305 {
             self.accum.add_assign(&as_fe);
             self.accum.mul_assign(&self.r);
         }
+        self.finish()
     }
 
     pub fn finish(self) -> [u8; 16] {

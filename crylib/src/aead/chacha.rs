@@ -59,8 +59,8 @@ fn poly_auth(
     poly.update_with(cipher_text);
 
     let mut lens = [0; 16];
-    lens[..size_of::<u64>()].copy_from_slice(&(add_data.len() as u64).to_be_bytes());
-    lens[size_of::<u64>()..].copy_from_slice(&(cipher_text.len() as u64).to_be_bytes());
+    lens[..size_of::<u64>()].copy_from_slice(&(add_data.len() as u64).to_le_bytes());
+    lens[size_of::<u64>()..].copy_from_slice(&(cipher_text.len() as u64).to_le_bytes());
 
     poly.update(&lens);
     poly.finish()
