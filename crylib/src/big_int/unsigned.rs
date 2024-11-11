@@ -627,18 +627,6 @@ impl<const N: usize> UBigInt<N> {
         self.0[digit] |= (value as u64) << byte;
     }
 
-    /// Adds one bit after the most significant bit.
-    pub fn add_bit(&mut self) {
-        let num_digits = self.count_digits().saturating_sub(1);
-        // TODO: use unbounded_shl once stabilized
-        self.0[core::cmp::min(num_digits + 1, N - 1)] |= (self.0[num_digits] >= 1 << 63) as u64;
-        self.0[num_digits] |= 1
-            << core::cmp::min(
-                u64::BITS - self.0[num_digits].leading_zeros(),
-                u64::BITS - 1,
-            );
-    }
-
     /// Counts the number of significant bits in `self`.
     ///
     /// This is the same as `floor(log2(self))`
@@ -1241,79 +1229,6 @@ mod tests {
 
         assert_eq!(UBigInt::<4>::ZERO.count_bits(), 0);
         assert_eq!(UBigInt::<4>::ONE.count_bits(), 1);
-    }
-
-    #[test]
-    fn add_bit() {
-        let mut num = UBigInt([
-            0x0807060504030201,
-            0x100f0e0d0c0b0a09,
-            0x1817161514131211,
-            0x201f1e1d1c1b1a19,
-        ]);
-        let new_num = UBigInt([
-            0x0807060504030201,
-            0x100f0e0d0c0b0a09,
-            0x1817161514131211,
-            0x601f1e1d1c1b1a19,
-        ]);
-        num.add_bit();
-        assert_eq!(num, new_num);
-
-        let mut num = UBigInt([
-            0x0807060504030201,
-            0x100f0e0d0c0b0a09,
-            0x1817161514131211,
-            0x0000000000000000,
-        ]);
-        let new_num = UBigInt([
-            0x0807060504030201,
-            0x100f0e0d0c0b0a09,
-            0x3817161514131211,
-            0x0000000000000000,
-        ]);
-        num.add_bit();
-        assert_eq!(num, new_num);
-
-        let mut num = UBigInt::<4>::ZERO;
-        let new_num = UBigInt::ONE;
-        num.add_bit();
-        assert_eq!(num, new_num);
-
-        let mut num = UBigInt::<4>::MAX;
-        let new_num = UBigInt::MAX;
-        num.add_bit();
-        assert_eq!(num, new_num);
-
-        let mut num = UBigInt([
-            0xffffffffffffffff,
-            0xffffffffffffffff,
-            0x0000000000000000,
-            0x0000000000000000,
-        ]);
-        let new_num = UBigInt([
-            0xffffffffffffffff,
-            0xffffffffffffffff,
-            0x0000000000000001,
-            0x0000000000000000,
-        ]);
-        num.add_bit();
-        assert_eq!(num, new_num);
-
-        let mut num = UBigInt([
-            0x0000000000000000,
-            0x8000000000000000,
-            0x0000000000000000,
-            0x0000000000000000,
-        ]);
-        let new_num = UBigInt([
-            0x0000000000000000,
-            0x8000000000000000,
-            0x0000000000000001,
-            0x0000000000000000,
-        ]);
-        num.add_bit();
-        assert_eq!(num, new_num);
     }
 
     #[test]
