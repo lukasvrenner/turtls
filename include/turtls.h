@@ -88,7 +88,7 @@ enum turtls_ShakeResult_Tag {
     /**
      * Indicates a successful handshake.
      */
-    TURTLS_SHAKE_RESULT_SUCCESS,
+    TURTLS_SHAKE_RESULT_OK,
     /**
      * Indicates that the peer sent an alert.
      */
@@ -115,6 +115,9 @@ enum turtls_ShakeResult_Tag {
 struct turtls_ShakeResult {
     enum turtls_ShakeResult_Tag tag;
     union {
+        struct {
+            struct turtls_State *ok;
+        };
         struct {
             turtls_Alert recieved_alert;
         };
@@ -254,35 +257,18 @@ extern "C" {
 #endif // __cplusplus
 
 /**
- * Allocates global state buffer.
- *
- * This buffer can be reused, but only after the previous connection has closed. It must not be
- * used in another connection if the current connection is still open.
- *
- * The allocation must be freed by `turtls_free_state` to avoid a memory leak. Do not free it with
- * any other function.
- */
-struct turtls_State *turtls_alloc_state(void);
-
-/**
  * Performs a TLS handshake as the client, returning the status.
  *
  * If any error is returned, the connection is automatically closed.
  *
- * # Safety:
- * `config` must be valid
- */
-struct turtls_ShakeResult turtls_client_handshake(struct turtls_Io io,
-                                                  const struct turtls_Config *config,
-                                                  struct turtls_State *state);
-
-/**
- * Frees the global state allocation.
+ * `state` does not have to be initialized.
  *
  * # Safety:
- * `state` must point to a valid allocation allocated by `turtls_alloc_state`.
+ * `config` must be valid.
+ * `state` must be valid.
  */
-void turtls_free_state(struct turtls_State *state);
+struct turtls_ShakeResult turtls_client_handshake(struct turtls_Io io,
+                                                  const struct turtls_Config *config);
 
 /**
  * Generates a default configuration struct.
@@ -293,8 +279,7 @@ struct turtls_Config turtls_generate_config(void);
  * Performs a TLS handshake as the server, returning the connection state or an error.
  */
 struct turtls_ShakeResult turtls_server_handshake(struct turtls_Io io,
-                                                  const struct turtls_Config *config,
-                                                  struct turtls_State *state);
+                                                  const struct turtls_Config *config);
 
 #ifdef __cplusplus
 }  // extern "C"

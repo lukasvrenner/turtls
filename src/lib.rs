@@ -37,7 +37,7 @@ pub use record::Io;
 #[repr(C)]
 pub enum ShakeResult {
     /// Indicates a successful handshake.
-    Success,
+    Ok(*mut State),
     /// Indicates that the peer sent an alert.
     RecievedAlert(Alert),
     /// Indicates that there was an error generating a random number.
@@ -87,27 +87,6 @@ pub extern "C" fn turtls_generate_config() -> Config {
     Config::default()
 }
 
-/// Allocates global state buffer.
-///
-/// This buffer can be reused, but only after the previous connection has closed. It must not be
-/// used in another connection if the current connection is still open.
-///
-/// The allocation must be freed by `turtls_free_state` to avoid a memory leak. Do not free it with
-/// any other function.
-#[no_mangle]
-pub extern "C" fn turtls_alloc_state() -> *mut MaybeUninit<State> {
-    Box::leak(Box::new_uninit())
-}
-
-/// Frees the global state allocation.
-///
-/// # Safety:
-/// `state` must point to a valid allocation allocated by `turtls_alloc_state`.
-#[no_mangle]
-pub unsafe extern "C" fn turtls_free_state(state: *mut State) {
-    let _ = unsafe { Box::from_raw(state) };
-}
-
 /// Performs a TLS handshake as the client, returning the status.
 ///
 /// If any error is returned, the connection is automatically closed.
@@ -122,16 +101,13 @@ pub unsafe extern "C" fn turtls_client_handshake(
     // TODO: use c_size_t and c_ssize_t once stabilized
     io: Io,
     config: *const Config,
-    state: *mut MaybeUninit<State>,
 ) -> ShakeResult {
     assert!(!config.is_null());
-    assert!(!state.is_null());
 
     // SAFETY: the caller guarantees that the pointer is valid.
     let config = unsafe { &*config };
 
-    // SAFETY: the caller guarantees that the pointer is valid.
-    let mut state = unsafe { &mut *state };
+    let mut state = Box::<State>::new_uninit();
 
     let record_layer = State::init_record_layer(
         &mut state,
@@ -164,7 +140,6 @@ pub unsafe extern "C" fn turtls_server_handshake(
     // TODO: use c_size_t and c_ssize_t once stabilized
     io: Io,
     config: *const Config,
-    state: *mut MaybeUninit<State>,
 ) -> ShakeResult {
     todo!();
 }
