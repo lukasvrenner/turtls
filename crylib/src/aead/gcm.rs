@@ -141,7 +141,7 @@ impl<C: aes::AesCipher> Gcm<C> {
         }
     }
 
-    pub fn g_hash(
+    fn g_hash(
         &self,
         cipher_text: &[u8],
         add_data: &[u8],
@@ -181,7 +181,7 @@ impl<C: aes::AesCipher> Gcm<C> {
 
         add_block(&mut tag, last_block, self.h);
 
-        tag ^= ((add_data.len() as u128 * 8) << 64) + cipher_text.len() as u128 * 8;
+        tag ^= ((add_data.len() as u128 * 8) << 64) | cipher_text.len() as u128 * 8;
         tag = gf_2to128_mul(tag, self.h);
 
         let encrypted_iv = u128::from_be_bytes(self.cipher.encrypt(counter));
@@ -196,10 +196,10 @@ fn gf_2to128_mul(a: u128, b: u128) -> u128 {
     let mut product = 0;
     let mut temp = a;
     for i in (0..128).rev() {
-        let mask = ((b & (1 << i) > 0) as u128).wrapping_neg();
+        let mask = ((b >> i) & 1).wrapping_neg();
         product ^= temp & mask;
 
-        let mask = ((temp & 1 != 0) as u128).wrapping_neg();
+        let mask = (temp & 1).wrapping_neg();
         temp >>= 1;
         temp ^= R & mask;
     }
