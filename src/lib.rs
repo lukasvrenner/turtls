@@ -19,7 +19,7 @@ mod versions;
 
 pub mod extensions;
 
-use std::{mem::MaybeUninit, time::Duration};
+use std::time::Duration;
 
 use cipher_suites::GroupKeys;
 use client_hello::{CliHelError, ClientHello};
@@ -87,15 +87,12 @@ pub extern "C" fn turtls_generate_config() -> Config {
     Config::default()
 }
 
-/// Performs a TLS handshake as the client, returning the status.
+/// Performs a TLS handshake as the client, returning the connection state or an error.
 ///
 /// If any error is returned, the connection is automatically closed.
 ///
-/// `state` does not have to be initialized.
-///
 /// # Safety:
 /// `config` must be valid.
-/// `state` must be valid.
 #[no_mangle]
 pub unsafe extern "C" fn turtls_client_handshake(
     // TODO: use c_size_t and c_ssize_t once stabilized

@@ -196,7 +196,10 @@ mod tests {
             0x6c, 0x6f, 0x2c, 0x29, 0xa6, 0xad, 0x5c, 0xb4, 0x02, 0x2b, 0x02, 0x70, 0x9b,
         ];
         let cipher = ChaCha20Poly1305::new(key);
-        assert_eq!(tag, cipher.encrypt_inline(&mut plaint_text, &add_data, &nonce));
+        assert_eq!(
+            tag,
+            cipher.encrypt_inline(&mut plaint_text, &add_data, &nonce)
+        );
         assert_eq!(plaint_text, cipher_text);
     }
 }

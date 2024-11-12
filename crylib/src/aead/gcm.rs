@@ -51,6 +51,8 @@
 //!
 //! [`Gallois/Counter Mode`]: https://en.wikipedia.org/wiki/Galois/Counter_Mode
 mod aes;
+use core::u128;
+
 pub use aes::*;
 
 use crate::aead::{BadData, IV_SIZE, TAG_SIZE};
@@ -75,11 +77,12 @@ impl<C: aes::AesCipher> Aead for Gcm<C> {
         init_vector: &[u8; IV_SIZE],
     ) -> [u8; TAG_SIZE] {
         let counter = {
-            let mut counter = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
+            let mut counter = [0; aes::BLOCK_SIZE];
+            counter[aes::BLOCK_SIZE - 1] = 1;
             counter[..init_vector.len()].copy_from_slice(init_vector);
             counter
         };
-        self.xor_bit_stream(msg, &counter);
+        self.xor_bit_stream(msg, u128::from_be_bytes(counter));
 
         self.g_hash(msg, add_data, &counter)
     }
@@ -97,10 +100,10 @@ impl<C: aes::AesCipher> Aead for Gcm<C> {
             counter[..init_vector.len()].copy_from_slice(init_vector);
             counter
         };
-        if self.g_hash(msg, add_data, &counter) != *tag {
+        if &self.g_hash(msg, add_data, &counter) != tag {
             return Err(BadData);
         }
-        self.xor_bit_stream(msg, &counter);
+        self.xor_bit_stream(msg, u128::from_be_bytes(counter));
         Ok(())
     }
 }
@@ -127,11 +130,9 @@ impl<C: aes::AesCipher> Gcm<C> {
     ///
     /// This process can be parallel-ized,
     /// but that has not been implemented yet.
-    fn xor_bit_stream(&self, data: &mut [u8], counter: &[u8; aes::BLOCK_SIZE]) {
-        let iv_as_int = u128::from_be_bytes(*counter);
-
+    fn xor_bit_stream(&self, data: &mut [u8], iv: u128) {
         for (counter, block) in data.chunks_mut(aes::BLOCK_SIZE).enumerate() {
-            let mut stream = (iv_as_int + 1 + counter as u128).to_be_bytes();
+            let mut stream = (iv + 1 + counter as u128).to_be_bytes();
             self.cipher.encrypt_inline(&mut stream);
 
             for (data_byte, stream_byte) in block.iter_mut().zip(stream) {
@@ -140,9 +141,7 @@ impl<C: aes::AesCipher> Gcm<C> {
         }
     }
 
-    /// produce an authentication tag for given data
-    /// this tag can be used to verify the authenticity of the data
-    fn g_hash(
+    pub fn g_hash(
         &self,
         cipher_text: &[u8],
         add_data: &[u8],
@@ -152,39 +151,33 @@ impl<C: aes::AesCipher> Gcm<C> {
 
         // TODO: use `array_chunks` once stabilized
         let chunks = add_data.chunks_exact(aes::BLOCK_SIZE);
+        let remainder = chunks.remainder();
+
+        for block in chunks {
+            add_block(&mut tag, block.try_into().unwrap(), self.h);
+        }
 
         let last_block = {
-            let remainder = chunks.remainder();
-            // TODO: consider using uninitialized array
             let mut last_block = [0; aes::BLOCK_SIZE];
             last_block[..remainder.len()].copy_from_slice(remainder);
             last_block
         };
-
-        for block in chunks {
-            // we can safely unwrap because `block` is guaranteed to have a length of
-            // `aes_core::BLOCK_SIZE`
-            add_block(&mut tag, block.try_into().unwrap(), self.h);
-        }
 
         add_block(&mut tag, last_block, self.h);
 
         // TODO: use `array_chunks` once stabilized
-        let chunks = cipher_text.chunks_exact(aes::BLOCK_SIZE);
+        let blocks = cipher_text.chunks_exact(aes::BLOCK_SIZE);
+        let remainder = blocks.remainder();
+
+        for block in blocks {
+            add_block(&mut tag, block.try_into().unwrap(), self.h);
+        }
 
         let last_block = {
-            let remainder = chunks.remainder();
-            // TODO: consider using uninitialized array
             let mut last_block = [0; aes::BLOCK_SIZE];
             last_block[..remainder.len()].copy_from_slice(remainder);
             last_block
         };
-
-        for block in chunks {
-            // we can safely unwrap because `block` is guaranteed to have a length of
-            // `aes_core::BLOCK_SIZE`
-            add_block(&mut tag, block.try_into().unwrap(), self.h);
-        }
 
         add_block(&mut tag, last_block, self.h);
 
@@ -203,14 +196,12 @@ fn gf_2to128_mul(a: u128, b: u128) -> u128 {
     let mut product = 0;
     let mut temp = a;
     for i in (0..128).rev() {
-        if b & (1 << i) == 1 << i {
-            product ^= temp;
-        }
-        if temp & 1 == 0 {
-            temp >>= 1;
-        } else {
-            temp = (temp >> 1) ^ R;
-        }
+        let mask = ((b & (1 << i) > 0) as u128).wrapping_neg();
+        product ^= temp & mask;
+
+        let mask = ((temp & 1 != 0) as u128).wrapping_neg();
+        temp >>= 1;
+        temp ^= R & mask;
     }
     product
 }
@@ -253,7 +244,7 @@ mod tests {
             0x3d, 0x58, 0xe0, 0x91,
         ];
         let cipher = Gcm::<Aes128>::new(key);
-        cipher.xor_bit_stream(&mut plain_text, &counter);
+        cipher.xor_bit_stream(&mut plain_text, u128::from_be_bytes(counter));
         assert_eq!(plain_text, cipher_text);
     }
 
