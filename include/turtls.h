@@ -281,8 +281,10 @@ struct turtls_ShakeResult turtls_client_handshake(struct turtls_Io io,
 /**
  * Alerts the peer, closes the connection, and frees `state`.
  *
+ * If `state` is `NULL`, nothing happens.
+ *
  * # Safety:
- * `state` must point to a valid `state` returned from the handshake.
+ * If `state` isn't `NULL`, `state` must be valid and recieved from the handshake.
  */
 void turtls_close(struct turtls_State *state);
 

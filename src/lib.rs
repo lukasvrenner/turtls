@@ -129,11 +129,15 @@ pub unsafe extern "C" fn turtls_client_handshake(
 
 /// Alerts the peer, closes the connection, and frees `state`.
 ///
+/// If `state` is `NULL`, nothing happens.
+///
 /// # Safety:
-/// `state` must point to a valid `state` returned from the handshake.
+/// If `state` isn't `NULL`, `state` must be valid and recieved from the handshake.
 #[no_mangle]
 pub unsafe extern "C" fn turtls_close(state: *mut State) {
-    assert!(!state.is_null() && state.is_aligned());
+    if state.is_null() || !state.is_aligned() {
+        return;
+    }
 
     // SAFETY: the caller guarantees that the pointer is valid.
     // `state` was allocated with `Box`.

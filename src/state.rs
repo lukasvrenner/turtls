@@ -13,11 +13,7 @@ pub struct State {
 }
 
 impl State {
-    pub fn new_uninit() -> Box<MaybeUninit<Self>> {
-        Box::new_uninit()
-    }
-
-    pub fn init_record_layer(
+    pub(crate) fn init_record_layer(
         state: &mut MaybeUninit<Self>,
         msg_type: ContentType,
         io: Io,
