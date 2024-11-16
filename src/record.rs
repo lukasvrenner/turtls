@@ -217,7 +217,7 @@ impl RecordLayer {
         ) as usize;
 
         if len > Self::MAX_LEN + Self::SUFFIX_SIZE {
-            self.alert(Alert::RecordOverflow);
+            self.alert_and_close(Alert::RecordOverflow);
             return Err(ReadError::RecordOverflow);
         }
 
@@ -233,7 +233,7 @@ impl RecordLayer {
         }
 
         if msg_type != expected_type.to_byte() {
-            self.alert(Alert::UnexpectedMessage);
+            self.alert_and_close(Alert::UnexpectedMessage);
             return Err(ReadError::UnexpectedMessage);
         }
 
@@ -255,14 +255,14 @@ impl RecordLayer {
 
         while bytes_read < size {
             if start_time.elapsed() > timeout {
-                self.alert(Alert::CloseNotify);
+                self.alert_and_close(Alert::CloseNotify);
                 return Err(ReadError::Timeout);
             }
 
             let new_bytes = self.io.read(&mut buf[bytes_read..]);
 
             if new_bytes < 0 {
-                self.alert(Alert::InternalError);
+                self.alert_and_close(Alert::InternalError);
                 return Err(ReadError::IoError);
             }
 
@@ -271,7 +271,7 @@ impl RecordLayer {
         Ok(())
     }
 
-    pub(crate) fn alert(&mut self, alert: Alert) -> isize {
+    pub(crate) fn alert_and_close(&mut self, alert: Alert) -> isize {
         self.buf[0] = ContentType::Alert.to_byte();
         self.buf[1..3].copy_from_slice(&LEGACY_PROTO_VERS.to_be_bytes());
         self.set_len(AlertMsg::SIZE as u16);

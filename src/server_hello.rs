@@ -44,12 +44,12 @@ impl<'a> RecvdSerHello<'a> {
         record_layer.read(ContentType::Handshake, record_timeout)?;
 
         if record_layer.len() < SHAKE_HEADER_SIZE + ServerHello::MIN_LEN {
-            record_layer.alert(Alert::DecodeError);
+            record_layer.alert_and_close(Alert::DecodeError);
             return Err(SerHelParseError::Failed);
         }
 
         if record_layer.buf()[0] != ShakeType::ServerHello.to_byte() {
-            record_layer.alert(Alert::UnexpectedMessage);
+            record_layer.alert_and_close(Alert::UnexpectedMessage);
             return Err(SerHelParseError::Failed);
         }
 
@@ -59,18 +59,18 @@ impl<'a> RecvdSerHello<'a> {
 
         // ServerHello must be the only message in the record
         if len < record_layer.len() - SHAKE_HEADER_SIZE {
-            record_layer.alert(Alert::DecodeError);
+            record_layer.alert_and_close(Alert::DecodeError);
             return Err(SerHelParseError::Failed);
         }
 
         // ServerHello must not be more than one record (implemntation detail)
         if len > record_layer.len() - SHAKE_HEADER_SIZE {
-            record_layer.alert(Alert::HandshakeFailure);
+            record_layer.alert_and_close(Alert::HandshakeFailure);
             return Err(SerHelParseError::Failed);
         }
 
         if record_layer.len() - SHAKE_HEADER_SIZE < ServerHello::MIN_LEN {
-            record_layer.alert(Alert::DecodeError);
+            record_layer.alert_and_close(Alert::DecodeError);
             return Err(SerHelParseError::Failed);
         }
 
@@ -79,7 +79,7 @@ impl<'a> RecvdSerHello<'a> {
 
         let leg_session_id_len = record_layer.buf()[pos];
         if leg_session_id_len > 32 {
-            record_layer.alert(Alert::DecodeError);
+            record_layer.alert_and_close(Alert::DecodeError);
             return Err(SerHelParseError::Failed);
         }
         pos += size_of_val(&leg_session_id_len) + leg_session_id_len as usize;
@@ -98,7 +98,7 @@ impl<'a> RecvdSerHello<'a> {
 
         pos += Extensions::LEN_SIZE;
         if extensions_len != record_layer.buf()[pos..].len() {
-            record_layer.alert(Alert::DecodeError);
+            record_layer.alert_and_close(Alert::DecodeError);
             return Err(SerHelParseError::Failed);
         }
 

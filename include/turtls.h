@@ -279,15 +279,17 @@ struct turtls_ShakeResult turtls_client_handshake(struct turtls_Io io,
                                                   const struct turtls_Config *config);
 
 /**
+ * Alerts the peer, closes the connection, and frees `state`.
+ *
+ * # Safety:
+ * `state` must point to a valid `state` returned from the handshake.
+ */
+void turtls_close(struct turtls_State *state);
+
+/**
  * Generates a default configuration struct.
  */
 struct turtls_Config turtls_generate_config(void);
-
-/**
- * Performs a TLS handshake as the server, returning the connection state or an error.
- */
-struct turtls_ShakeResult turtls_server_handshake(struct turtls_Io io,
-                                                  const struct turtls_Config *config);
 
 #ifdef __cplusplus
 }  // extern "C"

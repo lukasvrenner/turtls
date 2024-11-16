@@ -19,7 +19,7 @@ mod versions;
 
 pub mod extensions;
 
-use std::time::Duration;
+use std::{ffi::c_int, time::Duration};
 
 use cipher_suites::GroupKeys;
 use client_hello::{CliHelError, ClientHello};
@@ -107,11 +107,7 @@ pub unsafe extern "C" fn turtls_client_handshake(
 
     let mut state = Box::<State>::new_uninit();
 
-    let record_layer = State::init_record_layer(
-        &mut state,
-        ContentType::Handshake,
-        io,
-    );
+    let record_layer = State::init_record_layer(&mut state, ContentType::Handshake, io);
 
     let client_hello = ClientHello {
         cipher_suites: config.cipher_suites,
@@ -131,12 +127,19 @@ pub unsafe extern "C" fn turtls_client_handshake(
     todo!();
 }
 
-/// Performs a TLS handshake as the server, returning the connection state or an error.
+/// Alerts the peer, closes the connection, and frees `state`.
+///
+/// # Safety:
+/// `state` must point to a valid `state` returned from the handshake.
 #[no_mangle]
-pub unsafe extern "C" fn turtls_server_handshake(
-    // TODO: use c_size_t and c_ssize_t once stabilized
-    io: Io,
-    config: *const Config,
-) -> ShakeResult {
-    todo!();
+pub unsafe extern "C" fn turtls_close(state: *mut State) {
+    assert!(!state.is_null() && state.is_aligned());
+
+    // SAFETY: the caller guarantees that the pointer is valid.
+    // `state` was allocated with `Box`.
+    let mut state = unsafe { Box::from_raw(state) };
+
+    state.record_layer.alert_and_close(Alert::CloseNotify);
+
+    // `state` dropped here.
 }

@@ -6,10 +6,10 @@ use crate::cipher_suites::GroupKeys;
 use crate::record::{ContentType, Io, RecordLayer};
 
 pub struct State {
-    aead_writer: AeadWriter,
-    aead_reader: AeadReader,
-    msg_buf: RecordLayer,
-    read_timeout: Duration,
+    pub(crate) aead_writer: AeadWriter,
+    pub(crate) aead_reader: AeadReader,
+    pub(crate) record_layer: RecordLayer,
+    pub(crate) read_timeout: Duration,
 }
 
 impl State {
@@ -25,7 +25,8 @@ impl State {
         let state_ptr = state.as_mut_ptr();
         // SAFETY: `MaybeUninit<T>` has the same memory layout as `T` so we can
         // access pointers to fields as long as we cast the pointer back into a `MaybeUninit`.
-        let buf_ptr = unsafe { &raw mut (*state_ptr).msg_buf as *mut MaybeUninit<RecordLayer> };
+        let buf_ptr =
+            unsafe { &raw mut (*state_ptr).record_layer as *mut MaybeUninit<RecordLayer> };
         // SAFETY: The pointer was just grabbed from a valid field.
         let buf_ref = unsafe { &mut *buf_ptr };
         RecordLayer::init(buf_ref, msg_type, io)
