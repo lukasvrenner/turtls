@@ -79,6 +79,11 @@ enum turtls_MaxFragLen
 typedef uint8_t turtls_MaxFragLen;
 #endif // __cplusplus
 
+/**
+ * A TLS connection buffer.
+ *
+ * This connection buffer may be reused between multiple consecutive connections.
+ */
 struct turtls_Connection;
 
 /**
@@ -119,9 +124,6 @@ enum turtls_ShakeResult_Tag {
 struct turtls_ShakeResult {
     enum turtls_ShakeResult_Tag tag;
     union {
-        struct {
-            struct turtls_Connection *ok;
-        };
         struct {
             turtls_Alert recieved_alert;
         };
@@ -282,25 +284,42 @@ extern "C" {
 #endif // __cplusplus
 
 /**
- * Performs a TLS handshake as the client, returning the connection state or an error.
+ * Allocates a connection buffer.
+ *
+ * This buffer must be freed by `turtls_free` to avoid memory leakage.
+ */
+struct turtls_Connection *turtls_alloc(void);
+
+/**
+ * Performs a TLS handshake as the client, returning the handshake status.
  *
  * If any error is returned, the connection is automatically closed.
  *
  * # Safety:
  * `config` must be valid.
+ * `connection` must be valid.
  */
 struct turtls_ShakeResult turtls_client_handshake(struct turtls_Io io,
+                                                  struct turtls_Connection *connection,
                                                   const struct turtls_Config *config);
 
 /**
- * Alerts the peer, closes the connection, and frees the allocation.
- *
- * If `connection` is `NULL`, nothing happens.
+ * Alerts the peer and closes the connection.
  *
  * # Safety:
- * If `connection` isn't `NULL`, `connection` must be valid and recieved from the handshake.
+ * `connection` may be `NULL` but must be valid.
  */
 void turtls_close(struct turtls_Connection *connection);
+
+/**
+ * Frees a connection buffer.
+ *
+ * This buffer must have been allocated by `turtls_alloc`.
+ *
+ * # Safety:
+ * `connection` must be allocated by `turtls_alloc`
+ */
+void turtls_free(struct turtls_Connection *connection);
 
 /**
  * Generates a default configuration struct.

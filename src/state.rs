@@ -5,14 +5,22 @@ use crate::aead::{AeadReader, AeadWriter};
 use crate::cipher_suites::GroupKeys;
 use crate::record::{ContentType, Io, RecordLayer};
 
-pub struct Connection {
+/// A TLS connection buffer.
+///
+/// This connection buffer may be reused between multiple consecutive connections.
+pub(crate) enum Connection {
+    Init(State),
+    Uninit(MaybeUninit<State>),
+}
+
+pub(crate) struct State {
     pub(crate) aead_writer: AeadWriter,
     pub(crate) aead_reader: AeadReader,
     pub(crate) record_layer: RecordLayer,
     pub(crate) read_timeout: Duration,
 }
 
-impl Connection {
+impl State {
     pub(crate) fn init_record_layer(
         state: &mut MaybeUninit<Self>,
         msg_type: ContentType,

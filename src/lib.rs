@@ -19,13 +19,14 @@ mod versions;
 
 pub mod extensions;
 
-use std::{ffi::c_int, time::Duration};
+use std::mem::MaybeUninit;
+use std::time::Duration;
 
 use cipher_suites::GroupKeys;
 use client_hello::{CliHelError, ClientHello};
 use record::{ContentType, ReadError};
 use server_hello::{RecvdSerHello, SerHelParseError};
-use state::Connection;
+use state::{State, Connection};
 
 pub use alert::Alert;
 pub use cipher_suites::CipherList;
@@ -37,7 +38,7 @@ pub use record::Io;
 #[repr(C)]
 pub enum ShakeResult {
     /// Indicates a successful handshake.
-    Ok(*mut Connection),
+    Ok,
     /// Indicates that the peer sent an alert.
     RecievedAlert(Alert),
     /// Indicates that there was an error generating a random number.
@@ -90,27 +91,62 @@ pub extern "C" fn turtls_generate_config() -> Config {
     Config::default()
 }
 
-/// Performs a TLS handshake as the client, returning the connection state or an error.
+/// Allocates a connection buffer.
+///
+/// This buffer must be freed by `turtls_free` to avoid memory leakage.
+#[allow(private_interfaces)]
+#[no_mangle]
+pub extern "C" fn turtls_alloc() -> *mut Connection {
+    Box::leak(Box::new(Connection::Uninit(MaybeUninit::uninit())))
+}
+
+/// Frees a connection buffer.
+///
+/// This buffer must have been allocated by `turtls_alloc`.
+///
+/// # Safety:
+/// `connection` must be allocated by `turtls_alloc`
+#[allow(private_interfaces)]
+#[no_mangle]
+pub unsafe extern "C" fn turtls_free(connection: *mut Connection) {
+    if connection.is_null() || !connection.is_aligned() {
+        return;
+    }
+    // SAFETY: the caller guarantees the pointer is valid.
+    let _ = unsafe { Box::from_raw(connection) };
+}
+
+/// Performs a TLS handshake as the client, returning the handshake status.
 ///
 /// If any error is returned, the connection is automatically closed.
 ///
 /// # Safety:
 /// `config` must be valid.
+/// `connection` must be valid.
+#[allow(private_interfaces)]
 #[no_mangle]
 pub unsafe extern "C" fn turtls_client_handshake(
     // TODO: use c_size_t and c_ssize_t once stabilized
     io: Io,
+    connection: *mut Connection,
     config: *const Config,
 ) -> ShakeResult {
     assert!(!config.is_null() && config.is_aligned());
+    assert!(!connection.is_null() && connection.is_aligned());
 
     // SAFETY: the caller guarantees that the pointer is valid.
     let config = unsafe { &*config };
     let record_timeout = Duration::from_millis(config.timeout_millis);
 
-    let mut state = Box::<Connection>::new_uninit();
+    let connection = unsafe { &mut *connection };
 
-    let record_layer = Connection::init_record_layer(&mut state, ContentType::Handshake, io);
+    *connection = Connection::Uninit(MaybeUninit::uninit());
+    let state = match connection {
+        Connection::Uninit(ref mut state) => state,
+        Connection::Init(_) => unreachable!(),
+    };
+
+    let record_layer = State::init_record_layer(state, ContentType::Handshake, io);
 
     let client_hello = ClientHello {
         cipher_suites: config.cipher_suites,
@@ -130,23 +166,20 @@ pub unsafe extern "C" fn turtls_client_handshake(
     todo!("finish handshake");
 }
 
-/// Alerts the peer, closes the connection, and frees the allocation.
-///
-/// If `connection` is `NULL`, nothing happens.
+/// Alerts the peer and closes the connection.
 ///
 /// # Safety:
-/// If `connection` isn't `NULL`, `connection` must be valid and recieved from the handshake.
+/// `connection` may be `NULL` but must be valid.
+#[allow(private_interfaces)]
 #[no_mangle]
 pub unsafe extern "C" fn turtls_close(connection: *mut Connection) {
     if connection.is_null() || !connection.is_aligned() {
         return;
     }
-
     // SAFETY: the caller guarantees that the pointer is valid.
-    // `state` was allocated with `Box`.
-    let mut state = unsafe { Box::from_raw(connection) };
+    let connection = unsafe { &mut *connection };
 
-    state.record_layer.alert_and_close(Alert::CloseNotify);
-
-    // `state` dropped here.
+    if let Connection::Init(ref mut state) = connection {
+        state.record_layer.alert_and_close(Alert::CloseNotify);
+    }
 }
