@@ -79,7 +79,7 @@ enum turtls_MaxFragLen
 typedef uint8_t turtls_MaxFragLen;
 #endif // __cplusplus
 
-struct turtls_State;
+struct turtls_Connection;
 
 /**
  * The result of the handshake.
@@ -116,7 +116,7 @@ struct turtls_ShakeResult {
     enum turtls_ShakeResult_Tag tag;
     union {
         struct {
-            struct turtls_State *ok;
+            struct turtls_Connection *ok;
         };
         struct {
             turtls_Alert recieved_alert;
@@ -279,14 +279,14 @@ struct turtls_ShakeResult turtls_client_handshake(struct turtls_Io io,
                                                   const struct turtls_Config *config);
 
 /**
- * Alerts the peer, closes the connection, and frees `state`.
+ * Alerts the peer, closes the connection, and frees the allocation.
  *
- * If `state` is `NULL`, nothing happens.
+ * If `connection` is `NULL`, nothing happens.
  *
  * # Safety:
- * If `state` isn't `NULL`, `state` must be valid and recieved from the handshake.
+ * If `connection` isn't `NULL`, `connection` must be valid and recieved from the handshake.
  */
-void turtls_close(struct turtls_State *state);
+void turtls_close(struct turtls_Connection *connection);
 
 /**
  * Generates a default configuration struct.

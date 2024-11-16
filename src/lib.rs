@@ -25,7 +25,7 @@ use cipher_suites::GroupKeys;
 use client_hello::{CliHelError, ClientHello};
 use record::{ContentType, ReadError};
 use server_hello::{RecvdSerHello, SerHelParseError};
-use state::State;
+use state::Connection;
 
 pub use alert::Alert;
 pub use cipher_suites::CipherList;
@@ -37,7 +37,7 @@ pub use record::Io;
 #[repr(C)]
 pub enum ShakeResult {
     /// Indicates a successful handshake.
-    Ok(*mut State),
+    Ok(*mut Connection),
     /// Indicates that the peer sent an alert.
     RecievedAlert(Alert),
     /// Indicates that there was an error generating a random number.
@@ -105,9 +105,9 @@ pub unsafe extern "C" fn turtls_client_handshake(
     let config = unsafe { &*config };
     let record_timeout = Duration::from_millis(config.timeout_millis);
 
-    let mut state = Box::<State>::new_uninit();
+    let mut state = Box::<Connection>::new_uninit();
 
-    let record_layer = State::init_record_layer(&mut state, ContentType::Handshake, io);
+    let record_layer = Connection::init_record_layer(&mut state, ContentType::Handshake, io);
 
     let client_hello = ClientHello {
         cipher_suites: config.cipher_suites,
@@ -127,21 +127,21 @@ pub unsafe extern "C" fn turtls_client_handshake(
     todo!();
 }
 
-/// Alerts the peer, closes the connection, and frees `state`.
+/// Alerts the peer, closes the connection, and frees the allocation.
 ///
-/// If `state` is `NULL`, nothing happens.
+/// If `connection` is `NULL`, nothing happens.
 ///
 /// # Safety:
-/// If `state` isn't `NULL`, `state` must be valid and recieved from the handshake.
+/// If `connection` isn't `NULL`, `connection` must be valid and recieved from the handshake.
 #[no_mangle]
-pub unsafe extern "C" fn turtls_close(state: *mut State) {
-    if state.is_null() || !state.is_aligned() {
+pub unsafe extern "C" fn turtls_close(connection: *mut Connection) {
+    if connection.is_null() || !connection.is_aligned() {
         return;
     }
 
     // SAFETY: the caller guarantees that the pointer is valid.
     // `state` was allocated with `Box`.
-    let mut state = unsafe { Box::from_raw(state) };
+    let mut state = unsafe { Box::from_raw(connection) };
 
     state.record_layer.alert_and_close(Alert::CloseNotify);
 

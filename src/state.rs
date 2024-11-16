@@ -5,14 +5,14 @@ use crate::aead::{AeadReader, AeadWriter};
 use crate::cipher_suites::GroupKeys;
 use crate::record::{ContentType, Io, RecordLayer};
 
-pub struct State {
+pub struct Connection {
     pub(crate) aead_writer: AeadWriter,
     pub(crate) aead_reader: AeadReader,
     pub(crate) record_layer: RecordLayer,
     pub(crate) read_timeout: Duration,
 }
 
-impl State {
+impl Connection {
     pub(crate) fn init_record_layer(
         state: &mut MaybeUninit<Self>,
         msg_type: ContentType,
