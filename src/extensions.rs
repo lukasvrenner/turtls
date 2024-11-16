@@ -83,7 +83,8 @@ impl Extensions {
     /// The size of each extension header.
     const HEADER_SIZE: usize = size_of::<ExtensionType>() + Self::EXTENSION_LEN_SIZE;
 
-    pub(crate) fn len(&self) -> usize {
+    /// The length of the extensions in ClientHello
+    pub(crate) fn len_client(&self) -> usize {
         const fn new_len(new_len: usize) -> usize {
             new_len + (((new_len > 0) as usize) * Extensions::HEADER_SIZE)
         }
@@ -98,23 +99,62 @@ impl Extensions {
         len
     }
 
-    pub(crate) fn write_to(&self, record_layer: &mut RecordLayer, keys: &GroupKeys) {
-        self.server_name.write_to(record_layer);
-        self.sig_algs.write_to(record_layer);
-        self.sup_versions.write_to(record_layer);
-        self.sup_groups.write_to(record_layer);
-        KeyShare::write_to(record_layer, &self.sup_groups, keys);
+    /// Write the extensions to ClientHello.
+    pub(crate) fn write_client(&self, record_layer: &mut RecordLayer, keys: &GroupKeys) {
+        self.server_name.write_client(record_layer);
+        self.sig_algs.write_client(record_layer);
+        self.sup_versions.write_client(record_layer);
+        self.sup_groups.write_client(record_layer);
+        KeyShare::write_client(record_layer, &self.sup_groups, keys);
     }
 }
 
-pub(crate) struct ExtensionsRef<'a> {
-    rm_me: &'a (),
+pub(crate) struct SerHelExtRef<'a> {
+    pub(crate) sup_versions: SupVersions,
+    key_share: &'a [u8],
 }
 
-impl<'a> ExtensionsRef<'a> {
-    pub(crate) fn parse(extensions: &'a [u8]) -> Self {
-        todo!("parse extensions");
+impl<'a> SerHelExtRef<'a> {
+    /// Parse the ServerHello extensions.
+    pub(crate) fn parse(mut extensions: &'a [u8]) -> Result<Self, ExtParseError> {
+        let mut sup_versions = SupVersions { versions: 0 };
+        let mut key_share: &[u8] = &[];
+        while extensions.len() >= Extensions::HEADER_SIZE {
+            let len = u16::from_be_bytes(
+                extensions[size_of::<ExtensionType>()..][..Extensions::LEN_SIZE]
+                    .try_into()
+                    .unwrap(),
+            ) as usize;
+
+            match &extensions[..size_of::<ExtensionType>()] {
+                x if x == ExtensionType::SupportedVersions.to_be_bytes() => {
+                    if len != size_of::<ProtocolVersion>() {
+                        return Err(ExtParseError::ParseError);
+                    }
+                    sup_versions = SupVersions::parse_ser(
+                        extensions[Extensions::HEADER_SIZE..][..size_of::<ProtocolVersion>()]
+                            .try_into()
+                            .unwrap(),
+                    );
+                },
+                x if x == ExtensionType::KeyShare.to_be_bytes() => {
+                    key_share = &extensions[Extensions::HEADER_SIZE..][..len]
+                },
+                _ => return Err(ExtParseError::InvalidExt),
+            }
+
+            extensions = &extensions[Extensions::HEADER_SIZE + len..];
+        }
+        Ok(Self {
+            sup_versions,
+            key_share,
+        })
     }
+}
+
+pub(crate) enum ExtParseError {
+    ParseError,
+    InvalidExt,
 }
 
 /// The server name to send to the server or expect from the client.
@@ -147,7 +187,7 @@ impl ServerName {
         Self::LEN_SIZE + size_of_val(&Self::NAME_TYPE) + Self::INNER_LEN_SIZE + self.len
     }
 
-    pub(crate) fn write_to(&self, record_layer: &mut RecordLayer) {
+    pub(crate) fn write_client(&self, record_layer: &mut RecordLayer) {
         if self.name.is_null() || self.len == 0 {
             return;
         }
@@ -218,7 +258,7 @@ impl MaxFragLen {
         size_of::<MaxFragLen>()
     }
 
-    pub(crate) fn write_to(&self, record_layer: &mut RecordLayer) {
+    pub(crate) fn write_client(&self, record_layer: &mut RecordLayer) {
         if *self == Self::Default {
             return;
         }
@@ -250,7 +290,7 @@ impl SupGroups {
         self.groups.count_ones() as usize * size_of::<NamedGroup>() + Self::LEN_SIZE
     }
 
-    pub(crate) fn write_to(&self, record_layer: &mut RecordLayer) {
+    pub(crate) fn write_client(&self, record_layer: &mut RecordLayer) {
         if self.groups == 0 {
             return;
         }
@@ -295,7 +335,7 @@ impl SigAlgs {
         self.algorithms.count_ones() as usize * size_of::<SignatureScheme>() + Self::LEN_SIZE
     }
 
-    pub(crate) fn write_to(&self, record_layer: &mut RecordLayer) {
+    pub(crate) fn write_client(&self, record_layer: &mut RecordLayer) {
         if self.algorithms == 0 {
             return;
         }
@@ -322,13 +362,20 @@ impl Default for SigAlgs {
 #[repr(transparent)]
 pub struct UseSrtp {}
 
+/// The versions of TLS to use.
+///
+/// The only supported version in TLS 1.3.
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct SupVersions {
+    #[allow(missing_docs)]
     pub versions: u8,
 }
 
 impl SupVersions {
+    /// TLS version 1.3.
+    ///
+    /// This is the only supported version.
     pub const TLS_ONE_THREE: u8 = 0b00000001;
     const LEN_SIZE: usize = 1;
     const TAG: [u8; 2] = [0, 43];
@@ -337,7 +384,7 @@ impl SupVersions {
         self.versions.count_ones() as usize * size_of::<ProtocolVersion>() + Self::LEN_SIZE
     }
 
-    pub(crate) fn write_to(&self, record_layer: &mut RecordLayer) {
+    pub(crate) fn write_client(&self, record_layer: &mut RecordLayer) {
         if self.versions == 0 {
             return;
         }
@@ -349,6 +396,15 @@ impl SupVersions {
 
         if self.versions & Self::TLS_ONE_THREE > 0 {
             record_layer.extend_from_slice(&ProtocolVersion::TlsOneThree.to_be_bytes());
+        }
+    }
+
+    pub(crate) fn parse_ser(sup_version: [u8; size_of::<ProtocolVersion>()]) -> Self {
+        match sup_version {
+            x if x == ProtocolVersion::TlsOneThree.to_be_bytes() => Self {
+                versions: Self::TLS_ONE_THREE,
+            },
+            _ => Self { versions: 0 },
         }
     }
 }
@@ -380,7 +436,11 @@ impl KeyShare {
             + Self::LEN_SIZE
     }
 
-    pub(crate) fn write_to(record_layer: &mut RecordLayer, groups: &SupGroups, keys: &GroupKeys) {
+    pub(crate) fn write_client(
+        record_layer: &mut RecordLayer,
+        groups: &SupGroups,
+        keys: &GroupKeys,
+    ) {
         if groups.groups == 0 {
             return;
         }

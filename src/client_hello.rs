@@ -25,7 +25,7 @@ impl ClientHello {
             // TODO use size_of_val once it is const-stabilized
             + size_of_val(&Self::LEGACY_COMPRESSION_METHODS)
             + Extensions::LEN_SIZE
-            + self.extensions.len()
+            + self.extensions.len_client()
     }
 
     pub(crate) fn write_to(
@@ -53,9 +53,9 @@ impl ClientHello {
 
         record_layer.extend_from_slice(&Self::LEGACY_COMPRESSION_METHODS);
 
-        let len = self.extensions.len() as u16;
+        let len = self.extensions.len_client() as u16;
         record_layer.push_u16(len);
-        self.extensions.write_to(record_layer, keys);
+        self.extensions.write_client(record_layer, keys);
 
         record_layer.finish_and_send();
         Ok(())

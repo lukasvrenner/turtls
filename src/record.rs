@@ -206,9 +206,7 @@ impl RecordLayer {
     ) -> Result<(), ReadError> {
         let start_time = Instant::now();
 
-        if let Err(err) = self.fill_buf(0, Self::PREFIIX_SIZE, timeout, start_time) {
-            return Err(err);
-        }
+        self.fill_buf(0, Self::PREFIIX_SIZE, timeout, start_time)?;
 
         let len = u16::from_be_bytes(
             self.buf[Self::PREFIIX_SIZE - Self::LEN_SIZE..Self::PREFIIX_SIZE]
@@ -254,12 +252,12 @@ impl RecordLayer {
         let mut bytes_read = 0;
 
         while bytes_read < size {
+            let new_bytes = self.io.read(&mut buf[bytes_read..]);
+
             if start_time.elapsed() > timeout {
                 self.alert_and_close(Alert::CloseNotify);
                 return Err(ReadError::Timeout);
             }
-
-            let new_bytes = self.io.read(&mut buf[bytes_read..]);
 
             if new_bytes < 0 {
                 self.alert_and_close(Alert::InternalError);
@@ -271,7 +269,7 @@ impl RecordLayer {
         Ok(())
     }
 
-    pub(crate) fn alert_and_close(&mut self, alert: Alert) -> isize {
+    pub(crate) fn alert_and_close(&mut self, alert: Alert) {
         self.buf[0] = ContentType::Alert.to_byte();
         self.buf[1..3].copy_from_slice(&LEGACY_PROTO_VERS.to_be_bytes());
         self.set_len(AlertMsg::SIZE as u16);
@@ -281,11 +279,30 @@ impl RecordLayer {
                 .unwrap(),
             alert,
         );
-        let io_status = self
+        let _ = self
             .io
             .write(&self.buf[..Self::PREFIIX_SIZE + AlertMsg::SIZE]);
         self.io.close();
-        io_status
+    }
+
+    /// Same as `alert_and_close` but without using the internal buffer.
+    ///
+    /// This only exists due to current Rust borrow-checker limitations.
+    pub(crate) fn alert_and_close_immut(&self, alert: Alert) {
+        let mut alert_buf = [0; Self::PREFIIX_SIZE + AlertMsg::SIZE];
+        alert_buf[0] = ContentType::Alert.to_byte();
+        alert_buf[1..3].copy_from_slice(&LEGACY_PROTO_VERS.to_be_bytes());
+        alert_buf[3..5].copy_from_slice(&(AlertMsg::SIZE as u16).to_be_bytes());
+        AlertMsg::new_in(
+            &mut self.buf[Self::PREFIIX_SIZE..][..AlertMsg::SIZE]
+                .try_into()
+                .unwrap(),
+            alert,
+        );
+        let _ = self
+            .io
+            .write(&self.buf[..Self::PREFIIX_SIZE + AlertMsg::SIZE]);
+        self.io.close();
     }
 }
 

@@ -110,6 +110,10 @@ enum turtls_ShakeResult_Tag {
      * near future.
      */
     TURTLS_SHAKE_RESULT_HANDSHAKE_FAILED,
+    /**
+     * Indicates that a handshake message was not able to be decoded.
+     */
+    TURTLS_SHAKE_RESULT_DECODE_ERROR,
 };
 
 struct turtls_ShakeResult {
@@ -196,7 +200,17 @@ typedef uint16_t turtls_SigAlgs;
  */
 typedef uint16_t turtls_SupGroups;
 
+/**
+ * The versions of TLS to use.
+ *
+ * The only supported version in TLS 1.3.
+ */
 typedef uint8_t turtls_SupVersions;
+/**
+ * TLS version 1.3.
+ *
+ * This is the only supported version.
+ */
 #define turtls_SupVersions_TLS_ONE_THREE 1
 
 /**

@@ -49,6 +49,8 @@ pub enum ShakeResult {
     /// Indicates that the handshake failed for some unknown reason.
     /// near future.
     HandshakeFailed,
+    /// Indicates that a handshake message was not able to be decoded.
+    DecodeError,
 }
 
 impl From<CliHelError> for ShakeResult {
@@ -65,6 +67,7 @@ impl From<SerHelParseError> for ShakeResult {
         match value {
             SerHelParseError::ReadError(err) => Self::from(err),
             SerHelParseError::Failed => Self::HandshakeFailed,
+            SerHelParseError::DecodeError => Self::DecodeError,
         }
     }
 }
@@ -124,7 +127,7 @@ pub unsafe extern "C" fn turtls_client_handshake(
         Ok(server_hello) => server_hello,
         Err(err) => return err.into(),
     };
-    todo!();
+    todo!("finish handshake");
 }
 
 /// Alerts the peer, closes the connection, and frees the allocation.
