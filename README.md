@@ -1,12 +1,28 @@
 # turtls 🐢
 
-## A work-in-progress TLS 1.3 library with C bindings
+## A work-in-progress TLS 1.3 dynamic library with C bindings
 
 In addition to the main TLS code, this repository contains the crypto library used in turtls.
 It can be found at `./crylib/`.
 
 WARNING: This code has not been audited. Use it at your own risk.
 ================================================================
+
+## Building
+Make sure you have a recent version of Rust installed. This project uses on new language features as they release,
+so make sure your version is recent enough.
+
+To build in debug mode:
+```bash
+cargo build
+```
+
+To build in release mode:
+```bash
+cargo build --release
+```
+
+Move `libturtls.so` from `./target/debug/` -- debug -- or `./target/release/` -- release to the desired directory.
 
 ## License
 Copyright 2024 Lukas Renner
