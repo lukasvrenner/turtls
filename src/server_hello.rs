@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::{
     cipher_suites::CipherSuite,
     extensions::{Extensions, ExtensionsRef},
@@ -35,40 +37,47 @@ impl<'a> RecvdSerHello<'a> {
     /// Note: this function makes the assumption that the ServerHello will be exactly one record.
     /// If the server sends a ServerHello that is broken into multiple records, it will alert
     /// `HandshakeFailed` and return an error.
-    pub(crate) fn parse(record_layer: &'a mut RecordLayer) -> Result<Self, SerHelParseError> {
-        record_layer.read(ContentType::Handshake)?;
-        let handshake_msg = record_layer.buf();
-        if handshake_msg.len() < SHAKE_HEADER_SIZE + ServerHello::MIN_LEN {
+    pub(crate) fn read(
+        record_layer: &'a mut RecordLayer,
+        record_timeout: Duration,
+    ) -> Result<Self, SerHelParseError> {
+        record_layer.read(ContentType::Handshake, record_timeout)?;
+
+        if record_layer.len() < SHAKE_HEADER_SIZE + ServerHello::MIN_LEN {
             record_layer.alert(Alert::DecodeError);
             return Err(SerHelParseError::Failed);
         }
-        if handshake_msg[0] != ShakeType::ServerHello.to_byte() {
+
+        if record_layer.buf()[0] != ShakeType::ServerHello.to_byte() {
             record_layer.alert(Alert::UnexpectedMessage);
             return Err(SerHelParseError::Failed);
         }
-        let len =
-            u32::from_be_bytes([0, handshake_msg[1], handshake_msg[2], handshake_msg[3]]) as usize;
 
-        if len < handshake_msg.len() - SHAKE_HEADER_SIZE {
+        let buf = record_layer.buf();
+
+        let len = u32::from_be_bytes([0, buf[1], buf[2], buf[3]]) as usize;
+
+        // ServerHello must be the only message in the record
+        if len < record_layer.len() - SHAKE_HEADER_SIZE {
             record_layer.alert(Alert::DecodeError);
             return Err(SerHelParseError::Failed);
         }
 
-        if len > handshake_msg.len() - SHAKE_HEADER_SIZE {
+        // ServerHello must not be more than one record (implemntation detail)
+        if len > record_layer.len() - SHAKE_HEADER_SIZE {
             record_layer.alert(Alert::HandshakeFailure);
             return Err(SerHelParseError::Failed);
         }
 
-        let server_hello = &handshake_msg[SHAKE_HEADER_SIZE..];
-
-        if server_hello.len() < ServerHello::MIN_LEN {
+        if record_layer.len() - SHAKE_HEADER_SIZE < ServerHello::MIN_LEN {
             record_layer.alert(Alert::DecodeError);
             return Err(SerHelParseError::Failed);
         }
 
-        let mut pos = size_of::<ProtocolVersion>() + ServerHello::RANDOM_BYTES_LEN;
+        let mut pos =
+            size_of::<ProtocolVersion>() + ServerHello::RANDOM_BYTES_LEN + SHAKE_HEADER_SIZE;
 
-        let leg_session_id_len = server_hello[pos];
+        let leg_session_id_len = record_layer.buf()[pos];
         if leg_session_id_len > 32 {
             record_layer.alert(Alert::DecodeError);
             return Err(SerHelParseError::Failed);
@@ -76,7 +85,7 @@ impl<'a> RecvdSerHello<'a> {
         pos += size_of_val(&leg_session_id_len) + leg_session_id_len as usize;
 
         let cipher_suite = CipherList::parse_singular(
-            server_hello[pos..][..size_of::<CipherSuite>()]
+            record_layer.buf()[pos..][..size_of::<CipherSuite>()]
                 .try_into()
                 .unwrap(),
         );
@@ -85,15 +94,15 @@ impl<'a> RecvdSerHello<'a> {
         pos += size_of_val(&ServerHello::LEGACY_COMPRESSION_METHOD);
 
         let extensions_len =
-            u16::from_be_bytes(server_hello[pos..][..2].try_into().unwrap()) as usize;
+            u16::from_be_bytes(record_layer.buf()[pos..][..2].try_into().unwrap()) as usize;
 
         pos += Extensions::LEN_SIZE;
-        if extensions_len != server_hello.len() - pos {
+        if extensions_len != record_layer.buf()[pos..].len() {
             record_layer.alert(Alert::DecodeError);
             return Err(SerHelParseError::Failed);
         }
 
-        let extensions = ExtensionsRef::parse(&server_hello[pos..]);
+        let extensions = ExtensionsRef::parse(&record_layer.buf()[pos..]);
 
         Ok(Self {
             cipher_suite,

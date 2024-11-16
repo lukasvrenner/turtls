@@ -46,7 +46,7 @@ pub enum ShakeResult {
     IoError,
     /// Indicates that data could not be read within the proper time.
     Timeout,
-    /// Indicates that the handshake failed for some unknown reason. This will be removed in the
+    /// Indicates that the handshake failed for some unknown reason.
     /// near future.
     HandshakeFailed,
 }
@@ -99,10 +99,11 @@ pub unsafe extern "C" fn turtls_client_handshake(
     io: Io,
     config: *const Config,
 ) -> ShakeResult {
-    assert!(!config.is_null());
+    assert!(!config.is_null() && config.is_aligned());
 
     // SAFETY: the caller guarantees that the pointer is valid.
     let config = unsafe { &*config };
+    let record_timeout = Duration::from_millis(config.timeout_millis);
 
     let mut state = Box::<State>::new_uninit();
 
@@ -110,7 +111,6 @@ pub unsafe extern "C" fn turtls_client_handshake(
         &mut state,
         ContentType::Handshake,
         io,
-        Duration::from_millis(config.timeout_millis),
     );
 
     let client_hello = ClientHello {
@@ -124,7 +124,7 @@ pub unsafe extern "C" fn turtls_client_handshake(
         return err.into();
     }
 
-    let server_hello = match RecvdSerHello::parse(record_layer) {
+    let server_hello = match RecvdSerHello::read(record_layer, record_timeout) {
         Ok(server_hello) => server_hello,
         Err(err) => return err.into(),
     };

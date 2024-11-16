@@ -106,7 +106,7 @@ enum turtls_ShakeResult_Tag {
      */
     TURTLS_SHAKE_RESULT_TIMEOUT,
     /**
-     * Indicates that the handshake failed for some unknown reason. This will be removed in the
+     * Indicates that the handshake failed for some unknown reason.
      * near future.
      */
     TURTLS_SHAKE_RESULT_HANDSHAKE_FAILED,
@@ -247,8 +247,19 @@ typedef uint8_t turtls_CipherList;
 #define turtls_CipherList_CHA_CHA_POLY1305_SHA256 2
 
 struct turtls_Config {
+    /**
+     * The timeout in milliseconds to use for record layer reads during the handshake.
+     *
+     * Default value: `10000`
+     */
     uint64_t timeout_millis;
+    /**
+     * The extensions to use.
+     */
     struct turtls_Extensions extensions;
+    /**
+     * The cipher suites to use.
+     */
     turtls_CipherList cipher_suites;
 };
 
@@ -257,15 +268,12 @@ extern "C" {
 #endif // __cplusplus
 
 /**
- * Performs a TLS handshake as the client, returning the status.
+ * Performs a TLS handshake as the client, returning the connection state or an error.
  *
  * If any error is returned, the connection is automatically closed.
  *
- * `state` does not have to be initialized.
- *
  * # Safety:
  * `config` must be valid.
- * `state` must be valid.
  */
 struct turtls_ShakeResult turtls_client_handshake(struct turtls_Io io,
                                                   const struct turtls_Config *config);
