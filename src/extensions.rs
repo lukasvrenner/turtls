@@ -5,10 +5,13 @@ use std::ptr::null;
 use crylib::ec::{EllipticCurve, Secp256r1};
 use crylib::finite_field::FieldElement;
 
+use crate::alert::Alert;
 use crate::cipher_suites::SignatureScheme;
 use crate::dh::{GroupKeys, NamedGroup};
 use crate::record::RecordLayer;
 use crate::versions::ProtocolVersion;
+use crylib::big_int::UBigInt;
+use crylib::ec::AffinePoint;
 
 #[repr(u16)]
 pub(crate) enum ExtensionType {
@@ -477,6 +480,39 @@ impl KeyShare {
             record_layer.extend_from_slice(&point.x().into_inner().to_be_bytes());
             record_layer.extend_from_slice(&point.y().into_inner().to_be_bytes());
         }
+    }
+
+    /// Parse the KeyShare extensions and calculate the shared secret.
+    pub(crate) fn parse_ser(
+        key_share: &[u8],
+        sup_groups: SupGroups,
+        group_keys: &GroupKeys,
+    ) -> Result<Box<[u8]>, Alert> {
+        if key_share.len() < KeyShare::MIN_SER_LEN {
+            return Err(Alert::DecodeError);
+        }
+        if sup_groups.groups & SupGroups::SECP256R1 > 0
+            && key_share[0..2] == NamedGroup::Secp256r1.to_be_bytes()
+        {
+            let raw_x = UBigInt::<4>::from_be_bytes(key_share[5..][..32].try_into().unwrap());
+            let x: FieldElement<4, Secp256r1> =
+                FieldElement::try_from(raw_x).map_err(|_| Alert::IllegalParam).expect("x is valid field element");
+
+            let raw_y = UBigInt::<4>::from_be_bytes(key_share[37..][..32].try_into().unwrap());
+            let y: FieldElement<4, Secp256r1> =
+                FieldElement::try_from(raw_y).map_err(|_| Alert::IllegalParam).expect("y is valid field element");
+
+            let mut point = AffinePoint::new(x, y)
+                .ok_or(Alert::IllegalParam).expect("point is on curve")
+                .as_projective();
+            point.mul_scalar_assign(&group_keys.secp256r1);
+            let as_affine = point
+                .as_affine()
+                .expect("private key isn't zero and point is on curve");
+
+            return Ok(Box::new(as_affine.x().to_be_bytes()));
+        }
+        return Err(Alert::HandshakeFailure);
     }
 }
 

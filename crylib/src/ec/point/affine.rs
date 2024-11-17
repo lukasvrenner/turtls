@@ -140,6 +140,30 @@ mod tests {
     // test vectors from http://point-at-infinity.org/ecc/nisttv
 
     #[test]
+    fn is_on_curve() {
+        let base_point = Secp256r1::BASE_POINT.as_affine().expect("BP is valid affine point");
+        assert!(AffinePoint::is_on_curve(base_point.x_ref(), base_point.y_ref()));
+
+        let x = unsafe {
+            FieldElement::<4, Secp256r1>::new_unchecked(UBigInt([
+                0xa60b48fc47669978,
+                0xc08969e277f21b35,
+                0x8a52380304b51ac3,
+                0x7cf27b188d034f7e,
+            ]))
+        };
+        let y = unsafe {
+            FieldElement::new_unchecked(UBigInt([
+                0x9e04b79d227873d1,
+                0xba7dade63ce98229,
+                0x293d9ac69f7430db,
+                0x07775510db8ed040,
+            ]))
+        };
+        assert!(AffinePoint::is_on_curve(&x, &y));
+    }
+
+    #[test]
     fn add() {
         let x = unsafe {
             FieldElement::<4, Secp256r1>::new_unchecked(UBigInt([

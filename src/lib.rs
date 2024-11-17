@@ -28,6 +28,7 @@ use client_hello::ClientHello;
 use crylib::{aead::{chacha::ChaCha20Poly1305, gcm::{Aes128, AesCipher}}, hash::Sha256, hkdf};
 use dh::GroupKeys;
 use error::TlsError;
+use extensions::KeyShare;
 use init::TagUninit;
 use record::{ContentType, ReadError};
 use server_hello::RecvdSerHello;
@@ -124,7 +125,7 @@ pub unsafe extern "C" fn turtls_client_handshake(
         }
     };
 
-    let dh_shared_secret = match dh::shared_secret(
+    let dh_shared_secret = match KeyShare::parse_ser(
         server_hello.extensions.key_share,
         config.extensions.sup_groups,
         &keys,
