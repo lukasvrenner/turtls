@@ -21,3 +21,12 @@ impl Default for Config {
         }
     }
 }
+
+#[repr(C)]
+pub enum ConfigError {
+    /// No cipher suites were provided.
+    MissingCipherSuites,
+    /// One or more extensions is missing.
+    // TODO: make this store which extension is missing
+    MissingExtensions,
+}

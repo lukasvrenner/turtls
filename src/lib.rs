@@ -22,7 +22,7 @@ pub mod extensions;
 
 use std::time::Duration;
 
-use cipher_suites::GroupKeys;
+use cipher_suites::{GroupKeys, KeyGenError};
 use client_hello::{CliHelError, ClientHello};
 use init::TagUninit;
 use record::{ContentType, ReadError};
@@ -31,7 +31,7 @@ use state::{State, Connection};
 
 pub use alert::Alert;
 pub use cipher_suites::CipherList;
-pub use config::Config;
+pub use config::{Config, ConfigError};
 pub use record::Io;
 
 /// The result of the handshake.
@@ -53,6 +53,9 @@ pub enum ShakeResult {
     HandshakeFailed,
     /// Indicates that a handshake message was not able to be decoded.
     DecodeError,
+    PrivKeyIsZero,
+    /// Indicates there was an error in the config struct.
+    ConfigError(ConfigError),
 }
 
 impl From<CliHelError> for ShakeResult {
@@ -86,6 +89,16 @@ impl From<ReadError> for ShakeResult {
     }
 }
 
+impl From<KeyGenError> for ShakeResult {
+    fn from(value: KeyGenError) -> Self {
+        match value {
+            KeyGenError::RngError => Self::RngError,
+            KeyGenError::PrivKeyIsZero => Self::PrivKeyIsZero,
+            KeyGenError::NoGroups => Self::ConfigError(ConfigError::MissingExtensions),
+        }
+    }
+}
+
 /// Generates a default configuration struct.
 #[no_mangle]
 pub extern "C" fn turtls_generate_config() -> Config {
@@ -95,7 +108,6 @@ pub extern "C" fn turtls_generate_config() -> Config {
 /// Allocates a connection buffer.
 ///
 /// This buffer must be freed by `turtls_free` to avoid memory leakage.
-#[allow(private_interfaces)]
 #[no_mangle]
 pub extern "C" fn turtls_alloc() -> *mut Connection {
     Box::leak(Box::new(Connection(TagUninit::new_uninit())))
@@ -107,7 +119,6 @@ pub extern "C" fn turtls_alloc() -> *mut Connection {
 ///
 /// # Safety:
 /// `connection` must be allocated by `turtls_alloc`
-#[allow(private_interfaces)]
 #[no_mangle]
 pub unsafe extern "C" fn turtls_free(connection: *mut Connection) {
     if connection.is_null() || !connection.is_aligned() {
@@ -124,7 +135,6 @@ pub unsafe extern "C" fn turtls_free(connection: *mut Connection) {
 /// # Safety:
 /// `config` must be valid.
 /// `connection` must be valid.
-#[allow(private_interfaces)]
 #[no_mangle]
 pub unsafe extern "C" fn turtls_client_handshake(
     // TODO: use c_size_t and c_ssize_t once stabilized
@@ -152,7 +162,10 @@ pub unsafe extern "C" fn turtls_client_handshake(
         extensions: config.extensions,
     };
 
-    let keys = GroupKeys::generate(config.extensions.sup_groups);
+    let keys = match GroupKeys::generate(config.extensions.sup_groups) {
+        Ok(keys) => keys,
+        Err(err) => return err.into(),
+    };
 
     if let Err(err) = client_hello.write_to(record_layer, &keys) {
         return err.into();
@@ -169,7 +182,6 @@ pub unsafe extern "C" fn turtls_client_handshake(
 ///
 /// # Safety:
 /// `connection` may be `NULL` but must be valid.
-#[allow(private_interfaces)]
 #[no_mangle]
 pub unsafe extern "C" fn turtls_close(connection: *mut Connection) {
     if connection.is_null() || !connection.is_aligned() {

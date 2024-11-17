@@ -110,15 +110,34 @@ pub(crate) struct GroupKeys {
 }
 
 impl GroupKeys {
-    pub(crate) fn generate(groups: SupGroups) -> Self {
-        if groups.groups & SupGroups::SECP256R1 > 0 {
-            let mut buf = [0; 32];
-            getrandom(&mut buf);
-            return Self {
-                secp256r1: FieldElement::<4, _>::new(UBigInt::<4>::from_be_bytes(buf)),
-            };
+    pub(crate) fn generate(groups: SupGroups) -> Result<Self, KeyGenError> {
+        if groups.groups == 0 {
+            return Err(KeyGenError::NoGroups);
         }
-        unreachable!();
+        let mut buf = [0; 32];
+        getrandom(&mut buf)?;
+
+        if buf == [0; 32] {
+            return Err(KeyGenError::PrivKeyIsZero);
+        }
+
+        // SAFETY: `[u64; 4]` and `[u8; 32]` have the same memory layout.
+        let as_u64s: [u64; 4] = unsafe { std::mem::transmute(buf) };
+        return Ok(Self {
+            secp256r1: FieldElement::<4, _>::new(UBigInt(as_u64s)),
+        });
+    }
+}
+
+pub(crate) enum KeyGenError {
+    RngError,
+    PrivKeyIsZero,
+    NoGroups,
+}
+
+impl From<getrandom::Error> for KeyGenError {
+    fn from(_: getrandom::Error) -> Self {
+        Self::RngError
     }
 }
 
