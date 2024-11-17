@@ -1,16 +1,14 @@
 # turtls 🐢
 
-## A work-in-progress TLS 1.3 dynamic library with C bindings
-
-In addition to the main TLS code, this repository contains the crypto library used in turtls.
-It can be found at `./crylib/`.
+## A work-in-progress TLS 1.3 dynamic library
+Note: Although turtls is written in Rust, it only provides a C API.
 
 WARNING: This code has not been audited. Use it at your own risk.
 ================================================================
 
 ## Project Goals
 1. Learn about cryptography and computer networks. This project is first and foremost educational.
-2. Simplicity. This library only contains a few functions in its API:
+2. Simplicity. turtls only contains a few functions in its API:
 - `turtls_generate_config`: Generate the default configuration struct.
 - `turtls_alloc`: Allocate the connection state buffer.
 - `turtls_free`: Free the connection state buffer.
@@ -21,6 +19,10 @@ WARNING: This code has not been audited. Use it at your own risk.
 - `turtls_close`: close the connection.
 - All configuration is done via a single config struct.
 3. Have fun :)
+
+## Cryptography
+turtls uses in-house cryptography, meaning it uses its own crypto library, called crylib.
+crylib can also be used independently of turtls.
 
 ## Building
 Make sure you have a recent version of Rust installed. This project uses on new language features as they release,
