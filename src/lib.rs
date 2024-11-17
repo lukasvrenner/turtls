@@ -24,6 +24,7 @@ use std::time::Duration;
 
 use cipher_suites::{GroupKeys, KeyGenError};
 use client_hello::{CliHelError, ClientHello};
+use crylib::{hash::Sha256, hkdf};
 use init::TagUninit;
 use record::{ContentType, ReadError};
 use server_hello::{RecvdSerHello, SerHelParseError};
@@ -35,6 +36,7 @@ pub use config::{Config, ConfigError};
 pub use record::Io;
 
 /// The result of the handshake.
+// TODO: make this more explicit (have a type for each kind of failure).
 #[must_use]
 #[repr(C)]
 pub enum ShakeResult {
@@ -74,6 +76,8 @@ impl From<SerHelParseError> for ShakeResult {
             SerHelParseError::ReadError(err) => Self::from(err),
             SerHelParseError::Failed => Self::HandshakeFailed,
             SerHelParseError::DecodeError => Self::DecodeError,
+            SerHelParseError::MissingExtension => Self::HandshakeFailed,
+            SerHelParseError::UnsupportedExtension => Self::HandshakeFailed,
         }
     }
 }
@@ -169,7 +173,11 @@ pub unsafe extern "C" fn turtls_client_handshake(
     if let Err(err) = client_hello.write_to(record_layer, &keys) {
         return err.into();
     }
-
+    // TODO: is this precomputed at compile time?
+    let early_secret = hkdf::extract::<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>(
+        &[0; Sha256::HASH_SIZE],
+        &[0; Sha256::HASH_SIZE],
+    );
     let server_hello = match RecvdSerHello::read(record_layer, record_timeout) {
         Ok(server_hello) => server_hello,
         Err(err) => return err.into(),

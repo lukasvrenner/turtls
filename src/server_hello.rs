@@ -26,8 +26,8 @@ impl<'a> ServerHello<'a> {
 }
 
 pub struct RecvdSerHello<'a> {
-    cipher_suite: CipherList,
-    extensions: SerHelExtRef<'a>,
+    pub(crate) cipher_suite: CipherList,
+    pub(crate) extensions: SerHelExtRef<'a>,
 }
 
 impl<'a> RecvdSerHello<'a> {
@@ -109,12 +109,16 @@ impl<'a> RecvdSerHello<'a> {
             Ok(ext) => ext,
             Err(ExtParseError::InvalidExt) => {
                 record_layer.alert_and_close_immut(Alert::UnsupportedExtension);
-                return Err(SerHelParseError::Failed);
+                return Err(SerHelParseError::UnsupportedExtension);
             },
             Err(ExtParseError::ParseError) => {
                 record_layer.alert_and_close_immut(Alert::DecodeError);
                 return Err(SerHelParseError::DecodeError);
             },
+            Err(ExtParseError::MissingExt) => {
+                record_layer.alert_and_close_immut(Alert::MissingExtension);
+                return Err(SerHelParseError::MissingExtension);
+            }
         };
 
         Ok(Self {
@@ -128,6 +132,8 @@ pub(crate) enum SerHelParseError {
     ReadError(ReadError),
     Failed,
     DecodeError,
+    UnsupportedExtension,
+    MissingExtension,
 }
 
 impl From<ReadError> for SerHelParseError {

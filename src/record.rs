@@ -1,3 +1,5 @@
+use crylib::hash::{BufHasher, Hasher, Sha256};
+
 use crate::alert::{Alert, AlertLevel, AlertMsg};
 use crate::versions::LEGACY_PROTO_VERS;
 use std::ffi::c_void;
@@ -73,6 +75,7 @@ pub(crate) struct RecordLayer {
     len: usize,
     msg_type: ContentType,
     io: Io,
+    transcript: BufHasher<{Sha256::HASH_SIZE}, {Sha256::BLOCK_SIZE}, Sha256>,
 }
 
 impl RecordLayer {
@@ -88,6 +91,7 @@ impl RecordLayer {
             len: 0,
             msg_type,
             io,
+            transcript: BufHasher::new(),
         });
         ptr.start();
         ptr
@@ -110,6 +114,7 @@ impl RecordLayer {
     }
 
     pub(crate) fn finish(&mut self) {
+        self.transcript.update_with(&self.buf[Self::PREFIIX_SIZE..self.len]);
         self.set_len(self.len() as u16);
     }
 
@@ -240,6 +245,7 @@ impl RecordLayer {
 
         self.fill_buf(Self::PREFIIX_SIZE, len, timeout, start_time)?;
         self.len = len + Self::PREFIIX_SIZE;
+        self.transcript.update_with(&self.buf[Self::PREFIIX_SIZE..self.len]);
         Ok(())
     }
 
@@ -306,6 +312,10 @@ impl RecordLayer {
             .io
             .write(&self.buf[..Self::PREFIIX_SIZE + AlertMsg::SIZE]);
         self.io.close();
+    }
+
+    pub(crate) fn transcript(&self) -> [u8; Sha256::HASH_SIZE] {
+        self.transcript.clone().finish()
     }
 }
 

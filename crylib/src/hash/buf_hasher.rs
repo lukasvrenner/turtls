@@ -1,5 +1,6 @@
 use super::{BlockHasher, Hasher};
 
+#[derive(Clone)]
 pub struct BufHasher<const H_LEN: usize, const B_LEN: usize, H>
 where
     H: BlockHasher<H_LEN, B_LEN>,

@@ -405,4 +405,38 @@ mod tests {
 
         assert_eq!(point, product)
     }
+
+    #[test]
+    fn mul_scalar_assign() {
+        let mut point = Secp256r1::BASE_POINT;
+        point.mul_scalar_assign(&FieldElement::ONE);
+        assert_eq!(point, Secp256r1::BASE_POINT);
+
+        let scalar = unsafe { FieldElement::new_unchecked(UBigInt::from(112233445566778899)) };
+
+        let x = unsafe {
+            FieldElement::new_unchecked(UBigInt([
+                0x22795513aeaab82f,
+                0x77dbfb3ae3d96f4c,
+                0x807fe862a86be779,
+                0x339150844ec15234,
+            ]))
+        };
+
+        let y = unsafe {
+            FieldElement::new_unchecked(UBigInt([
+                0x5ada38b674336a21,
+                0x55840f2034730e9b,
+                0x583f51e85a5eb3a1,
+                0xb1c14ddfdc8ec1b2,
+            ]))
+        };
+
+        let product = unsafe { AffinePoint::new_unchecked(x, y) }.as_projective();
+
+        let mut point = Secp256r1::BASE_POINT;
+        point.mul_scalar_assign(&scalar);
+
+        assert_eq!(point, product)
+    }
 }

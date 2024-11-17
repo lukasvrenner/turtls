@@ -1,32 +1,37 @@
-use crylib::{hash::BlockHasher, hkdf::expand};
-pub(crate) fn hkdf_expand_label<const H_LEN: usize, const B_LEN: usize, const K_LEN: usize, H>(
-    secret: &[u8; H_LEN],
+use crylib::hash::Sha256;
+use crylib::hkdf;
+
+const LABEL_PREFIX: &'static [u8] = b"tls13";
+const MAX_LABEL_LEN: usize = 12;
+pub(crate) fn derive_secret<const K_LEN: usize>(
+    secret: &[u8; Sha256::HASH_SIZE],
     label: &[u8],
-    context: &[u8],
-) -> [u8; K_LEN]
-where
-    H: BlockHasher<H_LEN, B_LEN>,
-{
+    transcript: &[u8; Sha256::HASH_SIZE],
+) -> [u8; K_LEN] {
+    assert!(label.len() <= MAX_LABEL_LEN);
     let mut hkdf_label =
-        Vec::with_capacity(size_of::<u16>() + 2 * size_of::<u8>() + label.len() + context.len());
-    hkdf_label.extend_from_slice(&K_LEN.to_be_bytes());
+        [0; size_of::<u16>() + 2 * size_of::<u8>() + LABEL_PREFIX.len() + MAX_LABEL_LEN];
 
-    hkdf_label.push(label.len() as u8);
-    hkdf_label.extend_from_slice(label);
+    let mut pos = 0;
+    hkdf_label[pos..][..size_of::<u16>()].copy_from_slice(&(K_LEN as u16).to_be_bytes());
+    pos += size_of::<u16>();
 
-    hkdf_label.push(context.len() as u8);
-    hkdf_label.extend_from_slice(context);
+    hkdf_label[pos] = (LABEL_PREFIX.len() + label.len()) as u8;
+    pos += 1;
 
-    expand::<H_LEN, B_LEN, K_LEN, H>(secret, &hkdf_label)
-}
+    hkdf_label[pos..][..LABEL_PREFIX.len()].copy_from_slice(LABEL_PREFIX);
+    pos += LABEL_PREFIX.len();
 
-pub(crate) fn hkdf_label<const H_LEN: usize, const B_LEN: usize, const K_LEN: usize, H>(
-    secret: &[u8; H_LEN],
-    label: &[u8],
-    msgs: &[u8],
-) -> [u8; K_LEN]
-where
-    H: BlockHasher<H_LEN, B_LEN>,
-{
-    hkdf_expand_label::<H_LEN, B_LEN, K_LEN, H>(secret, label, &H::hash(msgs))
+    hkdf_label[pos..][..label.len()].copy_from_slice(label);
+    pos += label.len();
+
+    hkdf_label[pos] = Sha256::HASH_SIZE as u8;
+    pos += 1;
+
+    hkdf_label[pos..][..Sha256::HASH_SIZE].copy_from_slice(transcript);
+
+    hkdf::expand::<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, K_LEN, Sha256>(
+        secret,
+        &hkdf_label,
+    )
 }

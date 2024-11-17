@@ -58,6 +58,7 @@ const fn little_sigma_1(x: u32) -> u32 {
     x.rotate_right(17) ^ x.rotate_right(19) ^ x >> 10
 }
 
+#[derive(Clone)]
 pub struct Sha256 {
     state: [u32; Self::HASH_SIZE / size_of::<u32>()],
     len: u64,

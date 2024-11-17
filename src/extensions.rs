@@ -111,7 +111,7 @@ impl Extensions {
 
 pub(crate) struct SerHelExtRef<'a> {
     pub(crate) sup_versions: SupVersions,
-    key_share: &'a [u8],
+    pub(crate) key_share: &'a [u8],
 }
 
 impl<'a> SerHelExtRef<'a> {
@@ -140,10 +140,15 @@ impl<'a> SerHelExtRef<'a> {
                 x if x == ExtensionType::KeyShare.to_be_bytes() => {
                     key_share = &extensions[Extensions::HEADER_SIZE..][..len]
                 },
-                _ => return Err(ExtParseError::InvalidExt),
+                _ => {
+                    return Err(ExtParseError::InvalidExt);
+                },
             }
 
             extensions = &extensions[Extensions::HEADER_SIZE + len..];
+        }
+        if sup_versions.versions == 0 || key_share.len() == 0 {
+            return Err(ExtParseError::MissingExt);
         }
         Ok(Self {
             sup_versions,
@@ -155,6 +160,7 @@ impl<'a> SerHelExtRef<'a> {
 pub(crate) enum ExtParseError {
     ParseError,
     InvalidExt,
+    MissingExt,
 }
 
 /// The server name to send to the server or expect from the client.

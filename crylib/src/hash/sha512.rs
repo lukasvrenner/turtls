@@ -109,6 +109,7 @@ const fn little_sigma_1(x: u64) -> u64 {
     x.rotate_right(19) ^ x.rotate_right(61) ^ x >> 6
 }
 
+#[derive(Clone)]
 pub struct Sha512 {
     state: [u64; Self::HASH_SIZE / size_of::<u64>()],
     len: u128,
