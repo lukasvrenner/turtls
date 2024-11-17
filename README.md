@@ -8,6 +8,20 @@ It can be found at `./crylib/`.
 WARNING: This code has not been audited. Use it at your own risk.
 ================================================================
 
+## Project Goals
+1. Learn about cryptography and computer networks. This project is first and foremost educational.
+2. Simplicity. This library only contains a few functions in its API:
+> `turtls_generate_config`: Generate the default configuration struct.
+> `turtls_alloc`: Allocate the connection state buffer.
+> `turtls_free`: Free the connection state buffer.
+> `turtls_client_handshake`: Perform the TLS handshake as the client.
+> `turtls_server_handshake`: Perform the TLS handshake as the server (not yet implemented).
+> `turtls_send`: send data to the peer (not yet implemented).
+> `turtls_read`: read data from the peer (not yet implemented).
+> `turtls_close`: close the connection.
+> All configuration is done via a single config struct.
+3. Have fun :)
+
 ## Building
 Make sure you have a recent version of Rust installed. This project uses on new language features as they release,
 so make sure your version is recent enough.
