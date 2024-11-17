@@ -3,15 +3,13 @@ use std::time::Duration;
 
 use crate::aead::{AeadReader, AeadWriter};
 use crate::cipher_suites::GroupKeys;
+use crate::init::TagUninit;
 use crate::record::{ContentType, Io, RecordLayer};
 
 /// A TLS connection buffer.
 ///
 /// This connection buffer may be reused between multiple consecutive connections.
-pub(crate) enum Connection {
-    Init(State),
-    Uninit(MaybeUninit<State>),
-}
+pub struct Connection(pub(crate) TagUninit<State>);
 
 pub(crate) struct State {
     pub(crate) aead_writer: AeadWriter,

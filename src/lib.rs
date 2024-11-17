@@ -16,14 +16,15 @@ mod record;
 mod server_hello;
 mod state;
 mod versions;
+mod init;
 
 pub mod extensions;
 
-use std::mem::MaybeUninit;
 use std::time::Duration;
 
 use cipher_suites::GroupKeys;
 use client_hello::{CliHelError, ClientHello};
+use init::TagUninit;
 use record::{ContentType, ReadError};
 use server_hello::{RecvdSerHello, SerHelParseError};
 use state::{State, Connection};
@@ -97,7 +98,7 @@ pub extern "C" fn turtls_generate_config() -> Config {
 #[allow(private_interfaces)]
 #[no_mangle]
 pub extern "C" fn turtls_alloc() -> *mut Connection {
-    Box::leak(Box::new(Connection::Uninit(MaybeUninit::uninit())))
+    Box::leak(Box::new(Connection(TagUninit::new_uninit())))
 }
 
 /// Frees a connection buffer.
@@ -140,11 +141,9 @@ pub unsafe extern "C" fn turtls_client_handshake(
 
     let connection = unsafe { &mut *connection };
 
-    *connection = Connection::Uninit(MaybeUninit::uninit());
-    let state = match connection {
-        Connection::Uninit(ref mut state) => state,
-        Connection::Init(_) => unreachable!(),
-    };
+    connection.0.uninit();
+
+    let state = connection.0.get_uninit();
 
     let record_layer = State::init_record_layer(state, ContentType::Handshake, io);
 
@@ -179,7 +178,7 @@ pub unsafe extern "C" fn turtls_close(connection: *mut Connection) {
     // SAFETY: the caller guarantees that the pointer is valid.
     let connection = unsafe { &mut *connection };
 
-    if let Connection::Init(ref mut state) = connection {
-        state.record_layer.alert_and_close(Alert::CloseNotify);
+    if let Some(_state) = connection.0.get_mut() {
+        todo!("send encrypted CloseNotify alert");
     }
 }
