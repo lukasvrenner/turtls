@@ -10,6 +10,7 @@ mod alert;
 mod cipher_suites;
 mod client_hello;
 mod config;
+mod dh;
 mod handshake;
 mod init;
 mod key_schedule;
@@ -18,91 +19,25 @@ mod server_hello;
 mod state;
 mod versions;
 
+pub mod error;
 pub mod extensions;
 
 use std::time::Duration;
 
-use cipher_suites::{GroupKeys, KeyGenError};
-use client_hello::{CliHelError, ClientHello};
-use crylib::{hash::Sha256, hkdf};
+use client_hello::ClientHello;
+use crylib::{aead::{chacha::ChaCha20Poly1305, gcm::{Aes128, AesCipher}}, hash::Sha256, hkdf};
+use dh::GroupKeys;
+use error::TlsError;
 use init::TagUninit;
 use record::{ContentType, ReadError};
-use server_hello::{RecvdSerHello, SerHelParseError};
+use server_hello::RecvdSerHello;
 use state::{Connection, State};
 
 pub use alert::Alert;
 pub use cipher_suites::CipherList;
 pub use config::{Config, ConfigError};
 pub use record::Io;
-
-/// The result of the handshake.
-// TODO: make this more explicit (have a type for each kind of failure).
-#[must_use]
-#[repr(C)]
-pub enum ShakeResult {
-    /// Indicates a successful handshake.
-    Ok,
-    /// Indicates that the peer sent an alert.
-    RecievedAlert(Alert),
-    /// Indicates that there was an error generating a random number.
-    RngError,
-    /// Indicates that there was an error performing an IO operation.
-    IoError,
-    /// Indicates that data could not be read within the proper time.
-    Timeout,
-    /// Indicates that the handshake failed for some unknown reason.
-    /// near future.
-    HandshakeFailed,
-    /// Indicates that a handshake message was not able to be decoded.
-    DecodeError,
-    /// Indicates that the randomly-generated private key was zero.
-    PrivKeyIsZero,
-    /// Indicates there was an error in the config struct.
-    ConfigError(ConfigError),
-}
-
-impl From<CliHelError> for ShakeResult {
-    fn from(value: CliHelError) -> Self {
-        match value {
-            CliHelError::IoError => Self::IoError,
-            CliHelError::RngError => Self::RngError,
-        }
-    }
-}
-
-impl From<SerHelParseError> for ShakeResult {
-    fn from(value: SerHelParseError) -> Self {
-        match value {
-            SerHelParseError::ReadError(err) => Self::from(err),
-            SerHelParseError::Failed => Self::HandshakeFailed,
-            SerHelParseError::DecodeError => Self::DecodeError,
-            SerHelParseError::MissingExtension => Self::HandshakeFailed,
-            SerHelParseError::UnsupportedExtension => Self::HandshakeFailed,
-        }
-    }
-}
-
-impl From<ReadError> for ShakeResult {
-    fn from(value: ReadError) -> Self {
-        match value {
-            ReadError::IoError => Self::IoError,
-            ReadError::Timeout => Self::Timeout,
-            ReadError::RecordOverflow => Self::HandshakeFailed,
-            ReadError::UnexpectedMessage => Self::HandshakeFailed,
-            ReadError::RecievedAlert(alert) => Self::RecievedAlert(alert),
-        }
-    }
-}
-
-impl From<KeyGenError> for ShakeResult {
-    fn from(value: KeyGenError) -> Self {
-        match value {
-            KeyGenError::RngError => Self::RngError,
-            KeyGenError::PrivKeyIsZero => Self::PrivKeyIsZero,
-            KeyGenError::NoGroups => Self::ConfigError(ConfigError::MissingExtensions),
-        }
-    }
-}
+pub use error::ShakeResult;
 
 /// Generates a default configuration struct.
 #[no_mangle]
@@ -178,10 +113,39 @@ pub unsafe extern "C" fn turtls_client_handshake(
         &[0; Sha256::HASH_SIZE],
         &[0; Sha256::HASH_SIZE],
     );
+
     let server_hello = match RecvdSerHello::read(record_layer, record_timeout) {
         Ok(server_hello) => server_hello,
-        Err(err) => return err.into(),
+        Err(err) => {
+            if let ReadError::TlsError(TlsError::Alert(alert)) = err {
+                record_layer.alert_and_close(alert);
+            }
+            return err.into()
+        }
     };
+
+    let dh_shared_secret = match dh::shared_secret(
+        server_hello.extensions.key_share,
+        config.extensions.sup_groups,
+        &keys,
+    ) {
+        Ok(secret) => secret,
+        Err(err) => {
+            record_layer.alert_and_close(err);
+            return ShakeResult::PeerError(err);
+        }
+    };
+    let handshake_traffic_secret;
+    if server_hello.cipher_suite.suites & CipherList::AES_128_GCM_SHA256 > 0 {
+        let salt = key_schedule::derive_secret::<{<Aes128 as AesCipher>::KEY_SIZE}>(&early_secret, b"derived", &record_layer.transcript());
+        handshake_traffic_secret = hkdf::extract::<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>(&salt, &dh_shared_secret);
+    } else if server_hello.cipher_suite.suites & CipherList::AES_128_GCM_SHA256 > 0 {
+        let salt = key_schedule::derive_secret::<{ChaCha20Poly1305::KEY_SIZE}>(&early_secret, b"derived", &record_layer.transcript());
+        handshake_traffic_secret = hkdf::extract::<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>(&salt, &dh_shared_secret);
+    } else {
+        record_layer.alert_and_close(Alert::HandshakeFailure);
+        return ShakeResult::PeerError(Alert::HandshakeFailure);
+    }
     todo!("finish handshake");
 }
 

@@ -186,7 +186,8 @@ enum turtls_ShakeResult_Tag {
     /**
      * Indicates that the peer sent an alert.
      */
-    TURTLS_SHAKE_RESULT_RECIEVED_ALERT,
+    TURTLS_SHAKE_RESULT_RECEIVED_ALERT,
+    TURTLS_SHAKE_RESULT_PEER_ERROR,
     /**
      * Indicates that there was an error generating a random number.
      */
@@ -195,19 +196,7 @@ enum turtls_ShakeResult_Tag {
      * Indicates that there was an error performing an IO operation.
      */
     TURTLS_SHAKE_RESULT_IO_ERROR,
-    /**
-     * Indicates that data could not be read within the proper time.
-     */
     TURTLS_SHAKE_RESULT_TIMEOUT,
-    /**
-     * Indicates that the handshake failed for some unknown reason.
-     * near future.
-     */
-    TURTLS_SHAKE_RESULT_HANDSHAKE_FAILED,
-    /**
-     * Indicates that a handshake message was not able to be decoded.
-     */
-    TURTLS_SHAKE_RESULT_DECODE_ERROR,
     /**
      * Indicates that the randomly-generated private key was zero.
      */
@@ -216,13 +205,17 @@ enum turtls_ShakeResult_Tag {
      * Indicates there was an error in the config struct.
      */
     TURTLS_SHAKE_RESULT_CONFIG_ERROR,
+    TURTLS_SHAKE_RESULT_RECORD_OVERFLOW,
 };
 
 struct turtls_ShakeResult {
     enum turtls_ShakeResult_Tag tag;
     union {
         struct {
-            turtls_Alert recieved_alert;
+            turtls_Alert received_alert;
+        };
+        struct {
+            turtls_Alert peer_error;
         };
         struct {
             enum turtls_ConfigError config_error;

@@ -1,6 +1,7 @@
 use crylib::hash::{BufHasher, Hasher, Sha256};
 
 use crate::alert::{Alert, AlertLevel, AlertMsg};
+use crate::error::TlsError;
 use crate::versions::LEGACY_PROTO_VERS;
 use std::ffi::c_void;
 use std::mem::MaybeUninit;
@@ -75,7 +76,7 @@ pub(crate) struct RecordLayer {
     len: usize,
     msg_type: ContentType,
     io: Io,
-    transcript: BufHasher<{Sha256::HASH_SIZE}, {Sha256::BLOCK_SIZE}, Sha256>,
+    transcript: BufHasher<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>,
 }
 
 impl RecordLayer {
@@ -114,7 +115,8 @@ impl RecordLayer {
     }
 
     pub(crate) fn finish(&mut self) {
-        self.transcript.update_with(&self.buf[Self::PREFIIX_SIZE..self.len]);
+        self.transcript
+            .update_with(&self.buf[Self::PREFIIX_SIZE..self.len]);
         self.set_len(self.len() as u16);
     }
 
@@ -223,8 +225,7 @@ impl RecordLayer {
         ) as usize;
 
         if len > Self::MAX_LEN + Self::SUFFIX_SIZE {
-            self.alert_and_close(Alert::RecordOverflow);
-            return Err(ReadError::RecordOverflow);
+            return Err(ReadError::TlsError(TlsError::Alert(Alert::RecordOverflow)));
         }
 
         let msg_type = self.buf[0];
@@ -233,19 +234,21 @@ impl RecordLayer {
             // don't worry about errors because we're already handling an error
             let _ = self.fill_buf(Self::PREFIIX_SIZE, AlertMsg::SIZE, timeout, start_time);
 
-            return Err(ReadError::RecievedAlert(Alert::from_byte(
+            return Err(ReadError::TlsError(TlsError::ReceivedAlert(Alert::from_byte(
                 self.buf[Self::PREFIIX_SIZE + size_of::<AlertLevel>()],
-            )));
+            ))));
         }
 
         if msg_type != expected_type.to_byte() {
-            self.alert_and_close(Alert::UnexpectedMessage);
-            return Err(ReadError::UnexpectedMessage);
+            return Err(ReadError::TlsError(TlsError::Alert(
+                Alert::UnexpectedMessage,
+            )));
         }
 
         self.fill_buf(Self::PREFIIX_SIZE, len, timeout, start_time)?;
         self.len = len + Self::PREFIIX_SIZE;
-        self.transcript.update_with(&self.buf[Self::PREFIIX_SIZE..self.len]);
+        self.transcript
+            .update_with(&self.buf[Self::PREFIIX_SIZE..self.len]);
         Ok(())
     }
 
@@ -264,12 +267,10 @@ impl RecordLayer {
             let new_bytes = self.io.read(&mut buf[bytes_read..]);
 
             if start_time.elapsed() > timeout {
-                self.alert_and_close(Alert::CloseNotify);
                 return Err(ReadError::Timeout);
             }
 
             if new_bytes < 0 {
-                self.alert_and_close(Alert::InternalError);
                 return Err(ReadError::IoError);
             }
 
@@ -323,7 +324,6 @@ impl RecordLayer {
 pub(crate) enum ReadError {
     RecordOverflow,
     IoError,
-    RecievedAlert(Alert),
-    UnexpectedMessage,
+    TlsError(TlsError),
     Timeout,
 }

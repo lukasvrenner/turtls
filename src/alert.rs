@@ -6,7 +6,7 @@ pub enum AlertLevel {
 }
 
 /// TLS error reporting.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum Alert {
     /// The connection is being closed

@@ -5,7 +5,8 @@ use std::ptr::null;
 use crylib::ec::{EllipticCurve, Secp256r1};
 use crylib::finite_field::FieldElement;
 
-use crate::cipher_suites::{GroupKeys, NamedGroup, SignatureScheme};
+use crate::cipher_suites::SignatureScheme;
+use crate::dh::{GroupKeys, NamedGroup};
 use crate::record::RecordLayer;
 use crate::versions::ProtocolVersion;
 
@@ -429,7 +430,9 @@ impl KeyShare {
     const LEGACY_FORM: u8 = 4;
     const LEN_SIZE: usize = 2;
     const INNER_LEN_SIZE: usize = 2;
-    const TAG: ExtensionType = ExtensionType::KeyShare;
+    pub(crate) const TAG: ExtensionType = ExtensionType::KeyShare;
+    /// The minimum length of this extension in ServerHello.
+    pub(crate) const MIN_SER_LEN: usize = size_of::<NamedGroup>() + size_of::<u16>();
 
     pub(crate) const fn len(groups: &SupGroups) -> usize {
         if groups.groups & SupGroups::SECP256R1 == 0 {

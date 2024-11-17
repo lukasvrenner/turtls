@@ -8,12 +8,14 @@ use super::{Aead, BadData, IV_SIZE, TAG_SIZE};
 pub mod chacha20;
 pub mod poly1305;
 
+
 pub struct ChaCha20Poly1305 {
-    key: [u8; 32],
+    key: [u8; Self::KEY_SIZE],
 }
 
 impl ChaCha20Poly1305 {
-    pub fn new(key: [u8; 32]) -> Self {
+    pub const KEY_SIZE: usize = 32;
+    pub fn new(key: [u8; Self::KEY_SIZE]) -> Self {
         Self { key }
     }
 }
@@ -46,7 +48,7 @@ impl Aead for ChaCha20Poly1305 {
 }
 
 fn poly_auth(
-    key: &[u8; 32],
+    key: &[u8; ChaCha20Poly1305::KEY_SIZE],
     iv: &[u8; IV_SIZE],
     add_data: &[u8],
     cipher_text: &[u8],

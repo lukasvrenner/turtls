@@ -1,11 +1,12 @@
 use std::time::Duration;
 
-use crate::cipher_suites::{CipherSuite, CipherList};
+use crate::alert::Alert;
+use crate::cipher_suites::{CipherList, CipherSuite};
+use crate::error::TlsError;
 use crate::extensions::{ExtParseError, Extensions, SerHelExtRef};
 use crate::handshake::{ShakeType, SHAKE_HEADER_SIZE};
 use crate::record::{ContentType, ReadError, RecordLayer};
 use crate::versions::ProtocolVersion;
-use crate::alert::Alert;
 
 pub(crate) struct ServerHello<'a> {
     leg_sesion_id: &'a [u8],
@@ -39,17 +40,15 @@ impl<'a> RecvdSerHello<'a> {
     pub(crate) fn read(
         record_layer: &'a mut RecordLayer,
         record_timeout: Duration,
-    ) -> Result<Self, SerHelParseError> {
+    ) -> Result<Self, ReadError> {
         record_layer.read(ContentType::Handshake, record_timeout)?;
 
         if record_layer.len() < SHAKE_HEADER_SIZE + ServerHello::MIN_LEN {
-            record_layer.alert_and_close(Alert::DecodeError);
-            return Err(SerHelParseError::Failed);
+            return Err(ReadError::TlsError(TlsError::Alert(Alert::DecodeError)));
         }
 
         if record_layer.buf()[0] != ShakeType::ServerHello.to_byte() {
-            record_layer.alert_and_close(Alert::UnexpectedMessage);
-            return Err(SerHelParseError::Failed);
+            return Err(ReadError::TlsError(TlsError::Alert(Alert::UnexpectedMessage)));
         }
 
         let len = u32::from_be_bytes([
@@ -61,19 +60,16 @@ impl<'a> RecvdSerHello<'a> {
 
         // ServerHello must be the only message in the record
         if len < record_layer.len() - SHAKE_HEADER_SIZE {
-            record_layer.alert_and_close(Alert::DecodeError);
-            return Err(SerHelParseError::DecodeError);
+            return Err(ReadError::TlsError(TlsError::Alert(Alert::DecodeError)));
         }
 
         // ServerHello must not be more than one record (implemntation detail)
         if len > record_layer.len() - SHAKE_HEADER_SIZE {
-            record_layer.alert_and_close(Alert::HandshakeFailure);
-            return Err(SerHelParseError::Failed);
+            return Err(ReadError::TlsError(TlsError::Alert(Alert::HandshakeFailure)));
         }
 
         if record_layer.len() - SHAKE_HEADER_SIZE < ServerHello::MIN_LEN {
-            record_layer.alert_and_close(Alert::DecodeError);
-            return Err(SerHelParseError::DecodeError);
+            return Err(ReadError::TlsError(TlsError::Alert(Alert::DecodeError)));
         }
 
         let mut pos =
@@ -82,8 +78,7 @@ impl<'a> RecvdSerHello<'a> {
         let leg_session_id_len = record_layer.buf()[pos];
 
         if leg_session_id_len > 32 {
-            record_layer.alert_and_close(Alert::DecodeError);
-            return Err(SerHelParseError::DecodeError);
+            return Err(ReadError::TlsError(TlsError::Alert(Alert::DecodeError)));
         }
         pos += size_of_val(&leg_session_id_len) + leg_session_id_len as usize;
 
@@ -101,43 +96,25 @@ impl<'a> RecvdSerHello<'a> {
 
         pos += Extensions::LEN_SIZE;
         if extensions_len != record_layer.buf()[pos..].len() {
-            record_layer.alert_and_close(Alert::DecodeError);
-            return Err(SerHelParseError::DecodeError);
+            return Err(ReadError::TlsError(TlsError::Alert(Alert::DecodeError)));
         }
 
         let extensions = match SerHelExtRef::parse(&record_layer.buf()[pos..]) {
             Ok(ext) => ext,
             Err(ExtParseError::InvalidExt) => {
-                record_layer.alert_and_close_immut(Alert::UnsupportedExtension);
-                return Err(SerHelParseError::UnsupportedExtension);
+                return Err(ReadError::TlsError(TlsError::Alert(Alert::UnsupportedExtension)));
             },
             Err(ExtParseError::ParseError) => {
-                record_layer.alert_and_close_immut(Alert::DecodeError);
-                return Err(SerHelParseError::DecodeError);
+                return Err(ReadError::TlsError(TlsError::Alert(Alert::DecodeError)));
             },
             Err(ExtParseError::MissingExt) => {
-                record_layer.alert_and_close_immut(Alert::MissingExtension);
-                return Err(SerHelParseError::MissingExtension);
-            }
+                return Err(ReadError::TlsError(TlsError::Alert(Alert::MissingExtension)));
+            },
         };
 
         Ok(Self {
             cipher_suite,
             extensions,
         })
-    }
-}
-
-pub(crate) enum SerHelParseError {
-    ReadError(ReadError),
-    Failed,
-    DecodeError,
-    UnsupportedExtension,
-    MissingExtension,
-}
-
-impl From<ReadError> for SerHelParseError {
-    fn from(value: ReadError) -> Self {
-        Self::ReadError(value)
     }
 }

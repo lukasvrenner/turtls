@@ -5,6 +5,7 @@ use crate::{
     big_int::UBigInt,
     finite_field::{FieldElement, FiniteField},
 };
+use super::ChaCha20Poly1305;
 
 fn clamp(r: &mut [u8; 16]) {
     r[3] &= 0x0f;
@@ -24,11 +25,10 @@ pub struct Poly1305 {
 
 impl Poly1305 {
     pub fn auth(msg: &[u8], key: &[u8; 32]) -> [u8; 16] {
-        let mut poly = Self::new(key);
-        poly.finish_with(msg)
+        Self::new(key).finish_with(msg)
     }
 
-    pub fn new(key: &[u8; 32]) -> Self {
+    pub fn new(key: &[u8; ChaCha20Poly1305::KEY_SIZE]) -> Self {
         let mut r = key[..16].try_into().unwrap();
         clamp(&mut r);
 
@@ -43,7 +43,7 @@ impl Poly1305 {
         Self { r, s, accum }
     }
 
-    pub fn update(&mut self, msg: &[u8; 16]) {
+    pub fn update(&mut self, msg: &[u8; TAG_SIZE]) {
         let mut as_int: UBigInt<3> = UBigInt::<2>::from_le_bytes(*msg).resize();
         as_int.0[2] = 1;
         // SAFETY: as_int is guaranteed to be less than `PolyField::MODULUS`.
@@ -88,16 +88,16 @@ impl Poly1305 {
         self.finish()
     }
 
-    pub fn finish(self) -> [u8; 16] {
+    pub fn finish(self) -> [u8; TAG_SIZE] {
         let mut accum = self.accum.into_inner();
         accum.add_assign(&self.s);
         accum.resize::<2>().to_le_bytes()
     }
 }
 
-pub fn poly1305_key_gen(key: &[u8; 32], iv: &[u8; IV_SIZE]) -> [u8; 32] {
+pub fn poly1305_key_gen(key: &[u8; ChaCha20Poly1305::KEY_SIZE], iv: &[u8; IV_SIZE]) -> [u8; ChaCha20Poly1305::KEY_SIZE] {
     let block = super::chacha20::block(key, iv, 0);
-    block[..32].try_into().unwrap()
+    block[..ChaCha20Poly1305::KEY_SIZE].try_into().unwrap()
 }
 
 #[derive(Eq, PartialEq, Clone, Copy, Debug)]

@@ -1,4 +1,5 @@
-use crate::cipher_suites::{CipherList, GroupKeys};
+use crate::cipher_suites::CipherList;
+use crate::dh::GroupKeys;
 use crate::extensions::Extensions;
 use crate::handshake::ShakeType;
 use crate::record::{ContentType, RecordLayer};
