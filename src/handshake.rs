@@ -1,10 +1,3 @@
-use std::time::Duration;
-
-use crate::{
-    record::{ContentType, ReadError, RecordLayer},
-    Alert, Io,
-};
-
 #[repr(u8)]
 pub(crate) enum ShakeType {
     ClientHello = 1,

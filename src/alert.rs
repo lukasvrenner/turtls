@@ -1,38 +1,64 @@
 #[repr(u8)]
 pub enum AlertLevel {
+    #[expect(unused, reason = "TLS 1.3 requires all alerts to be fatal")]
     Warning = 1,
     Fatal = 2,
 }
 
+/// TLS error reporting.
 #[derive(Debug)]
 #[repr(u8)]
 pub enum Alert {
+    /// The connection is being closed
     CloseNotify = 0,
+    /// An unexpected message was received.
     UnexpectedMessage = 10,
+    /// Record authentication failed.
     BadRecordMac = 20,
+    /// The record was longer than the maximum record size.
     RecordOverflow = 22,
+    /// The handshake failed for an unspecified reason.
     HandshakeFailure = 40,
+    /// The provided certificate was invalid.
     BadCert = 42,
+    /// The provided certificated is unsupported.
     UnsupportedCert = 43,
+    /// The provided certificate has been revoked.
     CertRevoked = 44,
+    /// The provided certificate has expired.
     CertExpired = 45,
+    /// There was an unspecified error processing the certificate.
     CertUnknown = 46,
+    /// A parameter was invalid (e.g. an elliptic curve point wasn't on the curve).
     IllegalParam = 47,
+    /// The provided certificate authority is unrecognized.
     UnknownCa = 48,
+    /// The sender decided not to proceed with the handshake.
     AccessDenied = 49,
+    /// There was an error decoding a message.
     DecodeError = 50,
+    /// There was an error decrypting a message.
     DecryptErorr = 51,
+    /// The attempted protocol version is unsupported.
     ProtocolVersion = 70,
+    /// The server requires more-secure parameters than those provided by the client.
     InsufficientSecurity = 71,
+    /// An unrelated internal error has occured.
     InternalError = 80,
     InappropriateFallback = 86,
+    /// The user interupted the handshake.
     UserCancelled = 90,
+    /// A required extension is missing.
     MissingExtension = 109,
+    /// An extension was sent that isn't supported.
     UnsupportedExtension = 110,
+    /// The provided server name is unrecognized.
     UnrecognizedName = 112,
     BadCertStatusResponse = 113,
     UnknownPskIdentity = 115,
+    /// A certificate is required.
     CertRequired = 116,
+    /// No application protocol was provided.
     NoAppProtocol = 120,
 }
 

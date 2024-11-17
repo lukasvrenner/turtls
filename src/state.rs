@@ -1,8 +1,6 @@
 use std::mem::MaybeUninit;
-use std::time::Duration;
 
 use crate::aead::{AeadReader, AeadWriter};
-use crate::cipher_suites::GroupKeys;
 use crate::init::TagUninit;
 use crate::record::{ContentType, Io, RecordLayer};
 
@@ -15,7 +13,6 @@ pub(crate) struct State {
     pub(crate) aead_writer: AeadWriter,
     pub(crate) aead_reader: AeadReader,
     pub(crate) record_layer: RecordLayer,
-    pub(crate) read_timeout: Duration,
 }
 
 impl State {

@@ -4,29 +4,32 @@ use std::ffi::c_void;
 use std::mem::MaybeUninit;
 use std::time::{Duration, Instant};
 
+/// The functions to use to perform IO.
+///
+/// This includes reading, writing, and closing the connection.
 #[repr(C)]
 pub struct Io {
-    /// Any io write function.
+    /// A write function.
     ///
     /// `buf`: the buffer to write.
     /// `amt`: the number of bytes to write.
-    /// `ctx`: any contextual data (e.g. where to write to).
+    /// `ctx`: contextual data (e.g. a file descriptor).
     pub write_fn: extern "C" fn(buf: *const c_void, amt: usize, ctx: *const c_void) -> isize,
-    /// Any *non-blocking* io read function.
+    /// A *non-blocking* read function.
     ///
     /// `buf`: the buffer to read to.
     /// `amt`: the maximum number of bytes to read.
-    /// `ctx`: any contextual data (e.g. where to read to).
+    /// `ctx`: contextual data (e.g. a file descriptor).
     ///
     /// This function must return a negative value on error, and `0` when no bytes are read.
     pub read_fn: extern "C" fn(buf: *mut c_void, amt: usize, ctx: *const c_void) -> isize,
 
-    /// Any function to close io.
+    /// A function to close the connection.
     ///
     /// `ctx`: any contextual data (e.g. what socket to close).
     pub close_fn: extern "C" fn(ctx: *const c_void),
 
-    /// Any contextual data.
+    /// Contextual data (e.g. a file descriptor).
     ///
     /// Lifetime: this pointer must be valid for the duration of the connection.
     pub ctx: *const c_void,

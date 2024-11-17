@@ -11,12 +11,12 @@ mod cipher_suites;
 mod client_hello;
 mod config;
 mod handshake;
+mod init;
 mod key_schedule;
 mod record;
 mod server_hello;
 mod state;
 mod versions;
-mod init;
 
 pub mod extensions;
 
@@ -27,7 +27,7 @@ use client_hello::{CliHelError, ClientHello};
 use init::TagUninit;
 use record::{ContentType, ReadError};
 use server_hello::{RecvdSerHello, SerHelParseError};
-use state::{State, Connection};
+use state::{Connection, State};
 
 pub use alert::Alert;
 pub use cipher_suites::CipherList;
@@ -53,6 +53,7 @@ pub enum ShakeResult {
     HandshakeFailed,
     /// Indicates that a handshake message was not able to be decoded.
     DecodeError,
+    /// Indicates that the randomly-generated private key was zero.
     PrivKeyIsZero,
     /// Indicates there was an error in the config struct.
     ConfigError(ConfigError),
@@ -118,7 +119,7 @@ pub extern "C" fn turtls_alloc() -> *mut Connection {
 /// This buffer must have been allocated by `turtls_alloc`.
 ///
 /// # Safety:
-/// `connection` must be allocated by `turtls_alloc`
+/// `connection` must be allocated by `turtls_alloc`.
 #[no_mangle]
 pub unsafe extern "C" fn turtls_free(connection: *mut Connection) {
     if connection.is_null() || !connection.is_aligned() {
@@ -151,9 +152,7 @@ pub unsafe extern "C" fn turtls_client_handshake(
 
     let connection = unsafe { &mut *connection };
 
-    connection.0.uninit();
-
-    let state = connection.0.get_uninit();
+    let state = connection.0.deinit();
 
     let record_layer = State::init_record_layer(state, ContentType::Handshake, io);
 

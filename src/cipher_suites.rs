@@ -13,8 +13,13 @@ pub struct CipherList {
 }
 
 impl CipherList {
-    // add more once more cipher suites are supported
+    /// AES-128 GCM with SHA-256.
+    ///
+    /// Use this unless *UTMOST* security is needed.
     pub const AES_128_GCM_SHA256: u8 = 0b00000001;
+    /// ChaCha20 Poly1305 with SHA-256.
+    ///
+    /// This is a good option. You should probably leave it enabled.
     pub const CHA_CHA_POLY1305_SHA256: u8 = 0b00000010;
 
     pub(crate) const LEN_SIZE: usize = 2;

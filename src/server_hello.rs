@@ -1,13 +1,12 @@
 use std::time::Duration;
 
-use crate::{
-    cipher_suites::CipherSuite,
-    extensions::{ExtParseError, Extensions, SerHelExtRef},
-    handshake::{ShakeType, SHAKE_HEADER_SIZE},
-    record::{ContentType, ReadError, RecordLayer},
-    versions::ProtocolVersion,
-    Alert, CipherList, Config,
-};
+use crate::cipher_suites::{CipherSuite, CipherList};
+use crate::extensions::{ExtParseError, Extensions, SerHelExtRef};
+use crate::handshake::{ShakeType, SHAKE_HEADER_SIZE};
+use crate::record::{ContentType, ReadError, RecordLayer};
+use crate::versions::ProtocolVersion;
+use crate::alert::Alert;
+
 pub(crate) struct ServerHello<'a> {
     leg_sesion_id: &'a [u8],
     cipher_suite: CipherList,

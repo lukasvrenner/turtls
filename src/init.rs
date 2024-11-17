@@ -41,24 +41,28 @@ impl<T> TagUninit<T> {
         }
     }
 
-    pub(crate) fn get_uninit(&mut self) -> &mut MaybeUninit<T> {
-        &mut self.value
+    pub(crate) fn get_uninit(&mut self) -> Option<&mut MaybeUninit<T>> {
+        match self.is_init {
+            true => None,
+            false => Some(&mut self.value),
+        }
     }
 
     pub(crate) unsafe fn assume_init(&mut self) {
         self.is_init = true;
     }
 
-    pub(crate) fn uninit(&mut self) {
+    pub(crate) fn deinit(&mut self) -> &mut MaybeUninit<T> {
         if self.is_init() {
             // SAFETY: the pointer is valid and we're uninitializing the value.
             unsafe { ptr::drop_in_place((&raw mut self.value) as *mut T) }
         }
         self.is_init = false;
+        &mut self.value
     }
 
     pub(crate) fn write(&mut self, value: T) -> &mut T {
-        self.uninit();
+        self.deinit();
         self.is_init = true;
         self.value.write(value)
     }
