@@ -31,7 +31,6 @@ pub enum ShakeResult {
     PrivKeyIsZero,
     /// Indicates there was an error in the config struct.
     ConfigError(ConfigError),
-    RecordOverflow,
 }
 
 impl From<CliHelError> for ShakeResult {
@@ -57,7 +56,6 @@ impl From<ReadError> for ShakeResult {
         match value {
             ReadError::IoError => Self::IoError,
             ReadError::Timeout => Self::Timeout,
-            ReadError::RecordOverflow => Self::RecordOverflow,
             ReadError::TlsError(err) => err.into()
         }
     }
