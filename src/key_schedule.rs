@@ -35,16 +35,17 @@ pub(crate) fn hkdf_expand_label(
     hkdf_label[pos] = Sha256::HASH_SIZE as u8;
     pos += 1;
 
-    hkdf_label[pos..][..Sha256::HASH_SIZE].copy_from_slice(context);
+    hkdf_label[pos..][..context.len()].copy_from_slice(context);
 
     hkdf::expand::<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>(key, secret, &hkdf_label);
 }
 
 pub(crate) fn derive_secret(
-    key: &mut [u8],
     secret: &[u8; Sha256::HASH_SIZE],
     label: &[u8],
     transcript: &[u8; Sha256::HASH_SIZE],
-) {
-    hkdf_expand_label(key, secret, label, transcript);
+) -> [u8; Sha256::HASH_SIZE] {
+    let mut derived = [0; Sha256::HASH_SIZE];
+    hkdf_expand_label(&mut derived, secret, label, transcript);
+    derived
 }

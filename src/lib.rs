@@ -24,6 +24,7 @@ pub mod extensions;
 
 use std::time::Duration;
 
+use aead::TlsAead;
 use client_hello::ClientHello;
 use crylib::{
     aead::{
@@ -113,14 +114,15 @@ pub unsafe extern "C" fn turtls_client_handshake(
         Err(err) => return err.into(),
     };
 
-    if let Err(err) = client_hello.write_to(record_layer, &keys) {
-        return err.into();
-    }
     // TODO: is this precomputed at compile time?
     let early_secret = hkdf::extract::<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>(
         &[0; Sha256::HASH_SIZE],
         &[0; Sha256::HASH_SIZE],
     );
+
+    if let Err(err) = client_hello.write_to(record_layer, &keys) {
+        return err.into();
+    }
 
     let server_hello = match RecvdSerHello::read(record_layer, record_timeout) {
         Ok(server_hello) => server_hello,
@@ -143,22 +145,24 @@ pub unsafe extern "C" fn turtls_client_handshake(
             return ShakeResult::PeerError(err);
         },
     };
-
-    // ChaCha20 has the largest key size.
-    let mut salt = [0u8; ChaCha20Poly1305::KEY_SIZE];
-    let salt = match server_hello.cipher_suite.suites {
-        CipherList::AES_128_GCM_SHA256 => &mut salt[..Aes128::KEY_SIZE],
-        CipherList::CHA_CHA_POLY1305_SHA256 => &mut salt[..ChaCha20Poly1305::KEY_SIZE],
-        _ => {
-            record_layer.alert_and_close(Alert::HandshakeFailure);
-            return ShakeResult::PeerError(Alert::HandshakeFailure);
-        },
+    let cipher_suite = CipherList {
+        suites: server_hello.cipher_suite.suites & config.cipher_suites.suites,
     };
-    key_schedule::derive_secret(salt, &early_secret, b"derived", &Sha256::hash(b""));
+
+    let salt = key_schedule::derive_secret(&early_secret, b"derived", &Sha256::hash(b""));
     let handshake_secret = hkdf::extract::<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>(
-        salt,
+        &salt,
         &dh_shared_secret,
     );
+    let transcript = record_layer.transcript();
+    let cli_shake_traf_secret =
+        key_schedule::derive_secret(&handshake_secret, b"c hs traffic", &transcript);
+    let ser_shake_traf_secret =
+        key_schedule::derive_secret(&handshake_secret, b"s hs traffic", &transcript);
+
+    let handsake_writer = TlsAead::new(&cli_shake_traf_secret, cipher_suite);
+    let handshake_reader = TlsAead::new(&ser_shake_traf_secret, cipher_suite);
+
     todo!("finish handshake");
 }
 
