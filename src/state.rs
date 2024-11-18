@@ -1,6 +1,6 @@
 use std::mem::MaybeUninit;
 
-use crate::aead::{AeadReader, AeadWriter};
+use crate::aead::TlsAead;
 use crate::init::TagUninit;
 use crate::record::{ContentType, Io, RecordLayer};
 
@@ -10,8 +10,8 @@ use crate::record::{ContentType, Io, RecordLayer};
 pub struct Connection(pub(crate) TagUninit<State>);
 
 pub(crate) struct State {
-    pub(crate) aead_writer: AeadWriter,
-    pub(crate) aead_reader: AeadReader,
+    pub(crate) aead_writer: TlsAead,
+    pub(crate) aead_reader: TlsAead,
     pub(crate) record_layer: RecordLayer,
 }
 

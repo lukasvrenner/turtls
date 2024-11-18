@@ -25,7 +25,14 @@ pub mod extensions;
 use std::time::Duration;
 
 use client_hello::ClientHello;
-use crylib::{aead::{chacha::ChaCha20Poly1305, gcm::{Aes128, AesCipher}}, hash::Sha256, hkdf};
+use crylib::{
+    aead::{
+        chacha::ChaCha20Poly1305,
+        gcm::{Aes128, AesCipher},
+    },
+    hash::{Hasher, Sha256},
+    hkdf,
+};
 use dh::GroupKeys;
 use error::TlsError;
 use extensions::KeyShare;
@@ -37,8 +44,8 @@ use state::{Connection, State};
 pub use alert::Alert;
 pub use cipher_suites::CipherList;
 pub use config::{Config, ConfigError};
-pub use record::Io;
 pub use error::ShakeResult;
+pub use record::Io;
 
 /// Generates a default configuration struct.
 #[no_mangle]
@@ -121,8 +128,8 @@ pub unsafe extern "C" fn turtls_client_handshake(
             if let ReadError::TlsError(TlsError::Alert(alert)) = err {
                 record_layer.alert_and_close(alert);
             }
-            return err.into()
-        }
+            return err.into();
+        },
     };
 
     let dh_shared_secret = match KeyShare::parse_ser(
@@ -134,19 +141,24 @@ pub unsafe extern "C" fn turtls_client_handshake(
         Err(err) => {
             record_layer.alert_and_close(err);
             return ShakeResult::PeerError(err);
-        }
+        },
     };
-    let handshake_traffic_secret;
-    if server_hello.cipher_suite.suites & CipherList::AES_128_GCM_SHA256 > 0 {
-        let salt = key_schedule::derive_secret::<{<Aes128 as AesCipher>::KEY_SIZE}>(&early_secret, b"derived", &record_layer.transcript());
-        handshake_traffic_secret = hkdf::extract::<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>(&salt, &dh_shared_secret);
-    } else if server_hello.cipher_suite.suites & CipherList::AES_128_GCM_SHA256 > 0 {
-        let salt = key_schedule::derive_secret::<{ChaCha20Poly1305::KEY_SIZE}>(&early_secret, b"derived", &record_layer.transcript());
-        handshake_traffic_secret = hkdf::extract::<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>(&salt, &dh_shared_secret);
-    } else {
-        record_layer.alert_and_close(Alert::HandshakeFailure);
-        return ShakeResult::PeerError(Alert::HandshakeFailure);
-    }
+
+    // ChaCha20 has the largest key size.
+    let mut salt = [0u8; ChaCha20Poly1305::KEY_SIZE];
+    let salt = match server_hello.cipher_suite.suites {
+        CipherList::AES_128_GCM_SHA256 => &mut salt[..Aes128::KEY_SIZE],
+        CipherList::CHA_CHA_POLY1305_SHA256 => &mut salt[..ChaCha20Poly1305::KEY_SIZE],
+        _ => {
+            record_layer.alert_and_close(Alert::HandshakeFailure);
+            return ShakeResult::PeerError(Alert::HandshakeFailure);
+        },
+    };
+    key_schedule::derive_secret(salt, &early_secret, b"derived", &Sha256::hash(b""));
+    let handshake_secret = hkdf::extract::<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>(
+        salt,
+        &dh_shared_secret,
+    );
     todo!("finish handshake");
 }
 

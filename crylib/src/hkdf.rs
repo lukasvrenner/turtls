@@ -11,13 +11,12 @@ pub fn extract<const H_LEN: usize, const B_LEN: usize, H: BlockHasher<H_LEN, B_L
 pub fn expand<
     const H_LEN: usize,
     const B_LEN: usize,
-    const K_LEN: usize,
     H: BlockHasher<H_LEN, B_LEN>,
 >(
+    key: &mut [u8],
     pr_key: &[u8; H_LEN],
     info: &[u8],
-) -> [u8; K_LEN] {
-    let mut key = [0; K_LEN];
+) {
 
     let mut prev_mac: &[u8] = &[];
     for (i, key_chunk) in key.chunks_mut(H_LEN).enumerate() {
@@ -28,7 +27,6 @@ pub fn expand<
         key_chunk.copy_from_slice(&mac[..key_chunk.len()]);
         prev_mac = key_chunk;
     }
-    key
 }
 
 #[cfg(test)]
@@ -68,11 +66,10 @@ pub mod tests {
             0x2f, 0x2a, 0x2d, 0x2d, 0x0a, 0x90, 0xcf, 0x1a, 0x5a, 0x4c, 0x5d, 0xb0, 0x2d, 0x56,
             0xec, 0xc4, 0xc5, 0xbf, 0x34, 0x00, 0x72, 0x08, 0xd5, 0xb8, 0x87, 0x18, 0x58, 0x65,
         ];
+        let mut key = [0; 42];
+        super::expand::<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>(&mut key, &pseudo_random_key, &info);
         assert_eq!(
-            super::expand::<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, 42, Sha256>(
-                &pseudo_random_key,
-                &info
-            ),
+            key,
             output_key
         );
     }
