@@ -8,16 +8,11 @@ pub fn extract<const H_LEN: usize, const B_LEN: usize, H: BlockHasher<H_LEN, B_L
     Hmac::<H_LEN, B_LEN, H>::auth(salt, ikm)
 }
 
-pub fn expand<
-    const H_LEN: usize,
-    const B_LEN: usize,
-    H: BlockHasher<H_LEN, B_LEN>,
->(
+pub fn expand<const H_LEN: usize, const B_LEN: usize, H: BlockHasher<H_LEN, B_LEN>>(
     key: &mut [u8],
     pr_key: &[u8; H_LEN],
     info: &[u8],
 ) {
-
     let mut prev_mac: &[u8] = &[];
     for (i, key_chunk) in key.chunks_mut(H_LEN).enumerate() {
         let mut hmac = Hmac::<H_LEN, B_LEN, BufHasher<H_LEN, B_LEN, H>>::new(pr_key);
@@ -67,10 +62,11 @@ pub mod tests {
             0xec, 0xc4, 0xc5, 0xbf, 0x34, 0x00, 0x72, 0x08, 0xd5, 0xb8, 0x87, 0x18, 0x58, 0x65,
         ];
         let mut key = [0; 42];
-        super::expand::<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>(&mut key, &pseudo_random_key, &info);
-        assert_eq!(
-            key,
-            output_key
+        super::expand::<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>(
+            &mut key,
+            &pseudo_random_key,
+            &info,
         );
+        assert_eq!(key, output_key);
     }
 }

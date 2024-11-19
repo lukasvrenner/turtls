@@ -48,7 +48,9 @@ impl<'a> RecvdSerHello<'a> {
         }
 
         if record_layer.buf()[0] != ShakeType::ServerHello.to_byte() {
-            return Err(ReadError::TlsError(TlsError::Alert(Alert::UnexpectedMessage)));
+            return Err(ReadError::TlsError(TlsError::Alert(
+                Alert::UnexpectedMessage,
+            )));
         }
 
         let len = u32::from_be_bytes([
@@ -65,7 +67,9 @@ impl<'a> RecvdSerHello<'a> {
 
         // ServerHello must not be more than one record (implemntation detail)
         if len > record_layer.len() - SHAKE_HEADER_SIZE {
-            return Err(ReadError::TlsError(TlsError::Alert(Alert::HandshakeFailure)));
+            return Err(ReadError::TlsError(TlsError::Alert(
+                Alert::HandshakeFailure,
+            )));
         }
 
         if record_layer.len() - SHAKE_HEADER_SIZE < ServerHello::MIN_LEN {
@@ -102,13 +106,17 @@ impl<'a> RecvdSerHello<'a> {
         let extensions = match SerHelExtPeer::parse(&record_layer.buf()[pos..]) {
             Ok(ext) => ext,
             Err(ExtParseError::InvalidExt) => {
-                return Err(ReadError::TlsError(TlsError::Alert(Alert::UnsupportedExtension)));
+                return Err(ReadError::TlsError(TlsError::Alert(
+                    Alert::UnsupportedExtension,
+                )));
             },
             Err(ExtParseError::ParseError) => {
                 return Err(ReadError::TlsError(TlsError::Alert(Alert::DecodeError)));
             },
             Err(ExtParseError::MissingExt) => {
-                return Err(ReadError::TlsError(TlsError::Alert(Alert::MissingExtension)));
+                return Err(ReadError::TlsError(TlsError::Alert(
+                    Alert::MissingExtension,
+                )));
             },
         };
 

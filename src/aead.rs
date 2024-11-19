@@ -5,67 +5,132 @@ use crylib::hash::Sha256;
 
 use crate::{key_schedule, CipherList};
 
+pub(crate) enum ManyAead {
+    Aes128Gcm {
+        writer: Gcm<Aes128>,
+        reader: Gcm<Aes128>,
+    },
+    ChaChaPoly {
+        writer: ChaCha20Poly1305,
+        reader: ChaCha20Poly1305,
+    },
+}
+
+impl ManyAead {
+    pub(crate) fn encrypt_inline(
+        &mut self,
+        msg: &mut [u8],
+        add_data: &[u8],
+        iv: &[u8; IV_SIZE],
+    ) -> [u8; TAG_SIZE] {
+        match self {
+            Self::Aes128Gcm { writer, reader: _ } => writer.encrypt_inline(msg, add_data, iv),
+            Self::ChaChaPoly { writer, reader: _ } => writer.encrypt_inline(msg, add_data, iv),
+        }
+    }
+
+    pub(crate) fn decrypt_inline(
+        &mut self,
+        msg: &mut [u8],
+        add_data: &[u8],
+        iv: &[u8; IV_SIZE],
+        tag: &[u8; TAG_SIZE],
+    ) -> Result<(), BadData> {
+        match self {
+            Self::Aes128Gcm { writer: _, reader } => reader.decrypt_inline(msg, add_data, iv, tag),
+            Self::ChaChaPoly { writer: _, reader } => reader.decrypt_inline(msg, add_data, iv, tag),
+        }
+    }
+}
+
 pub(crate) struct TlsAead {
-    cipher: Box<dyn Aead>,
-    static_iv: [u8; IV_SIZE],
-    nonce: u64,
+    aead: ManyAead,
+    write_iv: [u8; IV_SIZE],
+    write_nonce: u64,
+    read_iv: [u8; IV_SIZE],
+    read_nonce: u64,
 }
 
 impl TlsAead {
-    pub(crate) fn new(secret: &[u8; Sha256::HASH_SIZE], cipher_suite: CipherList) -> Option<Self> {
-        let cipher: Box<dyn Aead> = match cipher_suite.suites {
+    pub(crate) const NONCE_INIT: u64 = 0;
+    pub(crate) fn new(
+        write_secret: &[u8; Sha256::HASH_SIZE],
+        read_secret: &[u8; Sha256::HASH_SIZE],
+        cipher: CipherList,
+    ) -> Option<Self> {
+        let mut write_iv = [0; IV_SIZE];
+        key_schedule::hkdf_expand_label(&mut write_iv, write_secret, b"iv", b"");
+
+        let mut read_iv = [0; IV_SIZE];
+        key_schedule::hkdf_expand_label(&mut read_iv, read_secret, b"iv", b"");
+
+        match cipher.suites {
             CipherList::AES_128_GCM_SHA256 => {
-                let mut key = [0; Aes128::KEY_SIZE];
-                key_schedule::hkdf_expand_label(&mut key, secret, b"key", b"");
-                Box::new(Gcm::<Aes128>::new(key))
+                let mut write_key = [0; Aes128::KEY_SIZE];
+                key_schedule::hkdf_expand_label(&mut write_key, write_secret, b"key", b"");
+
+                let mut read_key = [0; Aes128::KEY_SIZE];
+                key_schedule::hkdf_expand_label(&mut read_key, read_secret, b"key", b"");
+
+                Some(Self {
+                    aead: ManyAead::Aes128Gcm {
+                        writer: Gcm::<Aes128>::new(write_key),
+                        reader: Gcm::<Aes128>::new(read_key),
+                    },
+                    write_iv,
+                    write_nonce: Self::NONCE_INIT,
+                    read_iv,
+                    read_nonce: Self::NONCE_INIT,
+                })
             },
             CipherList::CHA_CHA_POLY1305_SHA256 => {
-                let mut key = [0; ChaCha20Poly1305::KEY_SIZE];
-                key_schedule::hkdf_expand_label(&mut key, secret, b"key", b"");
-                Box::new(ChaCha20Poly1305::new(key))
+                let mut write_key = [0; ChaCha20Poly1305::KEY_SIZE];
+                key_schedule::hkdf_expand_label(&mut write_key, write_secret, b"key", b"");
+
+                let mut read_key = [0; ChaCha20Poly1305::KEY_SIZE];
+                key_schedule::hkdf_expand_label(&mut read_key, read_secret, b"key", b"");
+
+                Some(Self {
+                    aead: ManyAead::ChaChaPoly {
+                        writer: ChaCha20Poly1305::new(write_key),
+                        reader: ChaCha20Poly1305::new(read_key),
+                    },
+                    write_iv,
+                    write_nonce: Self::NONCE_INIT,
+                    read_iv,
+                    read_nonce: Self::NONCE_INIT,
+                })
             },
-            _ => return None,
-        };
-        let mut static_iv = [0; IV_SIZE];
-        key_schedule::hkdf_expand_label(&mut static_iv, secret, b"iv", b"");
-        let nonce = 0;
-        Some(Self {
-            cipher,
-            nonce,
-            static_iv,
-        })
+            _ => None,
+        }
     }
+
     pub(crate) fn decrypt_inline(
         &mut self,
         msg: &mut [u8],
         add_data: &[u8],
         tag: &[u8; TAG_SIZE],
     ) -> Result<(), BadData> {
-        let mut init_vec = self.static_iv;
-        let counter = self.nonce.to_be_bytes();
+        let mut init_vec = self.read_iv;
+        let counter = self.read_nonce.to_be_bytes();
         for (byte_1, byte_2) in init_vec.iter_mut().rev().zip(counter.into_iter().rev()) {
             *byte_1 ^= byte_2;
         }
         // overflow must not happen
-        self.nonce = self.nonce.checked_add(1).unwrap();
+        self.read_nonce = self.read_nonce.checked_add(1).unwrap();
 
-        self.cipher.decrypt_inline(msg, add_data, &init_vec, tag)
+        self.aead.decrypt_inline(msg, add_data, &init_vec, tag)
     }
 
-    pub(crate) fn encrypt_inline(
-        &mut self,
-        msg: &mut [u8],
-        add_data: &[u8],
-        tag: &[u8; TAG_SIZE],
-    ) -> [u8; TAG_SIZE] {
-        let mut init_vec = self.static_iv;
-        let counter = self.nonce.to_be_bytes();
+    pub(crate) fn encrypt_inline(&mut self, msg: &mut [u8], add_data: &[u8]) -> [u8; TAG_SIZE] {
+        let mut init_vec = self.read_iv;
+        let counter = self.read_nonce.to_be_bytes();
         for (byte_1, byte_2) in init_vec.iter_mut().rev().zip(counter.into_iter().rev()) {
             *byte_1 ^= byte_2;
         }
         // overflow must not happen
-        self.nonce = self.nonce.checked_add(1).unwrap();
+        self.read_nonce = self.read_nonce.checked_add(1).unwrap();
 
-        self.cipher.encrypt_inline(msg, add_data, &init_vec)
+        self.aead.encrypt_inline(msg, add_data, &init_vec)
     }
 }

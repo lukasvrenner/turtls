@@ -495,15 +495,18 @@ impl KeyShare {
             && key_share[0..2] == NamedGroup::Secp256r1.to_be_bytes()
         {
             let raw_x = UBigInt::<4>::from_be_bytes(key_share[5..][..32].try_into().unwrap());
-            let x: FieldElement<4, Secp256r1> =
-                FieldElement::try_from(raw_x).map_err(|_| Alert::IllegalParam).expect("x is valid field element");
+            let x: FieldElement<4, Secp256r1> = FieldElement::try_from(raw_x)
+                .map_err(|_| Alert::IllegalParam)
+                .expect("x is valid field element");
 
             let raw_y = UBigInt::<4>::from_be_bytes(key_share[37..][..32].try_into().unwrap());
-            let y: FieldElement<4, Secp256r1> =
-                FieldElement::try_from(raw_y).map_err(|_| Alert::IllegalParam).expect("y is valid field element");
+            let y: FieldElement<4, Secp256r1> = FieldElement::try_from(raw_y)
+                .map_err(|_| Alert::IllegalParam)
+                .expect("y is valid field element");
 
             let mut point = AffinePoint::new(x, y)
-                .ok_or(Alert::IllegalParam).expect("point is on curve")
+                .ok_or(Alert::IllegalParam)
+                .expect("point is on curve")
                 .as_projective();
             point.mul_scalar_assign(&group_keys.secp256r1);
             let as_affine = point

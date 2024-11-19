@@ -74,12 +74,12 @@ impl<C: aes::AesCipher> Aead for Gcm<C> {
         &self,
         msg: &mut [u8],
         add_data: &[u8],
-        init_vector: &[u8; IV_SIZE],
+        iv: &[u8; IV_SIZE],
     ) -> [u8; TAG_SIZE] {
         let counter = {
             let mut counter = [0; aes::BLOCK_SIZE];
             counter[aes::BLOCK_SIZE - 1] = 1;
-            counter[..init_vector.len()].copy_from_slice(init_vector);
+            counter[..iv.len()].copy_from_slice(iv);
             counter
         };
         self.xor_bit_stream(msg, u128::from_be_bytes(counter));
@@ -91,13 +91,13 @@ impl<C: aes::AesCipher> Aead for Gcm<C> {
         &self,
         msg: &mut [u8],
         add_data: &[u8],
-        init_vector: &[u8; IV_SIZE],
+        iv: &[u8; IV_SIZE],
         tag: &[u8; TAG_SIZE],
     ) -> Result<(), BadData> {
         let counter = {
             let mut counter = [0; aes::BLOCK_SIZE];
             counter[aes::BLOCK_SIZE - 1] = 1;
-            counter[..init_vector.len()].copy_from_slice(init_vector);
+            counter[..iv.len()].copy_from_slice(iv);
             counter
         };
         if &self.g_hash(msg, add_data, &counter) != tag {

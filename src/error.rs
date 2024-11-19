@@ -1,8 +1,8 @@
 use crate::alert::Alert;
-use crate::config::ConfigError;
 use crate::client_hello::CliHelError;
-use crate::record::ReadError;
+use crate::config::ConfigError;
 use crate::dh::KeyGenError;
+use crate::record::ReadError;
 
 #[derive(Debug)]
 pub(crate) enum TlsError {
@@ -56,7 +56,7 @@ impl From<ReadError> for ShakeResult {
         match value {
             ReadError::IoError => Self::IoError,
             ReadError::Timeout => Self::Timeout,
-            ReadError::TlsError(err) => err.into()
+            ReadError::TlsError(err) => err.into(),
         }
     }
 }

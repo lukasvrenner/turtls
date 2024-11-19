@@ -1,11 +1,11 @@
 //! The Poly1305 authenticator.
 
+use super::ChaCha20Poly1305;
 use crate::{
     aead::{IV_SIZE, TAG_SIZE},
     big_int::UBigInt,
     finite_field::{FieldElement, FiniteField},
 };
-use super::ChaCha20Poly1305;
 
 fn clamp(r: &mut [u8; 16]) {
     r[3] &= 0x0f;
@@ -95,7 +95,10 @@ impl Poly1305 {
     }
 }
 
-pub fn poly1305_key_gen(key: &[u8; ChaCha20Poly1305::KEY_SIZE], iv: &[u8; IV_SIZE]) -> [u8; ChaCha20Poly1305::KEY_SIZE] {
+pub fn poly1305_key_gen(
+    key: &[u8; ChaCha20Poly1305::KEY_SIZE],
+    iv: &[u8; IV_SIZE],
+) -> [u8; ChaCha20Poly1305::KEY_SIZE] {
     let block = super::chacha20::block(key, iv, 0);
     block[..ChaCha20Poly1305::KEY_SIZE].try_into().unwrap()
 }

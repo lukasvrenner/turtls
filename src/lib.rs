@@ -156,8 +156,7 @@ pub unsafe extern "C" fn turtls_client_handshake(
     let ser_shake_traf_secret =
         key_schedule::derive_secret(&handshake_secret, b"s hs traffic", &transcript);
 
-    let handsake_writer = TlsAead::new(&cli_shake_traf_secret, cipher_suite);
-    let handshake_reader = TlsAead::new(&ser_shake_traf_secret, cipher_suite);
+    let handsake_aead = TlsAead::new(&cli_shake_traf_secret, &ser_shake_traf_secret, cipher_suite);
 
     todo!("finish handshake");
 }

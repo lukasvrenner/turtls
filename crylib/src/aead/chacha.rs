@@ -8,7 +8,6 @@ use super::{Aead, BadData, IV_SIZE, TAG_SIZE};
 pub mod chacha20;
 pub mod poly1305;
 
-
 pub struct ChaCha20Poly1305 {
     key: [u8; Self::KEY_SIZE],
 }
@@ -25,24 +24,24 @@ impl Aead for ChaCha20Poly1305 {
         &self,
         msg: &mut [u8],
         add_data: &[u8],
-        init_vector: &[u8; super::IV_SIZE],
+        iv: &[u8; super::IV_SIZE],
     ) -> [u8; super::TAG_SIZE] {
-        chacha20::encrypt_inline(msg, &self.key, init_vector, 1);
-        poly_auth(&self.key, init_vector, add_data, msg)
+        chacha20::encrypt_inline(msg, &self.key, iv, 1);
+        poly_auth(&self.key, iv, add_data, msg)
     }
 
     fn decrypt_inline(
         &self,
         msg: &mut [u8],
         add_data: &[u8],
-        init_vector: &[u8; super::IV_SIZE],
+        iv: &[u8; super::IV_SIZE],
         tag: &[u8; super::TAG_SIZE],
     ) -> Result<(), super::BadData> {
-        let gen_tag = poly_auth(&self.key, init_vector, add_data, msg);
+        let gen_tag = poly_auth(&self.key, iv, add_data, msg);
         if tag != &gen_tag {
             return Err(BadData);
         }
-        chacha20::encrypt_inline(msg, &self.key, init_vector, 1);
+        chacha20::encrypt_inline(msg, &self.key, iv, 1);
         Ok(())
     }
 }

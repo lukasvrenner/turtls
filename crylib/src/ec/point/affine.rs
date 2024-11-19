@@ -141,8 +141,13 @@ mod tests {
 
     #[test]
     fn is_on_curve() {
-        let base_point = Secp256r1::BASE_POINT.as_affine().expect("BP is valid affine point");
-        assert!(AffinePoint::is_on_curve(base_point.x_ref(), base_point.y_ref()));
+        let base_point = Secp256r1::BASE_POINT
+            .as_affine()
+            .expect("BP is valid affine point");
+        assert!(AffinePoint::is_on_curve(
+            base_point.x_ref(),
+            base_point.y_ref()
+        ));
 
         let x = unsafe {
             FieldElement::<4, Secp256r1>::new_unchecked(UBigInt([

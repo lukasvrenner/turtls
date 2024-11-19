@@ -20,29 +20,25 @@ impl core::fmt::Display for BadData {
 impl core::error::Error for BadData {}
 
 pub trait Aead {
-    fn encrypt_inline(
-        &self,
-        msg: &mut [u8],
-        add_data: &[u8],
-        init_vector: &[u8; IV_SIZE],
-    ) -> [u8; TAG_SIZE];
+    fn encrypt_inline(&self, msg: &mut [u8], add_data: &[u8], iv: &[u8; IV_SIZE])
+        -> [u8; TAG_SIZE];
 
     fn encrypt(
         &self,
         buf: &mut [u8],
         plain_text: &[u8],
         add_data: &[u8],
-        init_vector: &[u8; IV_SIZE],
+        iv: &[u8; IV_SIZE],
     ) -> [u8; TAG_SIZE] {
         buf[..plain_text.len()].copy_from_slice(&plain_text);
-        self.encrypt_inline(&mut buf[..plain_text.len()], add_data, init_vector)
+        self.encrypt_inline(&mut buf[..plain_text.len()], add_data, iv)
     }
 
     fn decrypt_inline(
         &self,
         msg: &mut [u8],
         add_data: &[u8],
-        init_vector: &[u8; IV_SIZE],
+        iv: &[u8; IV_SIZE],
         tag: &[u8; TAG_SIZE],
     ) -> Result<(), BadData>;
 
@@ -51,10 +47,10 @@ pub trait Aead {
         buf: &mut [u8],
         cipher_text: &[u8],
         add_data: &[u8],
-        init_vector: &[u8; IV_SIZE],
+        iv: &[u8; IV_SIZE],
         tag: &[u8; TAG_SIZE],
     ) -> Result<(), BadData> {
         buf[..cipher_text.len()].copy_from_slice(&cipher_text);
-        self.decrypt_inline(&mut buf[..cipher_text.len()], add_data, init_vector, tag)
+        self.decrypt_inline(&mut buf[..cipher_text.len()], add_data, iv, tag)
     }
 }

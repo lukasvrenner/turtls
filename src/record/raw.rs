@@ -1,13 +1,13 @@
+use super::{ContentType, ReadError, RecordLayer};
 use crate::alert::{Alert, AlertLevel, AlertMsg};
-use super::{RecordLayer, ReadError, ContentType};
 use crate::error::TlsError;
 use crate::versions::LEGACY_PROTO_VERS;
 
-use crylib::hash::{Hasher, Sha256, BufHasher};
+use crylib::hash::{BufHasher, Hasher, Sha256};
 
 use std::ffi::c_void;
-use std::time::{Duration, Instant};
 use std::mem::MaybeUninit;
+use std::time::{Duration, Instant};
 
 /// The functions to use to perform IO.
 ///
@@ -299,4 +299,3 @@ impl RecordLayer {
         self.transcript.clone().finish()
     }
 }
-

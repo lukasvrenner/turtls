@@ -55,7 +55,7 @@ impl<T> TagUninit<T> {
     pub(crate) fn deinit(&mut self) -> &mut MaybeUninit<T> {
         if self.is_init() {
             // SAFETY: the pointer is valid and we're uninitializing the value.
-            unsafe { ptr::drop_in_place((&raw mut self.value) as *mut T) }
+            unsafe { ptr::drop_in_place(self.value.as_mut_ptr()) }
         }
         self.is_init = false;
         &mut self.value
@@ -76,7 +76,7 @@ impl<T> Drop for TagUninit<T> {
     fn drop(&mut self) {
         if self.is_init() {
             // SAFETY: the pointer is valid and we can't read the value again.
-            unsafe { ptr::drop_in_place((&raw mut self.value) as *mut T) }
+            unsafe { ptr::drop_in_place(self.value.as_mut_ptr()) }
         }
     }
 }
