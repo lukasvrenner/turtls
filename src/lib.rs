@@ -12,7 +12,6 @@ mod client_hello;
 mod config;
 mod dh;
 mod handshake;
-mod init;
 mod key_schedule;
 mod record;
 mod server_hello;
@@ -33,8 +32,7 @@ use crylib::{
 use dh::GroupKeys;
 use error::TlsError;
 use extensions::KeyShare;
-use init::TagUninit;
-use record::{ContentType, ReadError};
+use record::ReadError;
 use server_hello::RecvdSerHello;
 use state::{Connection, State};
 
@@ -53,9 +51,10 @@ pub extern "C" fn turtls_generate_config() -> Config {
 /// Allocates a connection buffer.
 ///
 /// This buffer must be freed by `turtls_free` to avoid memory leakage.
+#[allow(private_interfaces)]
 #[no_mangle]
 pub extern "C" fn turtls_alloc() -> *mut Connection {
-    Box::leak(Box::new(Connection(TagUninit::new_uninit())))
+    Box::leak(Box::new(Connection::Uninit))
 }
 
 /// Frees a connection buffer.
@@ -64,6 +63,7 @@ pub extern "C" fn turtls_alloc() -> *mut Connection {
 ///
 /// # Safety:
 /// `connection` must be allocated by `turtls_alloc`.
+#[allow(private_interfaces)]
 #[no_mangle]
 pub unsafe extern "C" fn turtls_free(connection: *mut Connection) {
     if connection.is_null() || !connection.is_aligned() {
@@ -80,6 +80,7 @@ pub unsafe extern "C" fn turtls_free(connection: *mut Connection) {
 /// # Safety:
 /// `config` must be valid.
 /// `connection` must be valid.
+#[allow(private_interfaces)]
 #[no_mangle]
 pub unsafe extern "C" fn turtls_client_handshake(
     // TODO: use c_size_t and c_ssize_t once stabilized
@@ -96,9 +97,11 @@ pub unsafe extern "C" fn turtls_client_handshake(
 
     let connection = unsafe { &mut *connection };
 
-    let state = connection.0.deinit();
-
-    let record_layer = State::init_record_layer(state, ContentType::Handshake, io);
+    *connection = Connection::Init(State::new(io));
+    let state = match connection {
+        Connection::Init(state) => state,
+        Connection::Uninit => unreachable!(),
+    };
 
     let client_hello = ClientHello {
         cipher_suites: config.cipher_suites,
@@ -116,16 +119,17 @@ pub unsafe extern "C" fn turtls_client_handshake(
         &[0; Sha256::HASH_SIZE],
     );
 
-    if let Err(err) = client_hello.write_to(record_layer, &keys) {
+    if let Err(err) = client_hello.write_to(&mut state.rl.unenc_rl, &keys) {
         return err.into();
     }
 
-    let server_hello = match RecvdSerHello::read(record_layer, record_timeout) {
+    let server_hello = match RecvdSerHello::read(&mut state.rl.unenc_rl, record_timeout) {
         Ok(server_hello) => server_hello,
         Err(err) => {
             if let ReadError::Alert(TlsError::Sent(alert)) = err {
-                record_layer.alert_and_close(alert);
+                state.rl.unenc_rl.alert_and_close(alert);
             }
+            *connection = Connection::Uninit;
             return err.into();
         },
     };
@@ -137,8 +141,9 @@ pub unsafe extern "C" fn turtls_client_handshake(
     ) {
         Ok(secret) => secret,
         Err(err) => {
-            record_layer.alert_and_close(err);
-            return ShakeResult::PeerError(err);
+            state.rl.unenc_rl.alert_and_close(err);
+            *connection = Connection::Uninit;
+            return ShakeResult::SentAlert(err);
         },
     };
     let cipher_suite = CipherList {
@@ -150,13 +155,20 @@ pub unsafe extern "C" fn turtls_client_handshake(
         &salt,
         &dh_shared_secret,
     );
-    let transcript = record_layer.transcript();
+    let transcript = state.rl.unenc_rl.transcript();
     let cli_shake_traf_secret =
         key_schedule::derive_secret(&handshake_secret, b"c hs traffic", &transcript);
     let ser_shake_traf_secret =
         key_schedule::derive_secret(&handshake_secret, b"s hs traffic", &transcript);
 
-    let handsake_aead = TlsAead::new(&cli_shake_traf_secret, &ser_shake_traf_secret, cipher_suite);
+    state.rl.aead = match  TlsAead::new(&cli_shake_traf_secret, &ser_shake_traf_secret, cipher_suite) {
+        Some(aead) => aead,
+        None => {
+            state.rl.unenc_rl.alert_and_close(Alert::HandshakeFailure);
+            *connection = Connection::Uninit;
+            return ShakeResult::SentAlert(Alert::HandshakeFailure);
+        }
+    };
 
     todo!("finish handshake");
 }
@@ -165,6 +177,7 @@ pub unsafe extern "C" fn turtls_client_handshake(
 ///
 /// # Safety:
 /// `connection` may be `NULL` but must be valid.
+#[allow(private_interfaces)]
 #[no_mangle]
 pub unsafe extern "C" fn turtls_close(connection: *mut Connection) {
     if connection.is_null() || !connection.is_aligned() {
@@ -173,7 +186,7 @@ pub unsafe extern "C" fn turtls_close(connection: *mut Connection) {
     // SAFETY: the caller guarantees that the pointer is valid.
     let connection = unsafe { &mut *connection };
 
-    if let Some(_state) = connection.0.get_mut() {
+    if let Connection::Init(_state) = connection {
         todo!("send encrypted CloseNotify alert");
     }
 }

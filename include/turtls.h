@@ -7,6 +7,8 @@
 #include <stdint.h>
 
 
+#define turtls_EncryptedRecLayer_MIN_LEN (turtls_TAG_SIZE + 1)
+
 /**
  * TLS error reporting.
  */
@@ -177,6 +179,8 @@ struct turtls_Connection;
 
 /**
  * The result of the handshake.
+ *
+ * If a value other than `Ok` is returned, the connection is closed.
  */
 enum turtls_ShakeResult_Tag {
     /**
@@ -187,7 +191,10 @@ enum turtls_ShakeResult_Tag {
      * Indicates that the peer sent an alert.
      */
     TURTLS_SHAKE_RESULT_RECEIVED_ALERT,
-    TURTLS_SHAKE_RESULT_PEER_ERROR,
+    /**
+     * Indicates that an alert was sent to the peer.
+     */
+    TURTLS_SHAKE_RESULT_SENT_ALERT,
     /**
      * Indicates that there was an error generating a random number.
      */
@@ -196,6 +203,9 @@ enum turtls_ShakeResult_Tag {
      * Indicates that there was an error performing an IO operation.
      */
     TURTLS_SHAKE_RESULT_IO_ERROR,
+    /**
+     * Indicates that the record read took too long.
+     */
     TURTLS_SHAKE_RESULT_TIMEOUT,
     /**
      * Indicates that the randomly-generated private key was zero.
@@ -205,7 +215,6 @@ enum turtls_ShakeResult_Tag {
      * Indicates there was an error in the config struct.
      */
     TURTLS_SHAKE_RESULT_CONFIG_ERROR,
-    TURTLS_SHAKE_RESULT_RECORD_OVERFLOW,
 };
 
 struct turtls_ShakeResult {
@@ -215,7 +224,7 @@ struct turtls_ShakeResult {
             turtls_Alert received_alert;
         };
         struct {
-            turtls_Alert peer_error;
+            turtls_Alert sent_alert;
         };
         struct {
             enum turtls_ConfigError config_error;

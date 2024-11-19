@@ -13,7 +13,8 @@ pub(crate) enum TlsError {
 }
 
 /// The result of the handshake.
-// TODO: make this more explicit (have a type for each kind of failure).
+///
+/// If a value other than `Ok` is returned, the connection is closed.
 #[must_use]
 #[repr(C)]
 pub enum ShakeResult {
@@ -21,11 +22,13 @@ pub enum ShakeResult {
     Ok,
     /// Indicates that the peer sent an alert.
     ReceivedAlert(Alert),
-    PeerError(Alert),
+    /// Indicates that an alert was sent to the peer.
+    SentAlert(Alert),
     /// Indicates that there was an error generating a random number.
     RngError,
     /// Indicates that there was an error performing an IO operation.
     IoError,
+    /// Indicates that the record read took too long.
     Timeout,
     /// Indicates that the randomly-generated private key was zero.
     PrivKeyIsZero,
@@ -45,7 +48,7 @@ impl From<CliHelError> for ShakeResult {
 impl From<TlsError> for ShakeResult {
     fn from(value: TlsError) -> Self {
         match value {
-            TlsError::Sent(err) => Self::PeerError(err),
+            TlsError::Sent(err) => Self::SentAlert(err),
             TlsError::Received(err) => Self::ReceivedAlert(err),
         }
     }

@@ -1,30 +1,23 @@
 use std::mem::MaybeUninit;
 
-use crate::init::TagUninit;
-use crate::record::{ContentType, EncryptedRecLayer, Io, RecordLayer};
+use crate::record::{EncryptedRecLayer, Io,};
 
 /// A TLS connection buffer.
 ///
 /// This connection buffer may be reused between multiple consecutive connections.
-pub struct Connection(pub(crate) TagUninit<State>);
+pub(crate) enum Connection {
+    Uninit,
+    Init(State),
+}
 
 pub(crate) struct State {
-    rl: EncryptedRecLayer,
+    pub(crate) rl: EncryptedRecLayer,
 }
 
 impl State {
-    pub(crate) fn init_record_layer(
-        state: &mut MaybeUninit<Self>,
-        msg_type: ContentType,
-        io: Io,
-    ) -> &mut RecordLayer {
-        let state_ptr = state.as_mut_ptr();
-        // SAFETY: `MaybeUninit<T>` has the same memory layout as `T` so we can
-        // access pointers to fields as long as we cast the pointer back into a `MaybeUninit`.
-        let buf_ptr =
-            unsafe { &raw mut (*state_ptr).rl.rl as *mut MaybeUninit<RecordLayer> };
-        // SAFETY: The pointer was just grabbed from a valid field.
-        let buf_ref = unsafe { &mut *buf_ptr };
-        RecordLayer::init(buf_ref, msg_type, io)
+    pub(crate) fn new(io: Io) -> Self {
+        Self {
+            rl: EncryptedRecLayer::new(io)
+        }
     }
 }

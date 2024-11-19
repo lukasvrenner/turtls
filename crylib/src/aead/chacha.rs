@@ -14,7 +14,7 @@ pub struct ChaCha20Poly1305 {
 
 impl ChaCha20Poly1305 {
     pub const KEY_SIZE: usize = 32;
-    pub fn new(key: [u8; Self::KEY_SIZE]) -> Self {
+    pub const fn new(key: [u8; Self::KEY_SIZE]) -> Self {
         Self { key }
     }
 }

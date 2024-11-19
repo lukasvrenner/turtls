@@ -53,6 +53,20 @@ pub(crate) struct TlsAead {
 
 impl TlsAead {
     pub(crate) const NONCE_INIT: u64 = 0;
+
+    pub(crate) const fn new_zeroed() -> Self {
+        Self {
+            aead: ManyAead::ChaChaPoly {
+                writer: ChaCha20Poly1305::new([0; ChaCha20Poly1305::KEY_SIZE]),
+                reader: ChaCha20Poly1305::new([0; ChaCha20Poly1305::KEY_SIZE]),
+            },
+            write_iv: [0; IV_SIZE],
+            write_nonce: 0,
+            read_iv: [0; IV_SIZE],
+            read_nonce: 0,
+        }
+    }
+
     pub(crate) fn new(
         write_secret: &[u8; Sha256::HASH_SIZE],
         read_secret: &[u8; Sha256::HASH_SIZE],

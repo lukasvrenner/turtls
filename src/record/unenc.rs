@@ -7,7 +7,6 @@ use crylib::hash::{Hasher, Sha256, BufHasher};
 
 use std::ffi::c_void;
 use std::time::{Duration, Instant};
-use std::mem::MaybeUninit;
 
 /// The functions to use to perform IO.
 ///
@@ -64,16 +63,18 @@ impl RecordLayer {
     pub(crate) const SUFFIX_SIZE: usize = 0x100;
     pub(crate) const BUF_SIZE: usize = Self::HEADER_SIZE + Self::MAX_LEN + Self::SUFFIX_SIZE;
 
-    pub(crate) fn init(record: &mut MaybeUninit<Self>, msg_type: ContentType, io: Io) -> &mut Self {
-        let ptr = record.write(Self {
+    pub(crate) fn set_io(&mut self, io: Io) {
+        self.io = io;
+    }
+
+    pub(crate) fn new(io: Io) -> Self {
+        Self {
             buf: [0; Self::BUF_SIZE],
             len: 0,
-            msg_type,
+            msg_type: ContentType::Invalid,
             io,
             transcript: BufHasher::new(),
-        });
-        ptr.start();
-        ptr
+        }
     }
 
     pub(crate) fn start_as(&mut self, msg_type: ContentType) {
@@ -263,26 +264,6 @@ impl RecordLayer {
         self.buf[0] = ContentType::Alert.to_byte();
         self.buf[1..3].copy_from_slice(&LEGACY_PROTO_VERS.to_be_bytes());
         self.set_len(AlertMsg::SIZE as u16);
-        AlertMsg::new_in(
-            &mut self.buf[Self::HEADER_SIZE..][..AlertMsg::SIZE]
-                .try_into()
-                .unwrap(),
-            alert,
-        );
-        let _ = self
-            .io
-            .write(&self.buf[..Self::HEADER_SIZE + AlertMsg::SIZE]);
-        self.io.close();
-    }
-
-    /// Same as `alert_and_close` but without using the internal buffer.
-    ///
-    /// This only exists due to current Rust borrow-checker limitations.
-    pub(crate) fn alert_and_close_immut(&self, alert: Alert) {
-        let mut alert_buf = [0; Self::HEADER_SIZE + AlertMsg::SIZE];
-        alert_buf[0] = ContentType::Alert.to_byte();
-        alert_buf[1..3].copy_from_slice(&LEGACY_PROTO_VERS.to_be_bytes());
-        alert_buf[3..5].copy_from_slice(&(AlertMsg::SIZE as u16).to_be_bytes());
         AlertMsg::new_in(
             &mut self.buf[Self::HEADER_SIZE..][..AlertMsg::SIZE]
                 .try_into()
