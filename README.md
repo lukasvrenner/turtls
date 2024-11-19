@@ -6,9 +6,8 @@ Note: Although turtls is written in Rust, it only provides a C API.
 WARNING: This code has not been audited. Use it at your own risk.
 ================================================================
 
-## Project Goals
-1. Learn about cryptography and computer networks. This project is first and foremost educational.
-2. Simplicity. turtls only contains a few functions in its API:
+## Features
+1. Simple API:
 - `turtls_generate_config`: Generate the default configuration struct.
 - `turtls_alloc`: Allocate the connection state buffer.
 - `turtls_free`: Free the connection state buffer.
@@ -17,8 +16,20 @@ WARNING: This code has not been audited. Use it at your own risk.
 - `turtls_send`: send data to the peer (not yet implemented).
 - `turtls_read`: read data from the peer (not yet implemented).
 - `turtls_close`: close the connection.
-- All configuration is done via a single config struct.
-3. Have fun :)
+2. Configuration struct: all configuration is done via a single config struct
+3. AEADs:
+- [AES-* GCM](https://en.wikipedia.org/wiki/Galois/Counter_Mode)
+- [ChaCha20Poly1305](https://en.wikipedia.org/wiki/ChaCha20-Poly1305)
+4. ECC:
+- [ECDSA](https://en.wikipedia.org/wiki/Elliptic_Curve_Digital_Signature_Algorithm)
+- [ECDH](https://en.wikipedia.org/wiki/Elliptic-curve_Diffie%E2%80%93Hellman)
+- Curves: secp256r1 (NIST-P 256)
+5. Hash:
+- [SHA-256](https://en.wikipedia.org/wiki/SHA-2)
+- [SHA-512](https://en.wikipedia.org/wiki/SHA-2)
+- [HMAC](https://en.wikipedia.org/wiki/HMAC)
+- [HKDF](https://en.wikipedia.org/wiki/HKDF)
+
 
 ## Cryptography
 turtls uses in-house cryptography, meaning it uses its own crypto library, called crylib.
