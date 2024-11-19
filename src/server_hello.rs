@@ -44,13 +44,11 @@ impl<'a> RecvdSerHello<'a> {
         record_layer.read(ContentType::Handshake, record_timeout)?;
 
         if record_layer.len() < SHAKE_HEADER_SIZE + ServerHello::MIN_LEN {
-            return Err(ReadError::TlsError(TlsError::Alert(Alert::DecodeError)));
+            return Err(ReadError::Alert(TlsError::Sent(Alert::DecodeError)));
         }
 
         if record_layer.buf()[0] != ShakeType::ServerHello.to_byte() {
-            return Err(ReadError::TlsError(TlsError::Alert(
-                Alert::UnexpectedMessage,
-            )));
+            return Err(ReadError::Alert(TlsError::Sent(Alert::UnexpectedMessage)));
         }
 
         let len = u32::from_be_bytes([
@@ -62,18 +60,16 @@ impl<'a> RecvdSerHello<'a> {
 
         // ServerHello must be the only message in the record
         if len < record_layer.len() - SHAKE_HEADER_SIZE {
-            return Err(ReadError::TlsError(TlsError::Alert(Alert::DecodeError)));
+            return Err(ReadError::Alert(TlsError::Sent(Alert::DecodeError)));
         }
 
         // ServerHello must not be more than one record (implemntation detail)
         if len > record_layer.len() - SHAKE_HEADER_SIZE {
-            return Err(ReadError::TlsError(TlsError::Alert(
-                Alert::HandshakeFailure,
-            )));
+            return Err(ReadError::Alert(TlsError::Sent(Alert::HandshakeFailure)));
         }
 
         if record_layer.len() - SHAKE_HEADER_SIZE < ServerHello::MIN_LEN {
-            return Err(ReadError::TlsError(TlsError::Alert(Alert::DecodeError)));
+            return Err(ReadError::Alert(TlsError::Sent(Alert::DecodeError)));
         }
 
         let mut pos =
@@ -82,7 +78,7 @@ impl<'a> RecvdSerHello<'a> {
         let leg_session_id_len = record_layer.buf()[pos];
 
         if leg_session_id_len > 32 {
-            return Err(ReadError::TlsError(TlsError::Alert(Alert::DecodeError)));
+            return Err(ReadError::Alert(TlsError::Sent(Alert::DecodeError)));
         }
         pos += size_of_val(&leg_session_id_len) + leg_session_id_len as usize;
 
@@ -100,23 +96,19 @@ impl<'a> RecvdSerHello<'a> {
 
         pos += Extensions::LEN_SIZE;
         if extensions_len != record_layer.buf()[pos..].len() {
-            return Err(ReadError::TlsError(TlsError::Alert(Alert::DecodeError)));
+            return Err(ReadError::Alert(TlsError::Sent(Alert::DecodeError)));
         }
 
         let extensions = match SerHelExtPeer::parse(&record_layer.buf()[pos..]) {
             Ok(ext) => ext,
             Err(ExtParseError::InvalidExt) => {
-                return Err(ReadError::TlsError(TlsError::Alert(
-                    Alert::UnsupportedExtension,
-                )));
+                return Err(ReadError::Alert(TlsError::Sent(Alert::UnsupportedExtension)));
             },
             Err(ExtParseError::ParseError) => {
-                return Err(ReadError::TlsError(TlsError::Alert(Alert::DecodeError)));
+                return Err(ReadError::Alert(TlsError::Sent(Alert::DecodeError)));
             },
             Err(ExtParseError::MissingExt) => {
-                return Err(ReadError::TlsError(TlsError::Alert(
-                    Alert::MissingExtension,
-                )));
+                return Err(ReadError::Alert(TlsError::Sent(Alert::MissingExtension)));
             },
         };
 

@@ -1,13 +1,13 @@
-use super::{ContentType, ReadError, RecordLayer};
 use crate::alert::{Alert, AlertLevel, AlertMsg};
+use super::{RecordLayer, ReadError, ContentType};
 use crate::error::TlsError;
 use crate::versions::LEGACY_PROTO_VERS;
 
-use crylib::hash::{BufHasher, Hasher, Sha256};
+use crylib::hash::{Hasher, Sha256, BufHasher};
 
 use std::ffi::c_void;
-use std::mem::MaybeUninit;
 use std::time::{Duration, Instant};
+use std::mem::MaybeUninit;
 
 /// The functions to use to perform IO.
 ///
@@ -203,7 +203,7 @@ impl RecordLayer {
         ) as usize;
 
         if len > Self::MAX_LEN + Self::SUFFIX_SIZE {
-            return Err(ReadError::TlsError(TlsError::Alert(Alert::RecordOverflow)));
+            return Err(ReadError::Alert(TlsError::Sent(Alert::RecordOverflow)));
         }
 
         let msg_type = self.buf[0];
@@ -212,13 +212,13 @@ impl RecordLayer {
             // don't worry about errors because we're already handling an error
             let _ = self.fill_buf(Self::HEADER_SIZE, AlertMsg::SIZE, timeout, start_time);
 
-            return Err(ReadError::TlsError(TlsError::ReceivedAlert(
+            return Err(ReadError::Alert(TlsError::Received(
                 Alert::from_byte(self.buf[Self::HEADER_SIZE + size_of::<AlertLevel>()]),
             )));
         }
 
         if msg_type != expected_type.to_byte() {
-            return Err(ReadError::TlsError(TlsError::Alert(
+            return Err(ReadError::Alert(TlsError::Sent(
                 Alert::UnexpectedMessage,
             )));
         }
@@ -299,3 +299,4 @@ impl RecordLayer {
         self.transcript.clone().finish()
     }
 }
+

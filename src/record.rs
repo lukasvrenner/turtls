@@ -35,6 +35,6 @@ pub(crate) struct RecordLayer {
 #[derive(Debug)]
 pub(crate) enum ReadError {
     IoError,
-    TlsError(TlsError),
+    Alert(TlsError),
     Timeout,
 }

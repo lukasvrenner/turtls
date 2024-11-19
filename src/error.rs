@@ -1,15 +1,15 @@
 use crate::alert::Alert;
-use crate::client_hello::CliHelError;
 use crate::config::ConfigError;
-use crate::dh::KeyGenError;
+use crate::client_hello::CliHelError;
 use crate::record::ReadError;
+use crate::dh::KeyGenError;
 
 #[derive(Debug)]
 pub(crate) enum TlsError {
     /// The peer has sent an [`Alert`].
-    ReceivedAlert(Alert),
+    Received(Alert),
     /// An error has occured that can be described as an [`Alert`].
-    Alert(Alert),
+    Sent(Alert),
 }
 
 /// The result of the handshake.
@@ -45,8 +45,8 @@ impl From<CliHelError> for ShakeResult {
 impl From<TlsError> for ShakeResult {
     fn from(value: TlsError) -> Self {
         match value {
-            TlsError::Alert(err) => Self::PeerError(err),
-            TlsError::ReceivedAlert(err) => Self::ReceivedAlert(err),
+            TlsError::Sent(err) => Self::PeerError(err),
+            TlsError::Received(err) => Self::ReceivedAlert(err),
         }
     }
 }
@@ -56,7 +56,7 @@ impl From<ReadError> for ShakeResult {
         match value {
             ReadError::IoError => Self::IoError,
             ReadError::Timeout => Self::Timeout,
-            ReadError::TlsError(err) => err.into(),
+            ReadError::Alert(err) => err.into()
         }
     }
 }

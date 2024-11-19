@@ -24,8 +24,8 @@ impl ManyAead {
         iv: &[u8; IV_SIZE],
     ) -> [u8; TAG_SIZE] {
         match self {
-            Self::Aes128Gcm { writer, reader: _ } => writer.encrypt_inline(msg, add_data, iv),
-            Self::ChaChaPoly { writer, reader: _ } => writer.encrypt_inline(msg, add_data, iv),
+            Self::Aes128Gcm { writer, .. } => writer.encrypt_inline(msg, add_data, iv),
+            Self::ChaChaPoly { writer, .. } => writer.encrypt_inline(msg, add_data, iv),
         }
     }
 
@@ -37,8 +37,8 @@ impl ManyAead {
         tag: &[u8; TAG_SIZE],
     ) -> Result<(), BadData> {
         match self {
-            Self::Aes128Gcm { writer: _, reader } => reader.decrypt_inline(msg, add_data, iv, tag),
-            Self::ChaChaPoly { writer: _, reader } => reader.decrypt_inline(msg, add_data, iv, tag),
+            Self::Aes128Gcm { reader, .. } => reader.decrypt_inline(msg, add_data, iv, tag),
+            Self::ChaChaPoly { reader, .. } => reader.decrypt_inline(msg, add_data, iv, tag),
         }
     }
 }

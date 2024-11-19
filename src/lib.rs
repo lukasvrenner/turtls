@@ -123,7 +123,7 @@ pub unsafe extern "C" fn turtls_client_handshake(
     let server_hello = match RecvdSerHello::read(record_layer, record_timeout) {
         Ok(server_hello) => server_hello,
         Err(err) => {
-            if let ReadError::TlsError(TlsError::Alert(alert)) = err {
+            if let ReadError::Alert(TlsError::Sent(alert)) = err {
                 record_layer.alert_and_close(alert);
             }
             return err.into();
