@@ -32,7 +32,7 @@ use crylib::{
 use dh::GroupKeys;
 use error::TlsError;
 use extensions::KeyShare;
-use record::ReadError;
+use record::{ContentType, ReadError};
 use server_hello::RecvdSerHello;
 use state::{Connection, State};
 
@@ -156,15 +156,43 @@ pub unsafe extern "C" fn turtls_client_handshake(
     let ser_shake_traf_secret =
         key_schedule::derive_secret(&handshake_secret, b"s hs traffic", &transcript);
 
-    state.rl.aead = match  TlsAead::new(&cli_shake_traf_secret, &ser_shake_traf_secret, cipher_suite) {
+    state.rl.aead = match TlsAead::new(&cli_shake_traf_secret, &ser_shake_traf_secret, cipher_suite)
+    {
         Some(aead) => aead,
         None => {
             state.rl.unenc_rl.alert_and_close(Alert::HandshakeFailure);
             *connection = Connection(None);
             return ShakeResult::SentAlert(Alert::HandshakeFailure);
-        }
+        },
     };
-
+    let mut msg_type = match state.rl.unenc_rl.read(record_timeout) {
+        Ok(msg_type) => msg_type,
+        Err(err) => {
+            if let ReadError::Alert(TlsError::Sent(alert)) = err {
+                state.rl.alert_and_close(alert);
+            }
+            return err.into();
+        },
+    };
+    if msg_type == ContentType::ChangeCipherSpec.to_byte() {
+        msg_type = match state.rl.unenc_rl.read(record_timeout) {
+            Ok(msg_type) => msg_type,
+            Err(err) => {
+                if let ReadError::Alert(TlsError::Sent(alert)) = err {
+                    state.rl.alert_and_close(alert);
+                }
+                *connection = Connection(None);
+                return err.into();
+            },
+        }
+    }
+    if msg_type != ContentType::ApplicationData.to_byte() {
+        println!("{msg_type}");
+        state.rl.alert_and_close(Alert::UnexpectedMessage);
+        *connection = Connection(None);
+        return ShakeResult::SentAlert(Alert::UnexpectedMessage);
+    }
+    state.rl.decrypt().expect("decryption went well");
     todo!("finish handshake");
 }
 

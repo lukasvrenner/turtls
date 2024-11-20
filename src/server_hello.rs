@@ -41,7 +41,10 @@ impl<'a> RecvdSerHello<'a> {
         record_layer: &'a mut RecordLayer,
         record_timeout: Duration,
     ) -> Result<Self, ReadError> {
-        record_layer.read(ContentType::Handshake, record_timeout)?;
+        let msg_type = record_layer.read(record_timeout)?;
+        if msg_type != ContentType::Handshake.to_byte() {
+            return Err(ReadError::Alert(TlsError::Sent(Alert::UnexpectedMessage)));
+        }
 
         if record_layer.len() < SHAKE_HEADER_SIZE + ServerHello::MIN_LEN {
             return Err(ReadError::Alert(TlsError::Sent(Alert::DecodeError)));

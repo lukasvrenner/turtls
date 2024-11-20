@@ -1,9 +1,9 @@
+use super::{ContentType, ReadError, RecordLayer};
 use crate::alert::{Alert, AlertLevel, AlertMsg};
-use super::{RecordLayer, ReadError, ContentType};
 use crate::error::TlsError;
 use crate::versions::LEGACY_PROTO_VERS;
 
-use crylib::hash::{Hasher, Sha256, BufHasher};
+use crylib::hash::{BufHasher, Hasher, Sha256};
 
 use std::ffi::c_void;
 use std::time::{Duration, Instant};
@@ -188,11 +188,7 @@ impl RecordLayer {
     }
 
     /// Reads a single record into [`RecordLayer`]'s internal buffer.
-    pub(crate) fn read(
-        &mut self,
-        expected_type: ContentType,
-        timeout: Duration,
-    ) -> Result<(), ReadError> {
+    pub(crate) fn read(&mut self, timeout: Duration) -> Result<u8, ReadError> {
         let start_time = Instant::now();
 
         self.fill_buf(0, Self::HEADER_SIZE, timeout, start_time)?;
@@ -208,20 +204,13 @@ impl RecordLayer {
         }
 
         let msg_type = self.buf[0];
-
         if msg_type == ContentType::Alert.to_byte() {
             // don't worry about errors because we're already handling an error
             let _ = self.fill_buf(Self::HEADER_SIZE, AlertMsg::SIZE, timeout, start_time);
 
-            return Err(ReadError::Alert(TlsError::Received(
-                Alert::from_byte(self.buf[Self::HEADER_SIZE + size_of::<AlertLevel>()]),
-            )));
-        }
-
-        if msg_type != expected_type.to_byte() {
-            return Err(ReadError::Alert(TlsError::Sent(
-                Alert::UnexpectedMessage,
-            )));
+            return Err(ReadError::Alert(TlsError::Received(Alert::from_byte(
+                self.buf[Self::HEADER_SIZE + size_of::<AlertLevel>()],
+            ))));
         }
 
         self.fill_buf(Self::HEADER_SIZE, len, timeout, start_time)?;
@@ -230,7 +219,7 @@ impl RecordLayer {
             self.transcript
                 .update_with(&self.buf[Self::HEADER_SIZE..self.len]);
         }
-        Ok(())
+        Ok(msg_type)
     }
 
     fn fill_buf(
@@ -280,4 +269,3 @@ impl RecordLayer {
         self.transcript.clone().finish()
     }
 }
-

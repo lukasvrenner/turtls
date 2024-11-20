@@ -1,11 +1,11 @@
-mod enc;
-mod unenc;
+mod enc_rl;
+mod unenc_rl;
 
 use crylib::hash::{BufHasher, Sha256};
 
 use crate::error::TlsError;
-pub(crate) use enc::{EncReadError, EncryptedRecLayer};
-pub use unenc::Io;
+pub(crate) use enc_rl::EncryptedRecLayer;
+pub use unenc_rl::Io;
 
 #[repr(u8)]
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
