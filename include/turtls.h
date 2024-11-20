@@ -136,41 +136,6 @@ enum turtls_ConfigError {
 };
 
 /**
- * The maximum length of a record.
- *
- * This is useful in constrained environments.
- */
-enum turtls_MaxFragLen
-#ifdef __cplusplus
-  : uint8_t
-#endif // __cplusplus
- {
-    /**
-     * Use the default record length of 0x4000 bytes.
-     */
-    TURTLS_MAX_FRAG_LEN_DEFAULT = 0,
-    /**
-     * 0x200 bytes.
-     */
-    TURTLS_MAX_FRAG_LEN_HEX200 = 1,
-    /**
-     * 0x400 bytes.
-     */
-    TURTLS_MAX_FRAG_LEN_HEX400 = 2,
-    /**
-     * 0x500 bytes.
-     */
-    TURTLS_MAX_FRAG_LEN_HEX500 = 3,
-    /**
-     * 0x600 bytes.
-     */
-    TURTLS_MAX_FRAG_LEN_HEX600 = 4,
-};
-#ifndef __cplusplus
-typedef uint8_t turtls_MaxFragLen;
-#endif // __cplusplus
-
-/**
  * A TLS connection buffer.
  *
  * This connection buffer may be reused between multiple consecutive connections.
@@ -310,19 +275,6 @@ typedef uint16_t turtls_SigAlgs;
 typedef uint16_t turtls_SupGroups;
 
 /**
- * The versions of TLS to use.
- *
- * The only supported version in TLS 1.3.
- */
-typedef uint8_t turtls_SupVersions;
-/**
- * TLS version 1.3.
- *
- * This is the only supported version.
- */
-#define turtls_SupVersions_TLS_ONE_THREE 1
-
-/**
  * The extensions to use in the handshake.
  *
  * Refer to each extension's individual documentation for specific usage information.
@@ -346,20 +298,6 @@ struct turtls_Extensions {
      * Refer to its specific documentation for more information.
      */
     turtls_SupGroups sup_groups;
-    /**
-     * A list of TLS versions to support.
-     *
-     * For now, this must be set to `TLS_ONE_THREE`.
-     *
-     * Refer to its specific documentation for more information.
-     */
-    turtls_SupVersions sup_versions;
-    /**
-     * The maximum length of a record.
-     *
-     * Refer to its specific documentation for more information.
-     */
-    turtls_MaxFragLen max_frag_len;
 };
 
 /**

@@ -16,25 +16,42 @@ use crylib::ec::AffinePoint;
 #[repr(u16)]
 pub(crate) enum ExtensionType {
     ServerName = 0,
+    #[expect(unused, reason = "MaxFragmentLength not yet supported")]
     MaxFragmentLength = 1,
+    #[expect(unused, reason = "StatusRequest not yet supported")]
     StatusRequest = 5,
     SupportedGroups = 10,
     SignatureAlgorithms = 13,
+    #[expect(unused, reason = "UseSrtp not yet supported")]
     UseSrtp = 14,
+    #[expect(unused, reason = "Heartbeat not yet supported")]
     Heartbeat = 15,
+    #[expect(unused, reason = "AppLayerProtoReneg not yet supported")]
     AppLayerProtoReneg = 16,
+    #[expect(unused, reason = "SignedCertTimestamp not yet supported")]
     SignedCertTimestamp = 18,
+    #[expect(unused, reason = "ClientCertType not yet supported")]
     ClientCertType = 19,
+    #[expect(unused, reason = "ServerCertType not yet supported")]
     ServerCertType = 20,
+    #[expect(unused, reason = "Padding not yet supported")]
     Padding = 21,
+    #[expect(unused, reason = "PreSharedKey not yet supported")]
     PreSharedKey = 41,
+    #[expect(unused, reason = "EarlyData not yet supported")]
     EarlyData = 42,
     SupportedVersions = 43,
+    #[expect(unused, reason = "Cookie not yet supported")]
     Cookie = 44,
+    #[expect(unused, reason = "PskExchangeModes not yet supported")]
     PskExchangeModes = 45,
+    #[expect(unused, reason = "CertAuthorities not yet supported")]
     CertAuthorities = 47,
+    #[expect(unused, reason = "OidFilters not yet supported")]
     OidFilters = 48,
+    #[expect(unused, reason = "PostHandshakeAuth not yet supported")]
     PostHandshakeAuth = 49,
+    #[expect(unused, reason = "SigAlgCert not yet supported")]
     SigAlgCert = 50,
     KeyShare = 51,
 }
@@ -67,16 +84,6 @@ pub struct Extensions {
     ///
     /// Refer to its specific documentation for more information.
     pub sup_groups: SupGroups,
-    /// A list of TLS versions to support.
-    ///
-    /// For now, this must be set to `TLS_ONE_THREE`.
-    ///
-    /// Refer to its specific documentation for more information.
-    pub sup_versions: SupVersions,
-    /// The maximum length of a record.
-    ///
-    /// Refer to its specific documentation for more information.
-    pub max_frag_len: MaxFragLen,
 }
 
 impl Extensions {
@@ -97,7 +104,7 @@ impl Extensions {
         len += new_len(self.server_name.len());
         len += new_len(self.sig_algs.len());
         len += new_len(self.sup_groups.len());
-        len += new_len(self.sup_versions.len());
+        len += SupVersions::len();
         len += new_len(KeyShare::len(&self.sup_groups));
 
         len
@@ -107,21 +114,19 @@ impl Extensions {
     pub(crate) fn write_client(&self, record_layer: &mut RecordLayer, keys: &GroupKeys) {
         self.server_name.write_client(record_layer);
         self.sig_algs.write_client(record_layer);
-        self.sup_versions.write_client(record_layer);
+        SupVersions::write_client(record_layer);
         self.sup_groups.write_client(record_layer);
         KeyShare::write_client(record_layer, &self.sup_groups, keys);
     }
 }
 
 pub(crate) struct SerHelExtRef<'a> {
-    pub(crate) sup_versions: SupVersions,
     pub(crate) key_share: &'a [u8],
 }
 
 impl<'a> SerHelExtRef<'a> {
     /// Parse the ServerHello extensions.
-    pub(crate) fn parse(mut extensions: &'a [u8]) -> Result<Self, ExtParseError> {
-        let mut sup_versions = SupVersions { versions: 0 };
+    pub(crate) fn parse(mut extensions: &'a [u8]) -> Result<Self, Alert> {
         let mut key_share: &[u8] = &[];
         while extensions.len() >= Extensions::HEADER_SIZE {
             let len = u16::from_be_bytes(
@@ -133,38 +138,29 @@ impl<'a> SerHelExtRef<'a> {
             match &extensions[..size_of::<ExtensionType>()] {
                 x if x == ExtensionType::SupportedVersions.to_be_bytes() => {
                     if len != size_of::<ProtocolVersion>() {
-                        return Err(ExtParseError::ParseError);
+                        return Err(Alert::DecodeError);
                     }
-                    sup_versions = SupVersions::parse_ser(
-                        extensions[Extensions::HEADER_SIZE..][..size_of::<ProtocolVersion>()]
-                            .try_into()
-                            .unwrap(),
-                    );
+                    if extensions[Extensions::HEADER_SIZE..][..size_of::<ProtocolVersion>()] != ProtocolVersion::TlsOneThree.to_be_bytes() {
+                        return Err(Alert::ProtocolVersion);
+                    }
                 },
                 x if x == ExtensionType::KeyShare.to_be_bytes() => {
                     key_share = &extensions[Extensions::HEADER_SIZE..][..len]
                 },
                 _ => {
-                    return Err(ExtParseError::InvalidExt);
+                    return Err(Alert::UnsupportedExtension);
                 },
             }
 
             extensions = &extensions[Extensions::HEADER_SIZE + len..];
         }
-        if sup_versions.versions == 0 || key_share.len() == 0 {
-            return Err(ExtParseError::MissingExt);
+        if key_share.len() == 0 {
+            return Err(Alert::MissingExtension);
         }
         Ok(Self {
-            sup_versions,
             key_share,
         })
     }
-}
-
-pub(crate) enum ExtParseError {
-    ParseError,
-    InvalidExt,
-    MissingExt,
 }
 
 /// The server name to send to the server or expect from the client.
@@ -226,55 +222,6 @@ impl Default for ServerName {
             name: null(),
             len: 0,
         }
-    }
-}
-
-/// The maximum length of a record.
-///
-/// This is useful in constrained environments.
-#[derive(Clone, Copy, PartialEq, Eq)]
-#[repr(u8)]
-pub enum MaxFragLen {
-    /// Use the default record length of 0x4000 bytes.
-    Default = 0,
-    /// 0x200 bytes.
-    Hex200 = 1,
-    /// 0x400 bytes.
-    Hex400 = 2,
-    /// 0x500 bytes.
-    Hex500 = 3,
-    /// 0x600 bytes.
-    Hex600 = 4,
-}
-
-impl Default for MaxFragLen {
-    fn default() -> Self {
-        Self::Default
-    }
-}
-
-impl MaxFragLen {
-    pub(crate) const TAG: ExtensionType = ExtensionType::MaxFragmentLength;
-
-    pub(crate) const fn to_byte(self) -> u8 {
-        self as u8
-    }
-
-    pub(crate) const fn len(&self) -> usize {
-        // TODO: don't cast to u8 once const traits are stabilized
-        if *self as u8 == Self::Default as u8 {
-            return 0;
-        }
-        size_of::<MaxFragLen>()
-    }
-
-    pub(crate) fn write_client(&self, record_layer: &mut RecordLayer) {
-        if *self == Self::Default {
-            return;
-        }
-        record_layer.extend_from_slice(&ExtensionType::MaxFragmentLength.to_be_bytes());
-        record_layer.extend_from_slice(&(size_of::<MaxFragLen>() as u16).to_be_bytes());
-        record_layer.push(self.to_byte());
     }
 }
 
@@ -368,66 +315,24 @@ impl Default for SigAlgs {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-#[repr(transparent)]
-pub struct UseSrtp {}
-
 /// The versions of TLS to use.
 ///
 /// The only supported version in TLS 1.3.
-#[derive(Clone, Copy, PartialEq, Eq)]
-#[repr(transparent)]
-pub struct SupVersions {
-    #[allow(missing_docs)]
-    pub versions: u8,
-}
+pub(crate) struct SupVersions;
 
 impl SupVersions {
-    /// TLS version 1.3.
-    ///
-    /// This is the only supported version.
-    pub const TLS_ONE_THREE: u8 = 0b00000001;
-    const LEN_SIZE: usize = 1;
-    const TAG: [u8; 2] = [0, 43];
+    const VALUE: [u8; 7] = [0, 43, 0, 3, 2, 0x03, 0x04];
 
-    pub(crate) const fn len(&self) -> usize {
-        self.versions.count_ones() as usize * size_of::<ProtocolVersion>() + Self::LEN_SIZE
+    pub(crate) const fn len() -> usize {
+        Self::VALUE.len()
     }
 
-    pub(crate) fn write_client(&self, record_layer: &mut RecordLayer) {
-        if self.versions == 0 {
-            return;
-        }
-        record_layer.extend_from_slice(&Self::TAG);
-        let len = self.len();
-        record_layer.push_u16(len as u16);
-
-        record_layer.push((len - Self::LEN_SIZE) as u8);
-
-        if self.versions & Self::TLS_ONE_THREE > 0 {
-            record_layer.extend_from_slice(&ProtocolVersion::TlsOneThree.to_be_bytes());
-        }
-    }
-
-    pub(crate) fn parse_ser(sup_version: [u8; size_of::<ProtocolVersion>()]) -> Self {
-        match sup_version {
-            x if x == ProtocolVersion::TlsOneThree.to_be_bytes() => Self {
-                versions: Self::TLS_ONE_THREE,
-            },
-            _ => Self { versions: 0 },
-        }
+    pub(crate) fn write_client(record_layer: &mut RecordLayer) {
+        record_layer.extend_from_slice(&Self::VALUE);
     }
 }
 
-impl Default for SupVersions {
-    fn default() -> Self {
-        Self {
-            versions: Self::TLS_ONE_THREE,
-        }
-    }
-}
-
-pub(crate) struct KeyShare {}
+pub(crate) struct KeyShare;
 
 impl KeyShare {
     const LEGACY_FORM: u8 = 4;

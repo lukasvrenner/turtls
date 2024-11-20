@@ -57,6 +57,9 @@ impl EncryptedRecLayer {
         self.bytes_read %= self.unenc_rl.len();
         Ok(())
     }
+    pub(crate) fn alert_and_close(&mut self, alert: Alert) {
+        todo!()
+    }
 }
 
 #[derive(Debug)]

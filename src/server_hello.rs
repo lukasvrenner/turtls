@@ -3,7 +3,7 @@ use std::time::Duration;
 use crate::alert::Alert;
 use crate::cipher_suites::{CipherList, CipherSuite};
 use crate::error::TlsError;
-use crate::extensions::{ExtParseError, Extensions, SerHelExtRef};
+use crate::extensions::{Extensions, SerHelExtRef};
 use crate::handshake::{ShakeType, SHAKE_HEADER_SIZE};
 use crate::record::{ContentType, ReadError, RecordLayer};
 use crate::versions::ProtocolVersion;
@@ -101,15 +101,7 @@ impl<'a> RecvdSerHello<'a> {
 
         let extensions = match SerHelExtRef::parse(&record_layer.buf()[pos..]) {
             Ok(ext) => ext,
-            Err(ExtParseError::InvalidExt) => {
-                return Err(ReadError::Alert(TlsError::Sent(Alert::UnsupportedExtension)));
-            },
-            Err(ExtParseError::ParseError) => {
-                return Err(ReadError::Alert(TlsError::Sent(Alert::DecodeError)));
-            },
-            Err(ExtParseError::MissingExt) => {
-                return Err(ReadError::Alert(TlsError::Sent(Alert::MissingExtension)));
-            },
+            Err(err) => return Err(ReadError::Alert(TlsError::Sent(err))),
         };
 
         Ok(Self {

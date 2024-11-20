@@ -51,10 +51,9 @@ pub extern "C" fn turtls_generate_config() -> Config {
 /// Allocates a connection buffer.
 ///
 /// This buffer must be freed by `turtls_free` to avoid memory leakage.
-#[allow(private_interfaces)]
 #[no_mangle]
 pub extern "C" fn turtls_alloc() -> *mut Connection {
-    Box::leak(Box::new(Connection::Uninit))
+    Box::leak(Box::new(Connection(None)))
 }
 
 /// Frees a connection buffer.
@@ -63,7 +62,6 @@ pub extern "C" fn turtls_alloc() -> *mut Connection {
 ///
 /// # Safety:
 /// `connection` must be allocated by `turtls_alloc`.
-#[allow(private_interfaces)]
 #[no_mangle]
 pub unsafe extern "C" fn turtls_free(connection: *mut Connection) {
     if connection.is_null() || !connection.is_aligned() {
@@ -80,7 +78,6 @@ pub unsafe extern "C" fn turtls_free(connection: *mut Connection) {
 /// # Safety:
 /// `config` must be valid.
 /// `connection` must be valid.
-#[allow(private_interfaces)]
 #[no_mangle]
 pub unsafe extern "C" fn turtls_client_handshake(
     // TODO: use c_size_t and c_ssize_t once stabilized
@@ -92,25 +89,19 @@ pub unsafe extern "C" fn turtls_client_handshake(
     assert!(!connection.is_null() && connection.is_aligned());
 
     // SAFETY: the caller guarantees that the pointer is valid.
-    let config = unsafe { &*config };
-    let record_timeout = Duration::from_millis(config.timeout_millis);
-
     let connection = unsafe { &mut *connection };
 
-    *connection = Connection::Init(State::new(io));
-    let state = match connection {
-        Connection::Init(state) => state,
-        Connection::Uninit => unreachable!(),
-    };
-
-    let client_hello = ClientHello {
-        cipher_suites: config.cipher_suites,
-        extensions: config.extensions,
-    };
+    // SAFETY: the caller guarantees that the pointer is valid.
+    let config = unsafe { &*config };
+    let record_timeout = Duration::from_millis(config.timeout_millis);
 
     let keys = match GroupKeys::generate(config.extensions.sup_groups) {
         Ok(keys) => keys,
         Err(err) => return err.into(),
+    };
+    let client_hello = ClientHello {
+        cipher_suites: config.cipher_suites,
+        extensions: config.extensions,
     };
 
     // TODO: is this precomputed at compile time?
@@ -119,7 +110,11 @@ pub unsafe extern "C" fn turtls_client_handshake(
         &[0; Sha256::HASH_SIZE],
     );
 
+    *connection = Connection(Some(State::new(io)));
+    let state = connection.0.as_mut().expect("connection state exists");
+
     if let Err(err) = client_hello.write_to(&mut state.rl.unenc_rl, &keys) {
+        // don't alert because we haven't even sent ClientHello
         return err.into();
     }
 
@@ -129,7 +124,7 @@ pub unsafe extern "C" fn turtls_client_handshake(
             if let ReadError::Alert(TlsError::Sent(alert)) = err {
                 state.rl.unenc_rl.alert_and_close(alert);
             }
-            *connection = Connection::Uninit;
+            *connection = Connection(None);
             return err.into();
         },
     };
@@ -142,7 +137,7 @@ pub unsafe extern "C" fn turtls_client_handshake(
         Ok(secret) => secret,
         Err(err) => {
             state.rl.unenc_rl.alert_and_close(err);
-            *connection = Connection::Uninit;
+            *connection = Connection(None);
             return ShakeResult::SentAlert(err);
         },
     };
@@ -165,7 +160,7 @@ pub unsafe extern "C" fn turtls_client_handshake(
         Some(aead) => aead,
         None => {
             state.rl.unenc_rl.alert_and_close(Alert::HandshakeFailure);
-            *connection = Connection::Uninit;
+            *connection = Connection(None);
             return ShakeResult::SentAlert(Alert::HandshakeFailure);
         }
     };
@@ -177,7 +172,6 @@ pub unsafe extern "C" fn turtls_client_handshake(
 ///
 /// # Safety:
 /// `connection` may be `NULL` but must be valid.
-#[allow(private_interfaces)]
 #[no_mangle]
 pub unsafe extern "C" fn turtls_close(connection: *mut Connection) {
     if connection.is_null() || !connection.is_aligned() {
@@ -186,7 +180,8 @@ pub unsafe extern "C" fn turtls_close(connection: *mut Connection) {
     // SAFETY: the caller guarantees that the pointer is valid.
     let connection = unsafe { &mut *connection };
 
-    if let Connection::Init(_state) = connection {
-        todo!("send encrypted CloseNotify alert");
+    if let Some(ref mut state) = connection.0 {
+        state.rl.alert_and_close(Alert::CloseNotify);
+        *connection = Connection(None);
     }
 }
