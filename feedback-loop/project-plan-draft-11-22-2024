@@ -1,0 +1,263 @@
+# TurTLS Project Plan and Specification
+
+## Project Overview
+Work-in-progress implementation of the TLS 1.3 protocol (RFC 8446) in Rust, providing a C ABI for broad compatibility. The project emphasizes memory safety, standards compliance, and secure cryptographic operations.
+
+## Meeting Structure
+- Set up regular weekly 1-hour meetings
+- Establish agenda format:
+  - Previous week's goals review
+  - Progress updates
+  - Technical questions
+  - Next week's goals
+- [x] Create informal communication channel for ad-hoc questions
+  <details>
+  <summary>How it was completed</summary>
+  <!-- Add your description here -->
+  We are using HackMD for collaborative project notes.
+  </details>
+
+## Current Status
+- [x] Basic HKDF operations implemented
+  <details>
+  <summary>How it was completed</summary>
+  <!-- Add your description here -->
+  Give detail here.
+  </details>
+- [x] Initial client handshake functionality
+  <details>
+  <summary>How it was completed</summary>
+  <!-- Add your description here -->
+  Give detail here.
+  </details>
+- [x] Support for TLS_AES_128_GCM_SHA256 cipher suite
+  <details>
+  <summary>How it was completed</summary>
+  <!-- Add your description here -->
+  Give detail here.
+  </details>
+- [ ] Known bug in hkdf_expand_label buffer handling needs fixing
+
+## Core Architecture
+### Key Schedule (`src/key_schedule.rs`)
+- [x] HKDF label expansion
+  <details>
+  <summary>How it was completed</summary>
+  <!-- Add your description here -->
+  Give detail here.
+  </details>
+- [x] Secret derivation
+  <details>
+  <summary>How it was completed</summary>
+  <!-- Add your description here -->
+  Give detail here.
+  </details>
+- [x] Label/context management
+  <details>
+  <summary>How it was completed</summary>
+  <!-- Add your description here -->
+  Give detail here.
+  </details>
+- [ ] Fix buffer handling bug in `hkdf_expand_label`
+
+### AEAD Implementation (`src/aead.rs`)
+- [x] Key derivation from secrets
+  <details>
+  <summary>How it was completed</summary>
+  <!-- Add your description here -->
+  Give detail here.
+  </details>
+- [x] AES-128-GCM support
+  <details>
+  <summary>How it was completed</summary>
+  <!-- Add your description here -->
+  Give detail here.
+  </details>
+- [x] ChaCha20-Poly1305 support
+  <details>
+  <summary>How it was completed</summary>
+  <!-- Add your description here -->
+  Give detail here.
+  </details>
+- [x] IV management
+  <details>
+  <summary>How it was completed</summary>
+  <!-- Add your description here -->
+  Give detail here.
+  </details>
+- [x] Nonce handling
+  <details>
+  <summary>How it was completed</summary>
+  <!-- Add your description here -->
+  Give detail here.
+  </details>
+
+### HKDF Core (`crylib/src/hkdf.rs`)
+- [x] Extract operation
+  <details>
+  <summary>How it was completed</summary>
+  <!-- Add your description here -->
+  Give detail here.
+  </details>
+- [x] Expand operation
+  <details>
+  <summary>How it was completed</summary>
+  <!-- Add your description here -->
+  Give detail here.
+  </details>
+- [ ] Comprehensive test suite
+- [ ] Performance optimization
+
+## Implementation Goals
+
+### 1. Client-Side Implementation (Priority)
+- [ ] Parse ServerHello extensions
+- [ ] Handle HelloRetryRequest
+- [ ] Key Derivation Process
+  - [ ] Fix HKDF implementation bug
+  - [ ] Implement client_handshake_traffic
+  - [ ] Implement server_handshake_traffic
+  - [ ] Implement client_application_traffic
+  - [ ] Implement server_application_traffic
+- [ ] Handle Last Handshake Messages
+  - [ ] EncryptedExtensions
+  - [ ] CertificateRequest support (optional)
+  - [ ] Certificate handling
+    - [ ] Define certificate format
+    - [ ] Implement certificate user input mechanism
+  - [ ] CertificateVerify
+  - [ ] Finished message
+
+### 2. TLS 1.3 Specification Compliance
+- [ ] RSA Implementation
+  - [ ] Core RSA functions
+  - [ ] RSA-PSS padding
+  - [ ] Key generation
+- [ ] Mandatory Extensions Support
+- [ ] Alert Management
+- [ ] Protocol State Machine
+- [ ] Record Layer Implementation
+
+### 3. Testing and Verification
+- [ ] HKDF Test Vectors
+  - [ ] RFC 5869 test cases
+  - [ ] RFC 8448 test vectors
+  - [ ] Project Wycheproof vectors
+- [ ] Integration Tests
+  - [ ] Handshake flows
+  - [ ] Error scenarios
+  - [ ] Extension handling
+- [ ] Cryptographic Algorithm Tests
+  - [ ] AES-GCM
+  - [ ] ChaCha20-Poly1305
+  - [ ] SHA-256
+  - [ ] HMAC
+- [ ] Fuzzing Infrastructure
+  - [ ] Protocol message fuzzing
+  - [ ] Cryptographic input fuzzing
+- [ ] Interoperability Testing
+  - [ ] OpenSSL
+  - [ ] BoringSSL
+  - [ ] Other major implementations
+
+### 4. Optional Enhancements
+- [ ] Additional Cipher Suites
+  - [ ] AES_256_GCM_SHA384 implementation
+  - [ ] SHA-384 implementation
+- [ ] Additional Features
+  - [ ] Additional curve support
+  - [ ] Pre-shared key (PSK)
+  - [ ] 0-RTT data (with PSK)
+  - [ ] Multi-threaded AEAD
+  - [ ] ChangeCipherSpec compatibility
+  - [ ] Record padding
+- [ ] Performance Optimizations
+  - [ ] Bulk encryption
+  - [ ] Key scheduling
+  - [ ] Handshake processing
+
+### 5. Server-Side Implementation
+- [ ] Adapt Client Code
+  - [ ] Reuse cryptographic components
+  - [ ] Modify state machine
+  - [ ] Server-specific extensions
+- [ ] Server Features
+  - [ ] Certificate selection
+  - [ ] Session management
+  - [ ] Connection handling
+
+### 6. Documentation
+- [ ] Code Documentation
+  - [ ] Inline documentation
+  - [ ] API documentation
+  - [ ] Architecture overview
+- [ ] Project Website (GitHub Pages)
+  - [ ] Project goals
+  - [ ] Feature documentation
+  - [ ] Setup instructions
+  - [ ] Reference links
+- [ ] Build and Integration Guide
+  - [ ] Library usage
+  - [ ] C ABI documentation
+  - [ ] Build configuration
+
+### 7. HTTPS Client Implementation
+- [ ] Core Functionality
+  - [ ] DNS lookup
+  - [ ] TCP connection handling
+  - [ ] TLS handshake integration
+  - [ ] HTTP protocol implementation
+- [ ] Features
+  - [ ] Content retrieval
+  - [ ] File writing
+  - [ ] Error handling
+  - [ ] User interface
+
+## Technical Requirements
+
+### System Compatibility
+- [ ] turtls: All Rust-supported systems
+- [ ] HTTPS client: POSIX-compliant systems
+- [ ] Build system integration
+- [ ] Dynamic linking configuration
+
+### Security Requirements
+- [ ] Secure random number generation
+- [ ] Protection against timing attacks
+- [ ] Memory zeroization
+- [ ] Side-channel resistance
+- [ ] Safe buffer handling
+- [ ] Resource cleanup
+- [ ] Clear ownership model
+
+### Performance Goals
+- [ ] Define throughput targets
+- [ ] Set latency requirements
+- [ ] Establish resource usage limits
+
+## Documentation and Resources
+- Repository Links:
+  - turtls: https://github.com/lukasvrenner/turtls
+  - Pull (HTTPS client): https://github.com/lukasvrenner/pull
+- Specification Links:
+  - TLS 1.3: https://datatracker.ietf.org/doc/html/rfc8446
+  - Compliance Requirements: https://datatracker.ietf.org/doc/html/rfc8446#section-9
+
+## Project Timeline
+### Short Term (1-2 months)
+- [ ] Fix current bugs
+- [ ] Complete test suite
+- [ ] Basic client functionality
+- [ ] Core documentation
+
+### Medium Term (3-6 months)
+- [ ] Server implementation
+- [ ] Enhanced features
+- [ ] Performance optimization
+- [ ] Integration testing
+
+### Long Term (6+ months)
+- [ ] Security audit
+- [ ] Production readiness
+- [ ] API stabilization
+- [ ] Complete documentation
