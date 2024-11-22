@@ -1,0 +1,77 @@
+# Feedback 11/22/2024
+
+After cloning the turtls repo and setting up the rust environment, `cargo check`, resulted in several warnings. Most of these are low priority and can be dealt with when needed. A code audit suggests the following high priority warning.
+
+## Unused Must-Use Return Values
+* **Example:**
+   * `self.io.write(&self.buf);`
+* **Severity:** Medium to High
+* **Explanation:** Ignoring the return value of a function that must be used can lead to bugs. For example, not handling errors from `write` operations can result in silent failures.
+
+## The HkdfLabel bug
+
+The current implementation incorrectly uses entire buffer
+```
+hkdf::expand::<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>(key, secret, &hkdf_label);
+```
+
+It should use only populated portion
+``` 
+hkdf::expand::<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>(key, secret, &hkdf_label[..pos]);
+```
+
+The bug has to do with `hkdf_expand_label` passing the entire buffer, including uninitialized data, to `HKDF-Expand`, violating RFC 8446’s requirement for precise formatting of the HkdfLabel structure. The fix slices the buffer to include only the filled portion, ensuring deterministic key derivation and preserving cryptographic security by excluding extraneous input.
+
+
+### Relevant [Section 7.1 of RFC 8446](https://datatracker.ietf.org/doc/html/rfc8446#section-7.1):
+
+HkdfLabel is a structured input with specific fields, including:
+ - length (2 bytes): Specifies the length of the key material.
+ - label (variable length, prefixed with tls13): The "label" field must be sized appropriately.
+ - context (variable length): Specifies the context of the derived secret.
+
+The documentation defines `HkdfLabel` as a structured data type:
+
+```
+struct {
+    uint16 length = Length;
+    opaque label<7..255> = "tls13 " + Label;
+    opaque context<0..255> = Context;
+} HkdfLabel;
+```
+
+This means:
+
+- `label` and `context` are variable-sized fields, with their lengths dynamically determined by their actual content.
+- When constructing the `HkdfLabel` buffer, only the filled portion of the buffer—up to the point where the fields are fully written—should be included in the final input to `HKDF-Expand`.
+
+By including the unused portion of the buffer (beyond the required fields), the implementation inadvertently corrupted the derivation process, as `HKDF-Expand` relied on strictly formatted and bounded input.
+
+### Recommended Changes
+1. Fixed Buffer Slicing
+
+The buffer is now sliced to include only the filled portion (`[..pos]`), avoiding undefined behavior caused by passing uninitialized data.
+
+Updated Code:
+``` rust
+hkdf::expand::<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>(key, secret, &hkdf_label[..pos]);
+```
+
+2. Added Unit Test
+
+A new test ensures the derived key is non-zero, validating the function's correctness.
+
+Test Example:
+
+``` rust
+#[test]
+fn test_hkdf_expand_label() {
+    let mut key = [0u8; Sha256::HASH_SIZE];
+    let secret = [1u8; Sha256::HASH_SIZE];
+    let label = b"test";
+    let context = [2u8; Sha256::HASH_SIZE];
+
+    hkdf_expand_label(&mut key, &secret, label, &context);
+    assert!(key.iter().any(|&b| b != 0), "Key derivation failed; key is all zeroes");
+}
+```
