@@ -1,4 +1,4 @@
-# turtls 🐢
+# TurTLS 🐢
 
 ## A work-in-progress TLS 1.3 dynamic library
 Note: Although turtls is written in Rust, it only provides a C API.
@@ -32,8 +32,8 @@ WARNING: This code has not been audited. Use it at your own risk.
 
 
 ## Cryptography
-turtls uses in-house cryptography, meaning it uses its own crypto library, called crylib.
-crylib can also be used independently of turtls.
+TurTLS uses in-house cryptography, meaning it uses its own crypto library, called crylib.
+crylib can also be used independently of TurTLS.
 
 ## Building
 Make sure you have a recent version of Rust installed. This project uses on new language features as they release,
