@@ -58,7 +58,7 @@ impl ClientHello {
         record_layer.push_u16(len);
         self.extensions.write_client(record_layer, keys);
 
-        record_layer.finish_and_send();
+        record_layer.finish();
         Ok(())
     }
 }

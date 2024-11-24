@@ -106,16 +106,12 @@ pub(crate) struct AlertMsg {
 
 impl AlertMsg {
     pub(crate) const SIZE: usize = 2;
+
     pub(crate) fn new(description: Alert) -> Self {
         Self {
             level: AlertLevel::Fatal,
             description,
         }
-    }
-
-    pub(crate) fn new_in(buf: &mut [u8; 2], description: Alert) {
-        buf[0] = AlertLevel::Fatal as u8;
-        buf[1] = description as u8;
     }
 
     pub(crate) const fn to_be_bytes(self) -> [u8; Self::SIZE] {

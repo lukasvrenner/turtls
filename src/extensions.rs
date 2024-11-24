@@ -140,7 +140,9 @@ impl<'a> SerHelExtRef<'a> {
                     if len != size_of::<ProtocolVersion>() {
                         return Err(Alert::DecodeError);
                     }
-                    if extensions[Extensions::HEADER_SIZE..][..size_of::<ProtocolVersion>()] != ProtocolVersion::TlsOneThree.to_be_bytes() {
+                    if extensions[Extensions::HEADER_SIZE..][..size_of::<ProtocolVersion>()]
+                        != ProtocolVersion::TlsOneThree.to_be_bytes()
+                    {
                         return Err(Alert::ProtocolVersion);
                     }
                 },
@@ -157,9 +159,7 @@ impl<'a> SerHelExtRef<'a> {
         if key_share.len() == 0 {
             return Err(Alert::MissingExtension);
         }
-        Ok(Self {
-            key_share,
-        })
+        Ok(Self { key_share })
     }
 }
 

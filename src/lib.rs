@@ -32,15 +32,19 @@ use crylib::{
 use dh::GroupKeys;
 use error::TlsError;
 use extensions::KeyShare;
-use record::{ContentType, ReadError};
+use record::{ContentType, ReadError, RecordLayer};
 use server_hello::RecvdSerHello;
-use state::{Connection, State};
 
 pub use alert::Alert;
 pub use cipher_suites::CipherList;
 pub use config::{Config, ConfigError};
 pub use error::ShakeResult;
 pub use record::Io;
+
+/// A TLS connection buffer.
+///
+/// This connection buffer may be reused between multiple consecutive connections.
+pub struct Connection(Option<RecordLayer>);
 
 /// Generates a default configuration struct.
 #[no_mangle]
@@ -110,19 +114,19 @@ pub unsafe extern "C" fn turtls_client_handshake(
         &[0; Sha256::HASH_SIZE],
     );
 
-    *connection = Connection(Some(State::new(io)));
-    let state = connection.0.as_mut().expect("connection state exists");
+    *connection = Connection(Some(RecordLayer::new(io)));
+    let rl = connection.0.as_mut().unwrap();
 
-    if let Err(err) = client_hello.write_to(&mut state.rl.unenc_rl, &keys) {
+    if let Err(err) = client_hello.write_to(rl, &keys) {
         // don't alert because we haven't even sent ClientHello
         return err.into();
     }
 
-    let server_hello = match RecvdSerHello::read(&mut state.rl.unenc_rl, record_timeout) {
+    let server_hello = match RecvdSerHello::read(rl, record_timeout) {
         Ok(server_hello) => server_hello,
         Err(err) => {
             if let ReadError::Alert(TlsError::Sent(alert)) = err {
-                state.rl.unenc_rl.alert_and_close(alert);
+                rl.alert_and_close(alert);
             }
             *connection = Connection(None);
             return err.into();
@@ -136,7 +140,7 @@ pub unsafe extern "C" fn turtls_client_handshake(
     ) {
         Ok(secret) => secret,
         Err(err) => {
-            state.rl.unenc_rl.alert_and_close(err);
+            rl.alert_and_close(err);
             *connection = Connection(None);
             return ShakeResult::SentAlert(err);
         },
@@ -150,49 +154,34 @@ pub unsafe extern "C" fn turtls_client_handshake(
         &salt,
         &dh_shared_secret,
     );
-    let transcript = state.rl.unenc_rl.transcript();
+    let transcript = rl.transcript();
     let cli_shake_traf_secret =
         key_schedule::derive_secret(&handshake_secret, b"c hs traffic", &transcript);
     let ser_shake_traf_secret =
         key_schedule::derive_secret(&handshake_secret, b"s hs traffic", &transcript);
 
-    state.rl.aead = match TlsAead::new(&cli_shake_traf_secret, &ser_shake_traf_secret, cipher_suite)
-    {
-        Some(aead) => aead,
-        None => {
-            state.rl.unenc_rl.alert_and_close(Alert::HandshakeFailure);
-            *connection = Connection(None);
-            return ShakeResult::SentAlert(Alert::HandshakeFailure);
-        },
-    };
-    let mut msg_type = match state.rl.unenc_rl.read(record_timeout) {
-        Ok(msg_type) => msg_type,
-        Err(err) => {
+    rl.aead = TlsAead::new(&cli_shake_traf_secret, &ser_shake_traf_secret, cipher_suite);
+    if rl.aead.is_none() {
+        rl.alert_and_close(Alert::HandshakeFailure);
+        *connection = Connection(None);
+        return ShakeResult::SentAlert(Alert::HandshakeFailure);
+    }
+
+    if let Err(err) = rl.read(record_timeout) {
+        if let ReadError::Alert(TlsError::Sent(alert)) = err {
+            rl.alert_and_close(alert);
+        }
+        return err.into();
+    }
+
+    if rl.msg_type() == ContentType::ChangeCipherSpec.to_byte() {
+        if let Err(err) = rl.read(record_timeout) {
             if let ReadError::Alert(TlsError::Sent(alert)) = err {
-                state.rl.alert_and_close(alert);
+                rl.alert_and_close(alert);
             }
             return err.into();
-        },
-    };
-    if msg_type == ContentType::ChangeCipherSpec.to_byte() {
-        msg_type = match state.rl.unenc_rl.read(record_timeout) {
-            Ok(msg_type) => msg_type,
-            Err(err) => {
-                if let ReadError::Alert(TlsError::Sent(alert)) = err {
-                    state.rl.alert_and_close(alert);
-                }
-                *connection = Connection(None);
-                return err.into();
-            },
         }
     }
-    if msg_type != ContentType::ApplicationData.to_byte() {
-        println!("{msg_type}");
-        state.rl.alert_and_close(Alert::UnexpectedMessage);
-        *connection = Connection(None);
-        return ShakeResult::SentAlert(Alert::UnexpectedMessage);
-    }
-    state.rl.decrypt().expect("decryption went well");
     todo!("finish handshake");
 }
 
@@ -208,8 +197,8 @@ pub unsafe extern "C" fn turtls_close(connection: *mut Connection) {
     // SAFETY: the caller guarantees that the pointer is valid.
     let connection = unsafe { &mut *connection };
 
-    if let Some(ref mut state) = connection.0 {
-        state.rl.alert_and_close(Alert::CloseNotify);
+    if let Some(ref mut rl) = connection.0 {
+        rl.alert_and_close(Alert::CloseNotify);
         *connection = Connection(None);
     }
 }

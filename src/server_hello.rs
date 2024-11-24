@@ -4,7 +4,7 @@ use crate::alert::Alert;
 use crate::cipher_suites::{CipherList, CipherSuite};
 use crate::error::TlsError;
 use crate::extensions::{Extensions, SerHelExtRef};
-use crate::handshake::{ShakeType, SHAKE_HEADER_SIZE};
+use crate::handshake::{self, ShakeType, SHAKE_HEADER_SIZE};
 use crate::record::{ContentType, ReadError, RecordLayer};
 use crate::versions::ProtocolVersion;
 
@@ -38,47 +38,51 @@ impl<'a> RecvdSerHello<'a> {
     /// If the server sends a ServerHello that is broken into multiple records, it will alert
     /// `HandshakeFailed` and return an error.
     pub(crate) fn read(
-        record_layer: &'a mut RecordLayer,
+        rl: &'a mut RecordLayer,
         record_timeout: Duration,
     ) -> Result<Self, ReadError> {
-        let msg_type = record_layer.read(record_timeout)?;
-        if msg_type != ContentType::Handshake.to_byte() {
+        rl.read(record_timeout)?;
+        if rl.msg_type() != ContentType::Handshake.to_byte() {
             return Err(ReadError::Alert(TlsError::Sent(Alert::UnexpectedMessage)));
         }
 
-        if record_layer.len() < SHAKE_HEADER_SIZE + ServerHello::MIN_LEN {
+        if rl.len() < SHAKE_HEADER_SIZE + ServerHello::MIN_LEN {
             return Err(ReadError::Alert(TlsError::Sent(Alert::DecodeError)));
         }
 
-        if record_layer.buf()[0] != ShakeType::ServerHello.to_byte() {
+        let handshake_msg = rl.buf();
+
+        if handshake_msg[0] != ShakeType::ServerHello.to_byte() {
             return Err(ReadError::Alert(TlsError::Sent(Alert::UnexpectedMessage)));
         }
 
         let len = u32::from_be_bytes([
             0,
-            record_layer.buf()[1],
-            record_layer.buf()[2],
-            record_layer.buf()[3],
+            handshake_msg[1],
+            handshake_msg[2],
+            handshake_msg[3],
         ]) as usize;
 
         // ServerHello must be the only message in the record
-        if len < record_layer.len() - SHAKE_HEADER_SIZE {
+        if len < handshake_msg.len() - SHAKE_HEADER_SIZE {
             return Err(ReadError::Alert(TlsError::Sent(Alert::DecodeError)));
         }
 
         // ServerHello must not be more than one record (implemntation detail)
-        if len > record_layer.len() - SHAKE_HEADER_SIZE {
+        if len > handshake_msg.len() - SHAKE_HEADER_SIZE {
             return Err(ReadError::Alert(TlsError::Sent(Alert::HandshakeFailure)));
         }
 
-        if record_layer.len() - SHAKE_HEADER_SIZE < ServerHello::MIN_LEN {
+        if len < ServerHello::MIN_LEN {
             return Err(ReadError::Alert(TlsError::Sent(Alert::DecodeError)));
         }
 
-        let mut pos =
-            size_of::<ProtocolVersion>() + ServerHello::RANDOM_BYTES_LEN + SHAKE_HEADER_SIZE;
+        let ser_hel = &handshake_msg[SHAKE_HEADER_SIZE..];
 
-        let leg_session_id_len = record_layer.buf()[pos];
+        let mut pos =
+            size_of::<ProtocolVersion>() + ServerHello::RANDOM_BYTES_LEN;
+
+        let leg_session_id_len = ser_hel[pos];
 
         if leg_session_id_len > 32 {
             return Err(ReadError::Alert(TlsError::Sent(Alert::DecodeError)));
@@ -86,7 +90,7 @@ impl<'a> RecvdSerHello<'a> {
         pos += size_of_val(&leg_session_id_len) + leg_session_id_len as usize;
 
         let cipher_suite = CipherList::parse_singular(
-            record_layer.buf()[pos..][..size_of::<CipherSuite>()]
+            ser_hel[pos..][..size_of::<CipherSuite>()]
                 .try_into()
                 .unwrap(),
         );
@@ -95,14 +99,14 @@ impl<'a> RecvdSerHello<'a> {
         pos += size_of_val(&ServerHello::LEGACY_COMPRESSION_METHOD);
 
         let extensions_len =
-            u16::from_be_bytes(record_layer.buf()[pos..][..2].try_into().unwrap()) as usize;
+            u16::from_be_bytes(ser_hel[pos..][..2].try_into().unwrap()) as usize;
 
         pos += Extensions::LEN_SIZE;
-        if extensions_len != record_layer.buf()[pos..].len() {
+        if extensions_len != ser_hel[pos..].len() {
             return Err(ReadError::Alert(TlsError::Sent(Alert::DecodeError)));
         }
 
-        let extensions = match SerHelExtRef::parse(&record_layer.buf()[pos..]) {
+        let extensions = match SerHelExtRef::parse(&ser_hel[pos..]) {
             Ok(ext) => ext,
             Err(err) => return Err(ReadError::Alert(TlsError::Sent(err))),
         };
