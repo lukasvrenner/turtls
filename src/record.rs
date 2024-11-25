@@ -1,7 +1,13 @@
 use crylib::aead::TAG_SIZE;
 use crylib::hash::{BufHasher, Hasher, Sha256};
 
-use crate::{aead::TlsAead, error::TlsError};
+use crate::aead::TlsAead;
+use crate::alert::{Alert, AlertLevel, AlertMsg};
+use crate::error::TlsError;
+use crate::versions::LEGACY_PROTO_VERS;
+
+use std::ffi::c_void;
+use std::time::{Duration, Instant};
 
 #[repr(u8)]
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -17,23 +23,6 @@ impl ContentType {
         self as u8
     }
 }
-
-pub(crate) struct RecordLayer {
-    buf: [u8; Self::BUF_SIZE],
-    /// The number of bytes in the buffer *including* the header.
-    ///
-    /// This is *not* the same as `self.len()`
-    len: usize,
-    io: Io,
-    pub(crate) aead: Option<TlsAead>,
-    transcript: BufHasher<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>,
-}
-
-use crate::alert::{Alert, AlertLevel, AlertMsg};
-use crate::versions::LEGACY_PROTO_VERS;
-
-use std::ffi::c_void;
-use std::time::{Duration, Instant};
 
 /// The functions to use to perform IO.
 ///
@@ -81,6 +70,17 @@ impl Io {
     pub(crate) fn close(&self) {
         (self.close_fn)(self.ctx);
     }
+}
+
+pub(crate) struct RecordLayer {
+    buf: [u8; Self::BUF_SIZE],
+    /// The number of bytes in the buffer *including* the header.
+    ///
+    /// This is *not* the same as `self.len()`
+    len: usize,
+    io: Io,
+    pub(crate) aead: Option<TlsAead>,
+    transcript: BufHasher<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>,
 }
 
 impl RecordLayer {
@@ -320,7 +320,7 @@ impl RecordLayer {
         Ok(())
     }
 
-    pub(crate) fn alert_and_close(&mut self, alert: Alert) {
+    pub(crate) fn close(&mut self, alert: Alert) {
         self.buf[0] = ContentType::Alert.to_byte();
 
         debug_assert_eq!(self.buf[1..3], LEGACY_PROTO_VERS.to_be_bytes());
@@ -331,6 +331,7 @@ impl RecordLayer {
             AlertMsg::new(alert).to_be_bytes();
 
         self.finish();
+        self.io.close();
     }
 
     pub(crate) fn transcript(&self) -> [u8; Sha256::HASH_SIZE] {

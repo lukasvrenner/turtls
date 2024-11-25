@@ -15,7 +15,6 @@ mod handshake;
 mod key_schedule;
 mod record;
 mod server_hello;
-mod state;
 mod versions;
 
 pub mod error;
@@ -126,7 +125,7 @@ pub unsafe extern "C" fn turtls_connect(
         Ok(server_hello) => server_hello,
         Err(err) => {
             if let ReadError::Alert(TlsError::Sent(alert)) = err {
-                rl.alert_and_close(alert);
+                rl.close(alert);
             }
             *connection = Connection(None);
             return err.into();
@@ -140,7 +139,7 @@ pub unsafe extern "C" fn turtls_connect(
     ) {
         Ok(secret) => secret,
         Err(err) => {
-            rl.alert_and_close(err);
+            rl.close(err);
             *connection = Connection(None);
             return ShakeResult::SentAlert(err);
         },
@@ -162,14 +161,14 @@ pub unsafe extern "C" fn turtls_connect(
 
     rl.aead = TlsAead::new(&cli_shake_traf_secret, &ser_shake_traf_secret, cipher_suite);
     if rl.aead.is_none() {
-        rl.alert_and_close(Alert::HandshakeFailure);
+        rl.close(Alert::HandshakeFailure);
         *connection = Connection(None);
         return ShakeResult::SentAlert(Alert::HandshakeFailure);
     }
 
     if let Err(err) = rl.read(record_timeout) {
         if let ReadError::Alert(TlsError::Sent(alert)) = err {
-            rl.alert_and_close(alert);
+            rl.close(alert);
         }
         return err.into();
     }
@@ -177,7 +176,7 @@ pub unsafe extern "C" fn turtls_connect(
     if rl.msg_type() == ContentType::ChangeCipherSpec.to_byte() {
         if let Err(err) = rl.read(record_timeout) {
             if let ReadError::Alert(TlsError::Sent(alert)) = err {
-                rl.alert_and_close(alert);
+                rl.close(alert);
             }
             return err.into();
         }
@@ -198,7 +197,7 @@ pub unsafe extern "C" fn turtls_close(connection: *mut Connection) {
     let connection = unsafe { &mut *connection };
 
     if let Some(ref mut rl) = connection.0 {
-        rl.alert_and_close(Alert::CloseNotify);
+        rl.close(Alert::CloseNotify);
         *connection = Connection(None);
     }
 }
