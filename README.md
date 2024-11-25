@@ -7,15 +7,16 @@ WARNING: This code has not been audited. Use it at your own risk.
 ================================================================
 
 ## Features
-1. Simple API:
+1. Simple API -- the TurTLS API only contains a few functions:
 - `turtls_generate_config`: Generate the default configuration struct.
 - `turtls_alloc`: Allocate the connection state buffer.
 - `turtls_free`: Free the connection state buffer.
-- `turtls_client_handshake`: Perform the TLS handshake as the client.
-- `turtls_server_handshake`: Perform the TLS handshake as the server (not yet implemented).
+- `turtls_connect`: Perform the TLS handshake as the client.
+- `turtls_accept`: Perform the TLS handshake as the server (not yet implemented).
 - `turtls_send`: send data to the peer (not yet implemented).
 - `turtls_read`: read data from the peer (not yet implemented).
 - `turtls_close`: close the connection.
+- `turtls_stringify_alert`: return a string representation of a TLS alert (not yet implement).
 2. Configuration struct: all configuration is done via a single config struct
 3. AEADs:
 - [AES-* GCM](https://en.wikipedia.org/wiki/Galois/Counter_Mode)

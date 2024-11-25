@@ -75,15 +75,15 @@ pub unsafe extern "C" fn turtls_free(connection: *mut Connection) {
     let _ = unsafe { Box::from_raw(connection) };
 }
 
-/// Performs a TLS handshake as the client, returning the handshake status.
+/// Performs a TLS handshake with a server, returning the connection status.
 ///
 /// If any error is returned, the connection is automatically closed.
 ///
 /// # Safety:
-/// `config` must be valid.
 /// `connection` must be valid.
+/// `config` must be valid.
 #[no_mangle]
-pub unsafe extern "C" fn turtls_client_handshake(
+pub unsafe extern "C" fn turtls_connect(
     // TODO: use c_size_t and c_ssize_t once stabilized
     io: Io,
     connection: *mut Connection,

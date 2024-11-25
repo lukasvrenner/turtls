@@ -7,8 +7,6 @@
 #include <stdint.h>
 
 
-#define turtls_EncryptedRecLayer_MIN_LEN (turtls_TAG_SIZE + 1)
-
 /**
  * TLS error reporting.
  */
@@ -351,25 +349,25 @@ extern "C" {
 struct turtls_Connection *turtls_alloc(void);
 
 /**
- * Performs a TLS handshake as the client, returning the handshake status.
- *
- * If any error is returned, the connection is automatically closed.
- *
- * # Safety:
- * `config` must be valid.
- * `connection` must be valid.
- */
-struct turtls_ShakeResult turtls_client_handshake(struct turtls_Io io,
-                                                  struct turtls_Connection *connection,
-                                                  const struct turtls_Config *config);
-
-/**
  * Alerts the peer and closes the connection.
  *
  * # Safety:
  * `connection` may be `NULL` but must be valid.
  */
 void turtls_close(struct turtls_Connection *connection);
+
+/**
+ * Performs a TLS handshake with a server, returning the connection status.
+ *
+ * If any error is returned, the connection is automatically closed.
+ *
+ * # Safety:
+ * `connection` must be valid.
+ * `config` must be valid.
+ */
+struct turtls_ShakeResult turtls_connect(struct turtls_Io io,
+                                         struct turtls_Connection *connection,
+                                         const struct turtls_Config *config);
 
 /**
  * Frees a connection buffer.

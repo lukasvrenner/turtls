@@ -1,4 +1,4 @@
-use crate::record::{RecordLayer};
+use crate::record::RecordLayer;
 
 /// A TLS connection buffer.
 ///

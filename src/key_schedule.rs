@@ -38,7 +38,11 @@ pub(crate) fn hkdf_expand_label(
     hkdf_label[pos..][..context.len()].copy_from_slice(context);
     pos += context.len();
 
-    hkdf::expand::<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>(key, secret, &hkdf_label[..pos]);
+    hkdf::expand::<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>(
+        key,
+        secret,
+        &hkdf_label[..pos],
+    );
 }
 
 pub(crate) fn derive_secret(
