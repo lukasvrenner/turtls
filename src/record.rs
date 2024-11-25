@@ -52,7 +52,7 @@ pub struct Io {
     /// Contextual data (e.g. a file descriptor).
     ///
     /// Lifetime: this pointer must be valid for the duration of the connection.
-    pub ctx: *const c_void,
+    pub ctx: *mut c_void,
 }
 
 impl Io {

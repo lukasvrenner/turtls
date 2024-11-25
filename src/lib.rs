@@ -81,6 +81,8 @@ pub unsafe extern "C" fn turtls_free(connection: *mut Connection) {
 /// # Safety:
 /// `connection` must be valid.
 /// `config` must be valid.
+///
+/// Lifetime: `io.ctx` must be valid until the connction is closed.
 #[no_mangle]
 pub unsafe extern "C" fn turtls_connect(
     // TODO: use c_size_t and c_ssize_t once stabilized
@@ -117,7 +119,8 @@ pub unsafe extern "C" fn turtls_connect(
     let rl = connection.0.as_mut().unwrap();
 
     if let Err(err) = client_hello.write_to(rl, &keys) {
-        // don't alert because we haven't even sent ClientHello
+        rl.close(Alert::InternalError);
+        *connection = Connection(None);
         return err.into();
     }
 

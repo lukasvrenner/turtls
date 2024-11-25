@@ -124,8 +124,8 @@ impl TlsAead {
     }
 
     pub(crate) fn encrypt_inline(&mut self, msg: &mut [u8], add_data: &[u8]) -> [u8; TAG_SIZE] {
-        let mut init_vec = self.read_iv;
-        let counter = self.read_nonce.to_be_bytes();
+        let mut init_vec = self.write_iv;
+        let counter = self.write_nonce.to_be_bytes();
         for (byte_1, byte_2) in init_vec.iter_mut().rev().zip(counter.into_iter().rev()) {
             *byte_1 ^= byte_2;
         }
