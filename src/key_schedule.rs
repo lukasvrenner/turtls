@@ -1,7 +1,7 @@
 use crylib::hash::Sha256;
 use crylib::hkdf;
 
-const LABEL_PREFIX: &'static [u8] = b"tls13";
+const LABEL_PREFIX: &'static [u8] = b"tls13 ";
 const MAX_LABEL_LEN: usize = 12;
 
 pub(crate) fn hkdf_expand_label(
