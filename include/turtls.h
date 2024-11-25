@@ -230,7 +230,7 @@ struct turtls_Io {
      *
      * Lifetime: this pointer must be valid for the duration of the connection.
      */
-    const void *ctx;
+    void *ctx;
 };
 
 /**
@@ -364,6 +364,8 @@ void turtls_close(struct turtls_Connection *connection);
  * # Safety:
  * `connection` must be valid.
  * `config` must be valid.
+ *
+ * Lifetime: `io.ctx` must be valid until the connction is closed.
  */
 struct turtls_ShakeResult turtls_connect(struct turtls_Io io,
                                          struct turtls_Connection *connection,

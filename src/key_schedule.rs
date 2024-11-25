@@ -32,7 +32,7 @@ pub(crate) fn hkdf_expand_label(
     hkdf_label[pos..][..label.len()].copy_from_slice(label);
     pos += label.len();
 
-    hkdf_label[pos] = Sha256::HASH_SIZE as u8;
+    hkdf_label[pos] = context.len() as u8;
     pos += 1;
 
     hkdf_label[pos..][..context.len()].copy_from_slice(context);
