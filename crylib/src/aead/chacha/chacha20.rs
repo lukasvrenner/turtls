@@ -90,13 +90,18 @@ fn config_state(key: &[u8; 32], nonce: &[u8; 12], counter: u32) -> [u32; 16] {
 
 /// Encrypts `msg` inline
 ///
-/// `counter` can be any number, often `0` or `1`
+/// `start_c` can be any number, often `0` or `1`
+///
+/// # Panics
+///
+/// In each block, start_c is incremented by `1`. It will panic if it overflows.
 ///
 /// WARNING: users MUST NOT use the same `nonce`
 /// more than once with the same key
-pub fn encrypt_inline(msg: &mut [u8], key: &[u8; 32], nonce: &[u8; 12], counter: u32) {
-    for (index, chunk) in msg.chunks_mut(64).enumerate() {
-        let key_stream = block(key, nonce, counter + index as u32);
+pub fn encrypt_inline(msg: &mut [u8], key: &[u8; 32], nonce: &[u8; 12], start_c: u32) {
+    for (counter, chunk) in msg.chunks_mut(64).enumerate() {
+        let key_stream = block(key, nonce, start_c.checked_add(counter as u32).unwrap());
+
         for (chunk_byte, key_stream_byte) in chunk.iter_mut().zip(key_stream.iter()) {
             *chunk_byte ^= key_stream_byte
         }
