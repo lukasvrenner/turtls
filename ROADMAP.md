@@ -154,9 +154,9 @@ A work-in-progress implementation of the TLS 1.3 protocol (RFC 8446) in Rust, pr
 
 ### System Compatibility
 - TurTLS: All systems supported by [getrandom](https://docs.rs/getrandom)
-- [ ] Pull (HTTPS client): POSIX-compliant systems
-- [ ] Build system integration
-- [ ] Dynamic linking configuration
+- Pull (HTTPS client): POSIX-compliant systems
+- Build system integration
+- Dynamic linking configuration
 
 ### Security Requirements
 - [x] Secure random number generation
