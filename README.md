@@ -7,7 +7,10 @@ WARNING: This code has not been audited. Use it at your own risk.
 ================================================================
 
 ## Features
-1. Simple API -- the TurTLS API only contains a few functions:
+See `./ROADMAP.md` for a roadmap and complete list of features
+
+### API
+1. The TurTLS API only contains a few functions:
 - `turtls_generate_config`: Generate the default configuration struct.
 - `turtls_alloc`: Allocate the connection state buffer.
 - `turtls_free`: Free the connection state buffer.
@@ -18,21 +21,8 @@ WARNING: This code has not been audited. Use it at your own risk.
 - `turtls_close`: close the connection.
 - `turtls_stringify_alert`: return a string representation of a TLS alert (not yet implement).
 2. Configuration struct: all configuration is done via a single config struct
-3. AEADs:
-- [AES-* GCM](https://en.wikipedia.org/wiki/Galois/Counter_Mode)
-- [ChaCha20Poly1305](https://en.wikipedia.org/wiki/ChaCha20-Poly1305)
-4. ECC:
-- [ECDSA](https://en.wikipedia.org/wiki/Elliptic_Curve_Digital_Signature_Algorithm)
-- [ECDH](https://en.wikipedia.org/wiki/Elliptic-curve_Diffie%E2%80%93Hellman)
-- Curves: secp256r1 (NIST-P 256)
-5. Hash:
-- [SHA-256](https://en.wikipedia.org/wiki/SHA-2)
-- [SHA-512](https://en.wikipedia.org/wiki/SHA-2)
-- [HMAC](https://en.wikipedia.org/wiki/HMAC)
-- [HKDF](https://en.wikipedia.org/wiki/HKDF)
 
-
-## Cryptography
+### Cryptography
 TurTLS uses in-house cryptography, meaning it uses its own crypto library, called crylib.
 crylib can also be used independently of TurTLS.
 
