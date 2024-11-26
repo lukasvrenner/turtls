@@ -115,7 +115,7 @@ pub unsafe extern "C" fn turtls_connect(
         &[0; Sha256::HASH_SIZE],
     );
 
-    *connection = Connection(Some(RecordLayer::new(io)));
+    *connection = Connection(Some(RecordLayer::new(io, record_timeout)));
     let rl = connection.0.as_mut().unwrap();
 
     if let Err(err) = client_hello.write_to(rl, &keys) {
@@ -124,7 +124,7 @@ pub unsafe extern "C" fn turtls_connect(
         return err.into();
     }
 
-    let server_hello = match RecvdSerHello::read(rl, record_timeout) {
+    let server_hello = match RecvdSerHello::read(rl) {
         Ok(server_hello) => server_hello,
         Err(err) => {
             if let ReadError::Alert(TlsError::Sent(alert)) = err {
@@ -169,7 +169,7 @@ pub unsafe extern "C" fn turtls_connect(
         return ShakeResult::SentAlert(Alert::HandshakeFailure);
     }
 
-    if let Err(err) = rl.read(record_timeout) {
+    if let Err(err) = rl.read() {
         if let ReadError::Alert(TlsError::Sent(alert)) = err {
             rl.close(alert);
         }
@@ -177,7 +177,7 @@ pub unsafe extern "C" fn turtls_connect(
     }
 
     if rl.msg_type() == ContentType::ChangeCipherSpec.to_byte() {
-        if let Err(err) = rl.read(record_timeout) {
+        if let Err(err) = rl.read() {
             if let ReadError::Alert(TlsError::Sent(alert)) = err {
                 rl.close(alert);
             }
