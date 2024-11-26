@@ -37,9 +37,7 @@ impl<'a> RecvdSerHello<'a> {
     /// Note: this function makes the assumption that the ServerHello will be exactly one record.
     /// If the server sends a ServerHello that is broken into multiple records, it will alert
     /// `HandshakeFailed` and return an error.
-    pub(crate) fn read(
-        rl: &'a mut RecordLayer,
-    ) -> Result<Self, ReadError> {
+    pub(crate) fn read(rl: &'a mut RecordLayer) -> Result<Self, ReadError> {
         rl.read()?;
         if rl.msg_type() != ContentType::Handshake.to_byte() {
             return Err(ReadError::Alert(TlsError::Sent(Alert::UnexpectedMessage)));
@@ -55,12 +53,8 @@ impl<'a> RecvdSerHello<'a> {
             return Err(ReadError::Alert(TlsError::Sent(Alert::UnexpectedMessage)));
         }
 
-        let len = u32::from_be_bytes([
-            0,
-            handshake_msg[1],
-            handshake_msg[2],
-            handshake_msg[3],
-        ]) as usize;
+        let len =
+            u32::from_be_bytes([0, handshake_msg[1], handshake_msg[2], handshake_msg[3]]) as usize;
 
         // ServerHello must be the only message in the record
         if len < handshake_msg.len() - SHAKE_HEADER_SIZE {
@@ -78,8 +72,7 @@ impl<'a> RecvdSerHello<'a> {
 
         let ser_hel = &handshake_msg[SHAKE_HEADER_SIZE..];
 
-        let mut pos =
-            size_of::<ProtocolVersion>() + ServerHello::RANDOM_BYTES_LEN;
+        let mut pos = size_of::<ProtocolVersion>() + ServerHello::RANDOM_BYTES_LEN;
 
         let leg_session_id_len = ser_hel[pos];
 
@@ -97,8 +90,7 @@ impl<'a> RecvdSerHello<'a> {
 
         pos += size_of_val(&ServerHello::LEGACY_COMPRESSION_METHOD);
 
-        let extensions_len =
-            u16::from_be_bytes(ser_hel[pos..][..2].try_into().unwrap()) as usize;
+        let extensions_len = u16::from_be_bytes(ser_hel[pos..][..2].try_into().unwrap()) as usize;
 
         pos += Extensions::LEN_SIZE;
         if extensions_len != ser_hel[pos..].len() {

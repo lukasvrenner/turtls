@@ -29,13 +29,19 @@ impl ContentType {
 /// This includes reading, writing, and closing the connection.
 #[repr(C)]
 pub struct Io {
-    /// A write function.
+    /// A *non-blocking* write function.
+    ///
+    /// `write_fn` must return a negative value when a fatal error occurs and zero when a non-fatal
+    /// error occurs. If no error occurs, it must return the number of bytes written.
     ///
     /// `buf`: the buffer to write.
     /// `amt`: the number of bytes to write.
     /// `ctx`: contextual data (e.g. a file descriptor).
     pub write_fn: extern "C" fn(buf: *const c_void, amt: usize, ctx: *const c_void) -> isize,
     /// A *non-blocking* read function.
+    ///
+    /// `read_fn` must return a negative value when a fatal error occurs and zero when a non-fatal
+    /// error occurs. If no error occurs, it must return the number of bytes written.
     ///
     /// `buf`: the buffer to read to.
     /// `amt`: the maximum number of bytes to read.
@@ -299,7 +305,8 @@ impl RecordLayer {
     fn plain_read(&mut self) -> Result<(), ReadError> {
         let start_time = Instant::now();
 
-        self.io.read_full(&mut self.buf[..Self::HEADER_SIZE], start_time, self.timeout)?;
+        self.io
+            .read_full(&mut self.buf[..Self::HEADER_SIZE], start_time, self.timeout)?;
 
         let record_len = u16::from_be_bytes([
             self.buf[Self::HEADER_SIZE - 2],
@@ -311,7 +318,11 @@ impl RecordLayer {
         }
         self.len = record_len + Self::HEADER_SIZE;
 
-        self.io.read_full(&mut self.buf[Self::HEADER_SIZE..][..record_len], start_time, self.timeout)?;
+        self.io.read_full(
+            &mut self.buf[Self::HEADER_SIZE..][..record_len],
+            start_time,
+            self.timeout,
+        )?;
         Ok(())
     }
 
