@@ -266,17 +266,6 @@ impl RecordLayer {
         }
     }
 
-    pub(crate) fn extend(&mut self, amt: usize) {
-        self.extend_with(0, amt);
-    }
-
-    pub(crate) fn extend_with(&mut self, value: u8, amt: usize) {
-        // TODO: can and should this be optimized?
-        for _ in 0..amt {
-            self.push(value);
-        }
-    }
-
     /// Reads a single record into [`RecordLayer`]'s internal buffer, decrypting and processing if
     /// necessary.
     pub(crate) fn read(&mut self) -> Result<(), ReadError> {
@@ -365,33 +354,6 @@ impl RecordLayer {
         todo!()
     }
 
-    fn fill_buf(
-        &mut self,
-        start_index: usize,
-        size: usize,
-        timeout: Duration,
-        start_time: Instant,
-    ) -> Result<(), ReadError> {
-        assert!(start_index + size < Self::BUF_SIZE);
-        let buf = &mut self.buf[start_index..][..size];
-        let mut bytes_read = 0;
-
-        while bytes_read < size {
-            let new_bytes = self.io.read(&mut buf[bytes_read..]);
-
-            if start_time.elapsed() > timeout {
-                return Err(ReadError::Timeout);
-            }
-
-            if new_bytes < 0 {
-                return Err(ReadError::IoError);
-            }
-
-            bytes_read += new_bytes as usize
-        }
-        Ok(())
-    }
-
     pub(crate) fn close(&mut self, alert: Alert) {
         self.buf[0] = ContentType::Alert.to_byte();
 
@@ -402,7 +364,8 @@ impl RecordLayer {
         [self.buf[Self::HEADER_SIZE], self.buf[Self::HEADER_SIZE + 1]] =
             AlertMsg::new(alert).to_be_bytes();
 
-        self.finish();
+        // the return value doesn't matter because we're closing anyways
+        let _ = self.finish();
         self.io.close();
     }
 
