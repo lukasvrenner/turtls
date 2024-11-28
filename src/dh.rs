@@ -1,8 +1,8 @@
 //! Diffie-Hellman key exchange.
 
-use crate::extensions::SupGroups;
+//use crate::extensions::SupGroups;
 use crylib::big_int::UBigInt;
-use crylib::ec::{EllipticCurve, Secp256r1};
+use crylib::ec::{AffinePoint, EllipticCurve, Secp256r1};
 use crylib::finite_field::FieldElement;
 use getrandom::getrandom;
 
@@ -46,8 +46,8 @@ pub(crate) struct GroupKeys {
 }
 
 impl GroupKeys {
-    pub(crate) fn generate(groups: SupGroups) -> Result<Self, KeyGenError> {
-        if groups.groups == 0 {
+    pub(crate) fn generate(groups: u16) -> Result<Self, KeyGenError> {
+        if groups == 0 {
             return Err(KeyGenError::NoGroups);
         }
         let mut buf = [0; 32];
@@ -75,4 +75,22 @@ impl From<getrandom::Error> for KeyGenError {
     fn from(_: getrandom::Error) -> Self {
         Self::RngError
     }
+}
+
+pub(crate) fn secp256r1_shared_secret(
+    key_share: &[u8],
+    group_keys: &GroupKeys,
+) -> Option<[u8; 32]> {
+    let raw_x = UBigInt::<4>::from_be_bytes(key_share[1..][..32].try_into().unwrap());
+    let x: FieldElement<4, Secp256r1> = FieldElement::try_from(raw_x).ok()?;
+
+    let raw_y = UBigInt::<4>::from_be_bytes(key_share[33..][..32].try_into().unwrap());
+    let y: FieldElement<4, Secp256r1> = FieldElement::try_from(raw_y).ok()?;
+
+    let mut point = AffinePoint::new(x, y)?.as_projective();
+    point.mul_scalar_assign(&group_keys.secp256r1);
+    let as_affine = point
+        .as_affine()
+        .expect("private key isn't zero and point is on curve");
+    Some(as_affine.x().to_be_bytes())
 }

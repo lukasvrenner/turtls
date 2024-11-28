@@ -1,4 +1,4 @@
-use crate::{cipher_suites::CipherList, extensions::Extensions};
+use crate::{cipher_suites::CipherList, extensions::ExtList};
 
 /// The configurations to use for a specific TLS connection.
 ///
@@ -10,7 +10,7 @@ pub struct Config {
     /// Default value: `10000`
     pub timeout_millis: u64,
     /// The extensions to use.
-    pub extensions: Extensions,
+    pub extensions: ExtList,
     /// The cipher suites to use.
     pub cipher_suites: CipherList,
 }
@@ -19,7 +19,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             timeout_millis: 10_000,
-            extensions: Extensions::default(),
+            extensions: ExtList::default(),
             cipher_suites: CipherList::default(),
         }
     }

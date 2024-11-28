@@ -1,15 +1,15 @@
 use crate::cipher_suites::CipherList;
 use crate::dh::GroupKeys;
-use crate::extensions::Extensions;
+use crate::extensions::ExtList;
 use crate::handshake::ShakeType;
-use crate::record::{ContentType, RecordLayer};
+use crate::record::{ContentType, IoError, RecordLayer};
 use crate::versions::ProtocolVersion;
 use crate::versions::LEGACY_PROTO_VERS;
 use getrandom::{getrandom, Error};
 
 pub(crate) struct ClientHello {
     pub(crate) cipher_suites: CipherList,
-    pub(crate) extensions: Extensions,
+    pub(crate) extensions: ExtList,
 }
 
 impl ClientHello {
@@ -25,7 +25,7 @@ impl ClientHello {
             + self.cipher_suites.len()
             // TODO use size_of_val once it is const-stabilized
             + size_of_val(&Self::LEGACY_COMPRESSION_METHODS)
-            + Extensions::LEN_SIZE
+            + ExtList::LEN_SIZE
             + self.extensions.len_client()
     }
 
@@ -35,42 +35,47 @@ impl ClientHello {
         keys: &GroupKeys,
     ) -> Result<(), CliHelError> {
         record_layer.start_as(ContentType::Handshake);
-        record_layer.push(ShakeType::ClientHello.to_byte());
+        record_layer.push(ShakeType::ClientHello.to_byte())?;
 
         let len = self.len() as u32;
-        record_layer.push_u24(len);
+        record_layer.push_u24(len)?;
 
-        record_layer.push_u16(LEGACY_PROTO_VERS.as_int());
+        record_layer.push_u16(LEGACY_PROTO_VERS.as_int())?;
 
         let mut random_bytes = [0; Self::RANDOM_BYTES_LEN];
         getrandom(&mut random_bytes)?;
-        record_layer.extend_from_slice(&random_bytes);
+        record_layer.extend_from_slice(&random_bytes)?;
 
-        record_layer.push(Self::LEGACY_SESSION_ID);
+        record_layer.push(Self::LEGACY_SESSION_ID)?;
 
         let len = self.cipher_suites.len() as u16;
-        record_layer.push_u16(len);
-        self.cipher_suites.write_to(record_layer);
+        record_layer.push_u16(len)?;
+        self.cipher_suites.write_to(record_layer)?;
 
-        record_layer.extend_from_slice(&Self::LEGACY_COMPRESSION_METHODS);
+        record_layer.extend_from_slice(&Self::LEGACY_COMPRESSION_METHODS)?;
 
         let len = self.extensions.len_client() as u16;
-        record_layer.push_u16(len);
-        self.extensions.write_client(record_layer, keys);
+        record_layer.push_u16(len)?;
+        self.extensions.write_client(record_layer, keys)?;
 
-        record_layer.finish();
-        Ok(())
+        record_layer.finish().map_err(|err| err.into())
     }
 }
 
 pub(crate) enum CliHelError {
     RngError,
-    IoError,
+    IoError(IoError),
 }
 
 impl From<Error> for CliHelError {
     fn from(_: Error) -> Self {
         Self::RngError
+    }
+}
+
+impl From<IoError> for CliHelError {
+    fn from(value: IoError) -> Self {
+        Self::IoError(value)
     }
 }
 

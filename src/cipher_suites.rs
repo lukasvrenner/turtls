@@ -1,9 +1,5 @@
-use crylib::big_int::UBigInt;
-use crylib::ec::{EllipticCurve, Secp256r1};
-use crylib::finite_field::FieldElement;
-use getrandom::getrandom;
-
-use crate::{extensions::SupGroups, record::RecordLayer};
+use crate::record::IoError;
+use crate::record::RecordLayer;
 
 /// The supported ciphersuites.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -28,13 +24,14 @@ impl CipherList {
         self.suites.count_ones() as usize * size_of::<CipherSuite>()
     }
 
-    pub(crate) fn write_to(&self, record_layer: &mut RecordLayer) {
+    pub(crate) fn write_to(&self, record_layer: &mut RecordLayer) -> Result<(), IoError> {
         if self.suites & Self::AES_128_GCM_SHA256 > 0 {
-            record_layer.push_u16(CipherSuite::Aes128GcmSha256.as_int());
+            record_layer.push_u16(CipherSuite::Aes128GcmSha256.as_int())?;
         }
         if self.suites & Self::CHA_CHA_POLY1305_SHA256 > 0 {
-            record_layer.push_u16(CipherSuite::ChaCha20Poly1305Sha256.as_int());
+            record_layer.push_u16(CipherSuite::ChaCha20Poly1305Sha256.as_int())?;
         }
+        Ok(())
     }
 
     pub(crate) fn parse_singular(suite: [u8; size_of::<CipherSuite>()]) -> Self {

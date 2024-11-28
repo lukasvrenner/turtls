@@ -1,17 +1,16 @@
-use std::time::Duration;
-
 use crate::alert::Alert;
 use crate::cipher_suites::{CipherList, CipherSuite};
+use crate::dh::NamedGroup;
 use crate::error::TlsError;
-use crate::extensions::{Extensions, SerHelExtRef};
-use crate::handshake::{self, ShakeType, SHAKE_HEADER_SIZE};
+use crate::extensions::{self, ExtList};
+use crate::handshake::{ShakeType, SHAKE_HEADER_SIZE};
 use crate::record::{ContentType, ReadError, RecordLayer};
 use crate::versions::ProtocolVersion;
 
 pub(crate) struct ServerHello<'a> {
     leg_sesion_id: &'a [u8],
     cipher_suite: CipherList,
-    extensions: Extensions,
+    extensions: ExtList,
 }
 
 impl<'a> ServerHello<'a> {
@@ -23,21 +22,24 @@ impl<'a> ServerHello<'a> {
         + Self::LEG_SESS_ID_LEN_SIZE
         + size_of::<CipherSuite>()
         + 1
-        + Extensions::LEN_SIZE;
+        + ExtList::LEN_SIZE;
 }
 
-pub struct RecvdSerHello<'a> {
+pub struct SerHelloRef<'a> {
+    /// The cipher suite chosen by the peer.
     pub(crate) cipher_suite: CipherList,
-    pub(crate) extensions: SerHelExtRef<'a>,
+    /// The key share data sent by the peer.
+    pub(crate) key_share_type: [u8; 2],
+    pub(crate) key_share: &'a [u8],
 }
 
-impl<'a> RecvdSerHello<'a> {
+impl<'a> SerHelloRef<'a> {
     /// Recieve and parse a ServerHello message.
     ///
     /// Note: this function makes the assumption that the ServerHello will be exactly one record.
     /// If the server sends a ServerHello that is broken into multiple records, it will alert
     /// `HandshakeFailed` and return an error.
-    pub(crate) fn read(rl: &'a mut RecordLayer) -> Result<Self, ReadError> {
+    pub(crate) fn read_and_parse(rl: &'a mut RecordLayer) -> Result<Self, ReadError> {
         rl.read()?;
         if rl.msg_type() != ContentType::Handshake.to_byte() {
             return Err(ReadError::Alert(TlsError::Sent(Alert::UnexpectedMessage)));
@@ -92,19 +94,32 @@ impl<'a> RecvdSerHello<'a> {
 
         let extensions_len = u16::from_be_bytes(ser_hel[pos..][..2].try_into().unwrap()) as usize;
 
-        pos += Extensions::LEN_SIZE;
+        pos += ExtList::LEN_SIZE;
         if extensions_len != ser_hel[pos..].len() {
             return Err(ReadError::Alert(TlsError::Sent(Alert::DecodeError)));
         }
 
-        let extensions = match SerHelExtRef::parse(&ser_hel[pos..]) {
-            Ok(ext) => ext,
-            Err(err) => return Err(ReadError::Alert(TlsError::Sent(err))),
+        let key_share_ext = match extensions::parse_ser_hel(&ser_hel[pos..]) {
+            Ok(key_share) => key_share,
+            Err(alert) => return Err(ReadError::Alert(TlsError::Sent(alert))),
         };
+
+        if key_share_ext.len() < size_of::<NamedGroup>() + ExtList::LEN_SIZE {
+            return Err(ReadError::Alert(TlsError::Sent(Alert::DecodeError)));
+        }
+
+        let key_share_type = key_share_ext[..size_of::<NamedGroup>()].try_into().unwrap();
+        let key_share = &key_share_ext[size_of::<NamedGroup>() + ExtList::LEN_SIZE..];
+        if key_share_ext[size_of::<NamedGroup>()..][..ExtList::LEN_SIZE]
+            != (key_share.len() as u16).to_be_bytes()
+        {
+            return Err(ReadError::Alert(TlsError::Sent(Alert::DecodeError)));
+        }
 
         Ok(Self {
             cipher_suite,
-            extensions,
+            key_share_type,
+            key_share,
         })
     }
 }

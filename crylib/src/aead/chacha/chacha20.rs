@@ -15,7 +15,7 @@ const fn quarter_round(mut a: u32, mut b: u32, mut c: u32, mut d: u32) -> (u32, 
     (a, b, c, d)
 }
 
-fn inner_block(state: &mut [u32; 16]) {
+const fn inner_block(state: &mut [u32; 16]) {
     (state[0], state[4], state[8], state[12]) =
         quarter_round(state[0], state[4], state[8], state[12]);
 

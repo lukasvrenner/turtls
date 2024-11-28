@@ -8,6 +8,16 @@
 
 
 /**
+ * The ECDSA signature algoritm over the secp256r1 (NIST-P 256) curve.
+ */
+#define turtls_ECDSA_SECP256R1 1
+
+/**
+ * Key exchange via ECDH on the secp256r1 (NIST-P 256) curve.
+ */
+#define turtls_SECP256R1 1
+
+/**
  * TLS error reporting.
  */
 enum turtls_Alert
@@ -202,7 +212,10 @@ struct turtls_ShakeResult {
  */
 struct turtls_Io {
     /**
-     * A write function.
+     * A *non-blocking* write function.
+     *
+     * `write_fn` must return a negative value when a fatal error occurs and zero when a non-fatal
+     * error occurs. If no error occurs, it must return the number of bytes written.
      *
      * `buf`: the buffer to write.
      * `amt`: the number of bytes to write.
@@ -211,6 +224,9 @@ struct turtls_Io {
     ptrdiff_t (*write_fn)(const void *buf, size_t amt, const void *ctx);
     /**
      * A *non-blocking* read function.
+     *
+     * `read_fn` must return a negative value when a fatal error occurs and zero when a non-fatal
+     * error occurs. If no error occurs, it must return the number of bytes written.
      *
      * `buf`: the buffer to read to.
      * `amt`: the maximum number of bytes to read.
@@ -234,69 +250,35 @@ struct turtls_Io {
 };
 
 /**
- * The server name to send to the server or expect from the client.
- *
- * If no server name is to be sent or expected, set `name` to `NULL` and `len` to `0`.
- * By default, no name will be sent or expected.
- */
-struct turtls_ServerName {
-    /**
-     * The name of the server.
-     *
-     * The string need not be null-terminated.
-     *
-     * Lifetime: this pointer must be valid for the duration of the handshake.
-     */
-    const char *name;
-    /**
-     * The length of the server name in bytes.
-     */
-    size_t len;
-};
-
-/**
- * A list of algorithms to use for signatures.
- *
- * Use bit-OR to turn an option on and bit-NAND to turn an option off.
- */
-typedef uint16_t turtls_SigAlgs;
-/**
- * The Elliptic Curve Digital Signature Algorithm with curve Secp256r1 (NIST-P 256).
- */
-#define turtls_SigAlgs_ECDSA_SECP256R1 1
-
-/**
- * A list of curves to use for key exchange.
- *
- * Use bit-OR to turn an option on and bit-NAND to turn an option off.
- */
-typedef uint16_t turtls_SupGroups;
-
-/**
  * The extensions to use in the handshake.
  *
  * Refer to each extension's individual documentation for specific usage information.
  */
-struct turtls_Extensions {
+struct turtls_ExtList {
     /**
      * The server name to send to the server or to expect from the client.
      *
-     * Refer to its specific documentation for more information.
-     */
-    struct turtls_ServerName server_name;
-    /**
-     * A list of signature algorithms to support.
+     * If `server_name` is `null`, the extension won't be sent.
      *
-     * Refer to its specific documentation for more information.
+     * `server_name` need not be null-terminated.
      */
-    turtls_SigAlgs sig_algs;
+    const char *server_name;
     /**
-     * A list of curves to use for key exchange.
+     * The length of the `server_name` string in bytes.
      *
-     * Refer to its specific documentation for more information.
+     * If `server_name_len` is `0`, the extension won't be sent.
      */
-    turtls_SupGroups sup_groups;
+    size_t server_name_len;
+    /**
+     * The signature algorithms to support.
+     */
+    uint16_t sig_algs;
+    /**
+     * The methods to use for key exchange.
+     */
+    uint16_t sup_groups;
 };
+#define turtls_ExtList_LEN_SIZE 2
 
 /**
  * The supported ciphersuites.
@@ -330,7 +312,7 @@ struct turtls_Config {
     /**
      * The extensions to use.
      */
-    struct turtls_Extensions extensions;
+    struct turtls_ExtList extensions;
     /**
      * The cipher suites to use.
      */

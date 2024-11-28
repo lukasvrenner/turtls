@@ -60,14 +60,14 @@ impl<const N: usize> UBigInt<N> {
         Self(value)
     }
 
-    pub fn from_ref(value: &[u64; N]) -> &Self {
+    pub const fn from_ref(value: &[u64; N]) -> &Self {
         let ptr = value as *const [u64; N] as *const UBigInt<N>;
         // SAFETY: `UBigInt<N>` is repr(transparent) and therefore has the same memory layout as
         // `[u64; N]`.
         unsafe { &*ptr }
     }
 
-    pub fn from_ref_mut(value: &mut [u64; N]) -> &mut Self {
+    pub const fn from_ref_mut(value: &mut [u64; N]) -> &mut Self {
         let ptr = value as *mut [u64; N] as *mut UBigInt<N>;
         // SAFETY: `UBigInt<N>` is repr(transparent) and therefore has the same memory layout as
         // `[u64; N]`.

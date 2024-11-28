@@ -28,11 +28,11 @@ use crylib::{
     hash::{Hasher, Sha256},
     hkdf,
 };
-use dh::GroupKeys;
+use dh::{GroupKeys, NamedGroup};
 use error::TlsError;
-use extensions::KeyShare;
+use extensions::SECP256R1;
 use record::{ContentType, ReadError, RecordLayer};
-use server_hello::RecvdSerHello;
+use server_hello::SerHelloRef;
 
 pub use alert::Alert;
 pub use cipher_suites::CipherList;
@@ -100,7 +100,7 @@ pub unsafe extern "C" fn turtls_connect(
     let config = unsafe { &*config };
     let record_timeout = Duration::from_millis(config.timeout_millis);
 
-    let keys = match GroupKeys::generate(config.extensions.sup_groups) {
+    let priv_keys = match GroupKeys::generate(config.extensions.sup_groups) {
         Ok(keys) => keys,
         Err(err) => return err.into(),
     };
@@ -118,13 +118,13 @@ pub unsafe extern "C" fn turtls_connect(
     *connection = Connection(Some(RecordLayer::new(io, record_timeout)));
     let rl = connection.0.as_mut().unwrap();
 
-    if let Err(err) = client_hello.write_to(rl, &keys) {
+    if let Err(err) = client_hello.write_to(rl, &priv_keys) {
         rl.close(Alert::InternalError);
         *connection = Connection(None);
         return err.into();
     }
 
-    let server_hello = match RecvdSerHello::read(rl) {
+    let server_hello = match SerHelloRef::read_and_parse(rl) {
         Ok(server_hello) => server_hello,
         Err(err) => {
             if let ReadError::Alert(TlsError::Sent(alert)) = err {
@@ -135,27 +135,33 @@ pub unsafe extern "C" fn turtls_connect(
         },
     };
 
-    let dh_shared_secret = match KeyShare::parse_ser(
-        server_hello.extensions.key_share,
-        config.extensions.sup_groups,
-        &keys,
-    ) {
-        Ok(secret) => secret,
-        Err(err) => {
-            rl.close(err);
-            *connection = Connection(None);
-            return ShakeResult::SentAlert(err);
-        },
-    };
     let cipher_suite = CipherList {
         suites: server_hello.cipher_suite.suites & config.cipher_suites.suites,
     };
 
     let salt = key_schedule::derive_secret(&early_secret, b"derived", &Sha256::hash(b""));
-    let handshake_secret = hkdf::extract::<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>(
-        &salt,
-        &dh_shared_secret,
-    );
+    let handshake_secret = match server_hello.key_share_type {
+        x if x == NamedGroup::Secp256r1.to_be_bytes()
+            && config.extensions.sup_groups & SECP256R1 > 0 =>
+        {
+            let Some(dh_shared_secret) =
+                dh::secp256r1_shared_secret(server_hello.key_share, &priv_keys)
+            else {
+                rl.close(Alert::IllegalParam);
+                *connection = Connection(None);
+                return ShakeResult::SentAlert(Alert::IllegalParam);
+            };
+            hkdf::extract::<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>(
+                &salt,
+                &dh_shared_secret,
+            )
+        },
+        _ => {
+            rl.close(Alert::HandshakeFailure);
+            *connection = Connection(None);
+            return ShakeResult::SentAlert(Alert::HandshakeFailure);
+        },
+    };
     let transcript = rl.transcript();
     let cli_shake_traf_secret =
         key_schedule::derive_secret(&handshake_secret, b"c hs traffic", &transcript);

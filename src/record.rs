@@ -77,7 +77,8 @@ impl Io {
         (self.close_fn)(self.ctx);
     }
 
-    fn read_full(
+    /// Reads to the entire buffer unless timeout or another error occurs.
+    fn read_all(
         &self,
         buf: &mut [u8],
         start_time: Instant,
@@ -101,12 +102,8 @@ impl Io {
         Ok(())
     }
 
-    fn write_full(
-        &self,
-        buf: &[u8],
-        start_time: Instant,
-        timeout: Duration,
-    ) -> Result<(), IoError> {
+    /// Writes the entire buffer unless timeout or another error occurs.
+    fn write_all(&self, buf: &[u8], start_time: Instant, timeout: Duration) -> Result<(), IoError> {
         let mut bytes_written = 0;
         while bytes_written < buf.len() {
             let new_bytes = self.write(buf);
@@ -191,7 +188,7 @@ impl RecordLayer {
         self.encode_len();
         self.encrypt();
         let start = Instant::now();
-        self.io.write_full(&self.buf, start, self.timeout)
+        self.io.write_all(&self.buf, start, self.timeout)
     }
 
     /// The length of the data in the buffer.
@@ -205,65 +202,47 @@ impl RecordLayer {
         &self.buf[Self::HEADER_SIZE..self.len]
     }
 
-    pub(crate) fn push(&mut self, value: u8) {
+    pub(crate) fn push(&mut self, value: u8) -> Result<(), IoError> {
         if self.data_len() == Self::MAX_LEN {
-            self.finish();
+            self.finish()?;
             self.start();
         }
         self.buf[self.len] = value;
         self.len += 1;
+        Ok(())
     }
 
-    pub(crate) fn push_u16(&mut self, value: u16) {
-        self.push((value >> 8) as u8);
-        self.push(value as u8);
+    pub(crate) fn push_u16(&mut self, value: u16) -> Result<(), IoError> {
+        self.push((value >> 8) as u8)?;
+        self.push(value as u8)
     }
 
-    pub(crate) fn push_u24(&mut self, value: u32) {
-        self.push((value >> 16) as u8);
+    pub(crate) fn push_u24(&mut self, value: u32) -> Result<(), IoError> {
+        self.push((value >> 16) as u8)?;
 
-        self.push((value >> 8) as u8);
-        self.push(value as u8);
+        self.push((value >> 8) as u8)?;
+        self.push(value as u8)
     }
 
-    pub(crate) fn push_u32(&mut self, value: u32) {
-        self.push((value >> 24) as u8);
-        self.push((value >> 16) as u8);
-
-        self.push((value >> 8) as u8);
-        self.push(value as u8);
-    }
-
-    pub(crate) fn push_u64(&mut self, value: u64) {
-        self.push((value >> 56) as u8);
-        self.push((value >> 48) as u8);
-        self.push((value >> 40) as u8);
-        self.push((value >> 32) as u8);
-
-        self.push((value >> 24) as u8);
-        self.push((value >> 16) as u8);
-        self.push((value >> 8) as u8);
-        self.push(value as u8);
-    }
-
-    pub(crate) fn extend_from_slice(&mut self, slice: &[u8]) {
+    pub(crate) fn extend_from_slice(&mut self, slice: &[u8]) -> Result<(), IoError> {
         let diff = Self::MAX_LEN - self.data_len();
 
         if slice.len() <= diff {
             self.buf[self.len..][..slice.len()].copy_from_slice(slice);
             self.len += slice.len();
-            return;
+            return Ok(());
         }
 
         self.buf[self.len..].copy_from_slice(&slice[..diff]);
         self.len = Self::MAX_LEN + Self::HEADER_SIZE;
 
         for chunk in slice[diff..].chunks(Self::MAX_LEN) {
-            self.finish();
+            self.finish()?;
             self.start();
             self.buf[Self::HEADER_SIZE..][..chunk.len()].copy_from_slice(chunk);
             self.len = Self::HEADER_SIZE + chunk.len();
         }
+        Ok(())
     }
 
     /// Reads a single record into [`RecordLayer`]'s internal buffer, decrypting and processing if
@@ -295,7 +274,7 @@ impl RecordLayer {
         let start_time = Instant::now();
 
         self.io
-            .read_full(&mut self.buf[..Self::HEADER_SIZE], start_time, self.timeout)?;
+            .read_all(&mut self.buf[..Self::HEADER_SIZE], start_time, self.timeout)?;
 
         let record_len = u16::from_be_bytes([
             self.buf[Self::HEADER_SIZE - 2],
@@ -307,7 +286,7 @@ impl RecordLayer {
         }
         self.len = record_len + Self::HEADER_SIZE;
 
-        self.io.read_full(
+        self.io.read_all(
             &mut self.buf[Self::HEADER_SIZE..][..record_len],
             start_time,
             self.timeout,

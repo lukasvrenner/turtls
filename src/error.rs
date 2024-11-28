@@ -2,7 +2,7 @@ use crate::alert::Alert;
 use crate::client_hello::CliHelError;
 use crate::config::ConfigError;
 use crate::dh::KeyGenError;
-use crate::record::ReadError;
+use crate::record::{IoError, ReadError};
 
 #[derive(Debug)]
 pub(crate) enum TlsError {
@@ -39,7 +39,10 @@ pub enum ShakeResult {
 impl From<CliHelError> for ShakeResult {
     fn from(value: CliHelError) -> Self {
         match value {
-            CliHelError::IoError => Self::IoError,
+            CliHelError::IoError(err) => match err {
+                IoError::IoError => Self::IoError,
+                IoError::Timeout => Self::Timeout,
+            },
             CliHelError::RngError => Self::RngError,
         }
     }
