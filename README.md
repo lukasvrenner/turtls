@@ -6,13 +6,13 @@ Note: Although turtls is written in Rust, it only provides a C API.
 WARNING: This code has not been audited. Use it at your own risk.
 ================================================================
 
-## Documentation
+### Documentation
 
-### Latest Release
+#### Latest Release
 - [TurTLS](https://docs.rs/turtls)
 - [crylib](https://docs.rs/crylib)
 
-### Master Branch
+#### Master Branch
 TODO: generate documentation for the master branch.
 
 ## Features
