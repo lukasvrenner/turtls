@@ -23,8 +23,7 @@ See `./ROADMAP.md` for a roadmap and complete list of features
 2. Configuration struct: all configuration is done via a single config struct
 
 ### Cryptography
-TurTLS uses in-house cryptography, meaning it uses its own crypto library, called crylib.
-crylib can also be used independently of TurTLS.
+TurTLS maintains a general-purpose crypto library called [crylib](https://docs.rs/crylib). Its code can be found at `./crylib/`.
 
 ## Building
 Make sure you have a recent version of Rust installed. This project uses on new language features as they release,
