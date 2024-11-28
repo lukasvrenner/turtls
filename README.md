@@ -6,7 +6,7 @@ Note: Although turtls is written in Rust, it only provides a C API.
 WARNING: This code has not been audited. Use it at your own risk.
 ================================================================
 
-### Documentation
+## Documentation
 
 #### Latest Release
 - [TurTLS](https://docs.rs/turtls)
