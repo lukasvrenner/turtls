@@ -178,15 +178,28 @@ impl RecordLayer {
     }
 
     fn encode_len(&mut self) {
-        let len = (self.data_len() as u16).to_be_bytes();
-        self.buf[Self::HEADER_SIZE - Self::LEN_SIZE..Self::HEADER_SIZE].copy_from_slice(&len);
+        self.buf[Self::HEADER_SIZE - Self::LEN_SIZE] = (self.data_len() >> 8) as u8;
+        self.buf[Self::HEADER_SIZE - Self::LEN_SIZE + 1] = self.data_len() as u8;
+    }
+
+    fn encode_and_protect(&mut self) {
+        if self.aead.is_some() {
+            let msg_type = std::mem::replace(&mut self.buf[0], ContentType::ApplicationData.to_byte());
+            self.buf[self.len] = msg_type;
+            self.len += 1;
+            // TODO: pad the record
+            self.len += TAG_SIZE;
+        }
+        self.encode_len();
+        self.encrypt();
     }
 
     pub(crate) fn finish(&mut self) -> Result<(), IoError> {
-        self.transcript
-            .update_with(&self.buf[Self::HEADER_SIZE..self.len]);
-        self.encode_len();
-        self.encrypt();
+        if self.msg_type() == ContentType::Handshake.to_byte() {
+            self.transcript
+                .update_with(&self.buf[Self::HEADER_SIZE..self.len]);
+        }
+        self.encode_and_protect();
         let start = Instant::now();
         self.io.write_all(&self.buf, start, self.timeout)
     }
@@ -250,7 +263,7 @@ impl RecordLayer {
     pub(crate) fn read(&mut self) -> Result<(), ReadError> {
         self.plain_read()?;
 
-        if let Err(alert) = self.decrypt() {
+        if let Err(alert) = self.deprotect() {
             return Err(ReadError::Alert(TlsError::Sent(alert)));
         }
 
@@ -294,7 +307,7 @@ impl RecordLayer {
         Ok(())
     }
 
-    fn decrypt(&mut self) -> Result<(), Alert> {
+    fn deprotect(&mut self) -> Result<(), Alert> {
         if self.msg_type() != ContentType::ApplicationData.to_byte() {
             return Ok(());
         }
@@ -330,7 +343,10 @@ impl RecordLayer {
         let Some(ref mut aead) = self.aead else {
             return;
         };
-        todo!()
+        let (header, msg) = self.buf[..self.len].split_at_mut(Self::HEADER_SIZE);
+        let (msg, tag) = msg.split_at_mut(self.len - Self::HEADER_SIZE - TAG_SIZE);
+        let tag: &mut [u8; TAG_SIZE] = tag.try_into().unwrap();
+        *tag = aead.encrypt_inline(msg, header);
     }
 
     pub(crate) fn close(&mut self, alert: Alert) {
