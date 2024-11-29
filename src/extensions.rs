@@ -120,7 +120,7 @@ impl Default for ExtList {
 }
 
 impl ExtList {
-    pub const LEN_SIZE: usize = 2;
+    pub(crate) const LEN_SIZE: usize = 2;
     const HEADER_SIZE: usize = size_of::<ExtensionType>() + Self::LEN_SIZE;
 
     /// The length of the extensions in ClientHello

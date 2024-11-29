@@ -278,7 +278,6 @@ struct turtls_ExtList {
      */
     uint16_t sup_groups;
 };
-#define turtls_ExtList_LEN_SIZE 2
 
 /**
  * The supported ciphersuites.
@@ -367,6 +366,14 @@ void turtls_free(struct turtls_Connection *connection);
  * Generates a default configuration struct.
  */
 struct turtls_Config turtls_generate_config(void);
+
+/**
+ * Returns a string representation of the alert.
+ *
+ * Lifetime: the returned string has a static lifetime and as such can be used for the duration of
+ * the program.
+ */
+const int8_t *turtls_stringify_alert(turtls_Alert alert);
 
 #ifdef __cplusplus
 }  // extern "C"

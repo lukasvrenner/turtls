@@ -63,7 +63,7 @@ pub enum Alert {
 }
 
 impl Alert {
-    pub fn from_byte(byte: u8) -> Self {
+    pub (crate) fn from_byte(byte: u8) -> Self {
         use Alert::*;
         // TODO: use inline const once stabilized
         match byte {
@@ -117,4 +117,44 @@ impl AlertMsg {
     pub(crate) const fn to_be_bytes(self) -> [u8; Self::SIZE] {
         [self.level as u8, self.description as u8]
     }
+}
+
+use std::ffi::CStr;
+/// Returns a string representation of the alert.
+///
+/// Lifetime: the returned string has a static lifetime and as such can be used for the duration of
+/// the program.
+#[no_mangle]
+pub extern "C" fn turtls_stringify_alert(alert: Alert) -> *const i8 {
+    // use explicit type to guarantee static lifetime
+    let msg: &'static CStr = match alert {
+        Alert::CloseNotify => c"closing connection",
+        Alert::UnexpectedMessage => c"unexpected message",
+        Alert::BadRecordMac => c"bad record MAC",
+        Alert::HandshakeFailure => c"handshake failed",
+        Alert::RecordOverflow => c"record overflow",
+        Alert::BadCert => c"bad certificate",
+        Alert::UnsupportedCert => c"unsupported certificate",
+        Alert::CertRevoked => c"certificate revoked",
+        Alert::CertExpired => c"certificate expired",
+        Alert::CertUnknown => c"unknown certificate",
+        Alert::IllegalParam => c"illegal parameter",
+        Alert::UnknownCa => c"unknown certificate authority",
+        Alert::AccessDenied => c"access denied",
+        Alert::DecodeError => c"decode error",
+        Alert::DecryptErorr => c"decrypt error",
+        Alert::ProtocolVersion => c"unsupported protocol version",
+        Alert::InsufficientSecurity => c"insufficient security",
+        Alert::InternalError => c"internal error",
+        Alert::InappropriateFallback => c"inappropriate fallback",
+        Alert::UserCancelled => c"user canceled",
+        Alert::MissingExtension => c"missing extension",
+        Alert::UnsupportedExtension => c"unsupported extension",
+        Alert::UnrecognizedName => c"unrecognized server name",
+        Alert::BadCertStatusResponse => c"bad certificate status response",
+        Alert::UnknownPskIdentity => c"unknown PSK identity",
+        Alert::CertRequired => c"certificate required",
+        Alert::NoAppProtocol => c"no application protocol",
+    };
+    msg.as_ptr()
 }

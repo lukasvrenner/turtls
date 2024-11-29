@@ -1,7 +1,10 @@
 #[repr(u16)]
 pub(crate) enum ProtocolVersion {
+    #[expect(unused, reason = "SSL 3.0 is not supported")]
     SslThreeZero = 0x0300,
+    #[expect(unused, reason = "TLS 1.0 is not supported")]
     TlsOneZero = 0x0301,
+    #[expect(unused, reason = "SSL 1.1 is not supported")]
     TlsOneOne = 0x0302,
     TlsOneTwo = 0x0303,
     TlsOneThree = 0x0304,

@@ -28,7 +28,7 @@ See `./ROADMAP.md` for a roadmap and complete list of features
 - `turtls_send`: send data to the peer (not yet implemented).
 - `turtls_read`: read data from the peer (not yet implemented).
 - `turtls_close`: close the connection.
-- `turtls_stringify_alert`: return a string representation of a TLS alert (not yet implement).
+- `turtls_stringify_alert`: return a string representation of a TLS alert.
 2. Configuration struct: all configuration is done via a single config struct
 
 ### Cryptography

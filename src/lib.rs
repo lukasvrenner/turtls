@@ -39,6 +39,7 @@ pub use cipher_suites::CipherList;
 pub use config::{Config, ConfigError};
 pub use error::ShakeResult;
 pub use record::Io;
+pub use alert::turtls_stringify_alert;
 
 /// A TLS connection buffer.
 ///
