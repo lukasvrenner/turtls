@@ -51,7 +51,7 @@
 //!
 //! [`Gallois/Counter Mode`]: https://en.wikipedia.org/wiki/Galois/Counter_Mode
 mod aes;
-use core::u128;
+use core::{marker::PhantomPinned, u128};
 
 pub use aes::*;
 
@@ -67,6 +67,7 @@ const R: u128 = 0xe1 << 120;
 pub struct Gcm<C: aes::AesCipher> {
     cipher: C,
     h: u128,
+    _pin: PhantomPinned,
 }
 
 impl<C: aes::AesCipher> Aead for Gcm<C> {
@@ -118,6 +119,7 @@ impl<C: aes::AesCipher> Gcm<C> {
         Self {
             cipher,
             h: u128::from_be_bytes(h),
+            _pin: PhantomPinned,
         }
     }
 

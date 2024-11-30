@@ -1,11 +1,11 @@
 use crate::alert::Alert;
 use crate::cipher_suites::{CipherList, CipherSuite};
-use crate::dh::NamedGroup;
 use crate::error::TlsError;
+use crate::extensions::key_share::NamedGroup;
+use crate::extensions::versions::ProtocolVersion;
 use crate::extensions::{self, ExtList};
 use crate::handshake::{ShakeType, SHAKE_HEADER_SIZE};
 use crate::record::{ContentType, ReadError, RecordLayer};
-use crate::versions::ProtocolVersion;
 
 pub(crate) struct ServerHello<'a> {
     leg_sesion_id: &'a [u8],

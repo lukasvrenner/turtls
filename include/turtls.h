@@ -284,17 +284,19 @@ struct turtls_ExtList {
  */
 typedef uint8_t turtls_CipherList;
 /**
- * AES-128 GCM with SHA-256.
- *
- * Use this unless *UTMOST* security is needed.
- */
-#define turtls_CipherList_AES_128_GCM_SHA256 1
-/**
  * ChaCha20 Poly1305 with SHA-256.
  *
  * This is a good option. You should probably leave it enabled.
  */
-#define turtls_CipherList_CHA_CHA_POLY1305_SHA256 2
+#define turtls_CipherList_CHA_CHA_POLY1305_SHA256 1
+/**
+ * AES-128 GCM with SHA-256.
+ *
+ * Hardware instructions are *not* yet supported.
+ *
+ * This is a good option. You should probably leave it enabled.
+ */
+#define turtls_CipherList_AES_128_GCM_SHA256 2
 
 /**
  * The configurations to use for a specific TLS connection.

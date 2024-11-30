@@ -1,15 +1,16 @@
-use core::slice;
 use std::ffi::c_char;
 use std::ptr::null;
 
-use crylib::ec::{EllipticCurve, Secp256r1};
-use crylib::finite_field::FieldElement;
-
 use crate::alert::Alert;
-use crate::cipher_suites::SignatureScheme;
-use crate::dh::{GroupKeys, NamedGroup};
 use crate::record::{IoError, RecordLayer};
-use crate::versions::ProtocolVersion;
+
+pub mod key_share;
+pub mod server_name;
+pub mod sig_algs;
+pub mod versions;
+use key_share::{GroupKeys, SECP256R1};
+use sig_algs::ECDSA_SECP256R1;
+use versions::ProtocolVersion;
 
 #[repr(u16)]
 pub(crate) enum ExtensionType {
@@ -53,25 +54,6 @@ pub(crate) enum ExtensionType {
     SigAlgCert = 50,
     KeyShare = 51,
 }
-
-/// The ECDSA signature algoritm over the secp256r1 (NIST-P 256) curve.
-pub const ECDSA_SECP256R1: u16 = 0b0000000000000001;
-/// Key exchange via ECDH on the secp256r1 (NIST-P 256) curve.
-pub const SECP256R1: u16 = 0b0000000000000001;
-
-const KEY_SHARE_LEGACY_FORM: u8 = 4;
-const SUP_VERSIONS: [u8; 7] = {
-    let mut sup_vers = [0; 7];
-    [sup_vers[0], sup_vers[1]] = ExtensionType::SupportedVersions.to_be_bytes();
-    // len of extension
-    sup_vers[3] = 3;
-    // len of versions list
-    sup_vers[4] = 2;
-    [sup_vers[5], sup_vers[6]] = ProtocolVersion::TlsOneThree.to_be_bytes();
-    sup_vers
-};
-
-const SERVER_NAME_TYPE: u8 = 0;
 
 impl ExtensionType {
     pub(crate) const fn as_int(self) -> u16 {
@@ -151,131 +133,6 @@ impl ExtList {
         self.write_sup_groups(rl)?;
         self.write_key_share_client(rl, keys)
     }
-
-    fn server_name_len(&self) -> usize {
-        if self.server_name.is_null() || self.server_name_len == 0 {
-            return 0;
-        }
-        Self::LEN_SIZE + size_of_val(&SERVER_NAME_TYPE) + Self::LEN_SIZE + self.server_name_len
-    }
-
-    fn write_server_name(&self, rl: &mut RecordLayer) -> Result<(), IoError> {
-        if self.server_name.is_null() || self.server_name_len == 0 {
-            return Ok(());
-        }
-        rl.push_u16(ExtensionType::ServerName.as_int())?;
-
-        let mut len = self.server_name_len();
-        rl.push_u16(len as u16)?;
-
-        len -= Self::LEN_SIZE;
-        rl.push_u16(len as u16)?;
-
-        rl.push(SERVER_NAME_TYPE)?;
-        len -= 1;
-        len -= Self::LEN_SIZE;
-        rl.push_u16(len as u16)?;
-
-        // SAFETY: the creator of `ExtensionList` guarantees the length and pointer are valid.
-        let server_name =
-            unsafe { slice::from_raw_parts(self.server_name as *const u8, self.server_name_len) };
-        rl.extend_from_slice(server_name)
-    }
-
-    const fn sig_algs_len(&self) -> usize {
-        self.sig_algs.count_ones() as usize * size_of::<SignatureScheme>() + Self::LEN_SIZE
-    }
-
-    fn write_sig_algs(&self, rl: &mut RecordLayer) -> Result<(), IoError> {
-        if self.sig_algs == 0 {
-            return Ok(());
-        }
-        let len = self.sig_algs_len() as u16;
-        rl.push_u16(ExtensionType::SignatureAlgorithms.as_int())?;
-        rl.push_u16(len)?;
-
-        rl.push_u16(len - Self::LEN_SIZE as u16)?;
-        if self.sig_algs & ECDSA_SECP256R1 > 0 {
-            rl.push_u16(SignatureScheme::EcdsaSecp256r1Sha256.as_int())?;
-        }
-        Ok(())
-    }
-
-    const fn sup_versions_len(&self) -> usize {
-        SUP_VERSIONS.len() - Self::HEADER_SIZE
-    }
-
-    fn write_sup_versions_client(&self, rl: &mut RecordLayer) -> Result<(), IoError> {
-        rl.extend_from_slice(&SUP_VERSIONS)
-    }
-
-    const fn sup_groups_len(&self) -> usize {
-        Self::LEN_SIZE + self.sup_groups.count_ones() as usize * size_of::<NamedGroup>()
-    }
-
-    fn write_sup_groups(&self, rl: &mut RecordLayer) -> Result<(), IoError> {
-        if self.sup_groups == 0 {
-            return Ok(());
-        }
-        rl.push_u16(ExtensionType::SupportedGroups.as_int())?;
-
-        let len = self.sup_groups_len();
-        rl.push_u16(len as u16)?;
-
-        rl.push_u16((len - Self::LEN_SIZE) as u16)?;
-
-        if self.sup_groups & SECP256R1 > 0 {
-            rl.push_u16(NamedGroup::Secp256r1.as_int())?;
-        }
-        Ok(())
-    }
-
-    fn key_share_client_len(&self) -> usize {
-        if self.sup_groups & SECP256R1 == 0 {
-            return 0;
-        }
-        // TODO: use size_of_val(&Self::LEGACY_FORM) once const-stabilized
-        size_of_val(&KEY_SHARE_LEGACY_FORM)
-            + 2 * size_of::<FieldElement<4, <Secp256r1 as EllipticCurve>::Order>>()
-            + Self::LEN_SIZE
-            + size_of::<NamedGroup>()
-            + Self::LEN_SIZE
-    }
-
-    fn write_key_share_client(
-        &self,
-        rl: &mut RecordLayer,
-        keys: &GroupKeys,
-    ) -> Result<(), IoError> {
-        if self.sup_groups == 0 {
-            return Ok(());
-        }
-        rl.push_u16(ExtensionType::KeyShare.as_int())?;
-
-        let mut len = self.key_share_client_len() as u16;
-        rl.push_u16(len)?;
-
-        len -= Self::LEN_SIZE as u16;
-        rl.push_u16(len)?;
-
-        if self.sup_groups & SECP256R1 > 0 {
-            rl.extend_from_slice(&NamedGroup::Secp256r1.to_be_bytes())?;
-
-            len -= (size_of::<NamedGroup>() + Self::LEN_SIZE) as u16;
-            rl.push_u16(len)?;
-
-            rl.push(KEY_SHARE_LEGACY_FORM)?;
-
-            let point = Secp256r1::BASE_POINT
-                .mul_scalar(&keys.secp256r1)
-                .as_affine()
-                .expect("private key isn't 0");
-
-            rl.extend_from_slice(&point.x().into_inner().to_be_bytes())?;
-            rl.extend_from_slice(&point.y().into_inner().to_be_bytes())?;
-        }
-        Ok(())
-    }
 }
 
 pub(crate) struct ExtRef<'a> {
@@ -310,7 +167,7 @@ impl<'a> Iterator for ExtIter<'a> {
         }
         let ext;
         (ext, self.exts) = self.exts.split_at(len + ExtList::HEADER_SIZE);
-        let ext_type = ext[0..size_of::<ExtensionType>()].try_into().unwrap();
+        let ext_type = ext[..size_of::<ExtensionType>()].try_into().unwrap();
         Some(ExtRef {
             ext_type,
             data: &ext[ExtList::HEADER_SIZE..],

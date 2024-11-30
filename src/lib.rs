@@ -10,12 +10,10 @@ mod alert;
 mod cipher_suites;
 mod client_hello;
 mod config;
-mod dh;
 mod handshake;
 mod key_schedule;
 mod record;
 mod server_hello;
-mod versions;
 
 pub mod error;
 pub mod extensions;
@@ -24,22 +22,20 @@ use std::time::Duration;
 
 use aead::TlsAead;
 use client_hello::ClientHello;
-use crylib::{
-    hash::{Hasher, Sha256},
-    hkdf,
-};
-use dh::{GroupKeys, NamedGroup};
+use crylib::hash::{Hasher, Sha256};
+use crylib::hkdf;
 use error::TlsError;
-use extensions::SECP256R1;
+use extensions::key_share::SECP256R1;
+use extensions::key_share::{secp256r1_shared_secret, GroupKeys, NamedGroup};
 use record::{ContentType, ReadError, RecordLayer};
 use server_hello::SerHelloRef;
 
+pub use alert::turtls_stringify_alert;
 pub use alert::Alert;
 pub use cipher_suites::CipherList;
 pub use config::{Config, ConfigError};
 pub use error::ShakeResult;
 pub use record::Io;
-pub use alert::turtls_stringify_alert;
 
 /// A TLS connection buffer.
 ///
@@ -146,7 +142,7 @@ pub unsafe extern "C" fn turtls_connect(
             && config.extensions.sup_groups & SECP256R1 > 0 =>
         {
             let Some(dh_shared_secret) =
-                dh::secp256r1_shared_secret(server_hello.key_share, &priv_keys)
+                secp256r1_shared_secret(server_hello.key_share, &priv_keys)
             else {
                 rl.close(Alert::IllegalParam);
                 *connection = Connection(None);

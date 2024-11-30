@@ -1,3 +1,4 @@
+#[expect(unused, reason = "not all handshake messages are implemented yet")]
 #[repr(u8)]
 pub(crate) enum ShakeType {
     ClientHello = 1,

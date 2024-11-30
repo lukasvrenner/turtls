@@ -1,10 +1,9 @@
 use crate::cipher_suites::CipherList;
-use crate::dh::GroupKeys;
+use crate::extensions::key_share::GroupKeys;
+use crate::extensions::versions::{ProtocolVersion, LEGACY_PROTO_VERS};
 use crate::extensions::ExtList;
 use crate::handshake::ShakeType;
 use crate::record::{ContentType, IoError, RecordLayer};
-use crate::versions::ProtocolVersion;
-use crate::versions::LEGACY_PROTO_VERS;
 use getrandom::{getrandom, Error};
 
 pub(crate) struct ClientHello {

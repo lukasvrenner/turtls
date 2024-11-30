@@ -6,6 +6,13 @@ use crylib::ec::{AffinePoint, EllipticCurve, Secp256r1};
 use crylib::finite_field::FieldElement;
 use getrandom::getrandom;
 
+use super::{ExtList, ExtensionType};
+use crate::record::{IoError, RecordLayer};
+
+const KEY_SHARE_LEGACY_FORM: u8 = 4;
+/// Key exchange via ECDH on the secp256r1 (NIST-P 256) curve.
+pub const SECP256R1: u16 = 0b0000000000000001;
+
 #[repr(u16)]
 pub(crate) enum NamedGroup {
     Secp256r1 = 0x17,
@@ -74,6 +81,74 @@ pub(crate) enum KeyGenError {
 impl From<getrandom::Error> for KeyGenError {
     fn from(_: getrandom::Error) -> Self {
         Self::RngError
+    }
+}
+impl ExtList {
+    pub(super) fn key_share_client_len(&self) -> usize {
+        if self.sup_groups & SECP256R1 == 0 {
+            return 0;
+        }
+        // TODO: use size_of_val(&Self::LEGACY_FORM) once const-stabilized
+        size_of_val(&KEY_SHARE_LEGACY_FORM)
+            + 2 * size_of::<FieldElement<4, <Secp256r1 as EllipticCurve>::Order>>()
+            + Self::LEN_SIZE
+            + size_of::<NamedGroup>()
+            + Self::LEN_SIZE
+    }
+
+    pub(super) fn write_key_share_client(
+        &self,
+        rl: &mut RecordLayer,
+        keys: &GroupKeys,
+    ) -> Result<(), IoError> {
+        if self.sup_groups == 0 {
+            return Ok(());
+        }
+        rl.push_u16(ExtensionType::KeyShare.as_int())?;
+
+        let mut len = self.key_share_client_len() as u16;
+        rl.push_u16(len)?;
+
+        len -= Self::LEN_SIZE as u16;
+        rl.push_u16(len)?;
+
+        if self.sup_groups & SECP256R1 > 0 {
+            rl.extend_from_slice(&NamedGroup::Secp256r1.to_be_bytes())?;
+
+            len -= (size_of::<NamedGroup>() + Self::LEN_SIZE) as u16;
+            rl.push_u16(len)?;
+
+            rl.push(KEY_SHARE_LEGACY_FORM)?;
+
+            let point = Secp256r1::BASE_POINT
+                .mul_scalar(&keys.secp256r1)
+                .as_affine()
+                .expect("private key isn't 0");
+
+            rl.extend_from_slice(&point.x().into_inner().to_be_bytes())?;
+            rl.extend_from_slice(&point.y().into_inner().to_be_bytes())?;
+        }
+        Ok(())
+    }
+
+    pub(super) const fn sup_groups_len(&self) -> usize {
+        Self::LEN_SIZE + self.sup_groups.count_ones() as usize * size_of::<NamedGroup>()
+    }
+    pub(super) fn write_sup_groups(&self, rl: &mut RecordLayer) -> Result<(), IoError> {
+        if self.sup_groups == 0 {
+            return Ok(());
+        }
+        rl.push_u16(ExtensionType::SupportedGroups.as_int())?;
+
+        let len = self.sup_groups_len();
+        rl.push_u16(len as u16)?;
+
+        rl.push_u16((len - Self::LEN_SIZE) as u16)?;
+
+        if self.sup_groups & SECP256R1 > 0 {
+            rl.push_u16(NamedGroup::Secp256r1.as_int())?;
+        }
+        Ok(())
     }
 }
 

@@ -63,7 +63,7 @@ pub enum Alert {
 }
 
 impl Alert {
-    pub (crate) fn from_byte(byte: u8) -> Self {
+    pub(crate) fn from_byte(byte: u8) -> Self {
         use Alert::*;
         // TODO: use inline const once stabilized
         match byte {

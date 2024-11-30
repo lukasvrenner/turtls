@@ -1,7 +1,7 @@
 use crate::alert::Alert;
 use crate::client_hello::CliHelError;
 use crate::config::ConfigError;
-use crate::dh::KeyGenError;
+use crate::extensions::key_share::KeyGenError;
 use crate::record::{IoError, ReadError};
 
 #[derive(Debug)]

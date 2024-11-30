@@ -2,6 +2,8 @@
 //!
 //! Note: Poly1305 and ChaCha20-Poly1305 are incomplete.
 
+use core::marker::PhantomPinned;
+
 use poly1305::{poly1305_key_gen, Poly1305};
 
 use super::{Aead, BadData, IV_SIZE, TAG_SIZE};
@@ -10,12 +12,16 @@ pub mod poly1305;
 
 pub struct ChaCha20Poly1305 {
     key: [u8; Self::KEY_SIZE],
+    _pin: PhantomPinned,
 }
 
 impl ChaCha20Poly1305 {
     pub const KEY_SIZE: usize = 32;
     pub const fn new(key: [u8; Self::KEY_SIZE]) -> Self {
-        Self { key }
+        Self {
+            key,
+            _pin: PhantomPinned,
+        }
     }
 }
 

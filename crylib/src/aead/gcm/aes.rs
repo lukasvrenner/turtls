@@ -31,6 +31,8 @@
 //! ```
 //! [`AES`]: https://en.wikipedia.org/wiki/Advanced_Encryption_Standard
 
+use core::marker::PhantomPinned;
+
 /// The size of a single AES block.
 pub const BLOCK_SIZE: usize = 16;
 
@@ -150,6 +152,7 @@ const R_CON: [u32; 256] = [
 /// cases.
 pub struct Aes128 {
     round_keys: [[u8; BLOCK_SIZE]; Self::NUM_ROUNDS + 1],
+    _pin: PhantomPinned,
 }
 
 /// AES encryption with a 192-bit key.
@@ -157,6 +160,7 @@ pub struct Aes128 {
 /// This is the least-commonly used mode.
 pub struct Aes192 {
     round_keys: [[u8; BLOCK_SIZE]; Self::NUM_ROUNDS + 1],
+    _pin: PhantomPinned,
 }
 
 /// AES encryption with a 256-bit key.
@@ -164,6 +168,7 @@ pub struct Aes192 {
 /// This is useful when security is of utmost importance, even at the cost of performance.
 pub struct Aes256 {
     round_keys: [[u8; BLOCK_SIZE]; Self::NUM_ROUNDS + 1],
+    _pin: PhantomPinned,
 }
 
 /// A common interface for AES ciphers.
@@ -258,6 +263,7 @@ macro_rules! impl_aes_cipher {
             fn new(key: Self::Key) -> Self {
                 Self {
                     round_keys: Self::expand_key(key),
+                    _pin: PhantomPinned,
                 }
             }
         }

@@ -4,7 +4,7 @@ use crylib::hash::{BufHasher, Hasher, Sha256};
 use crate::aead::TlsAead;
 use crate::alert::{Alert, AlertLevel, AlertMsg};
 use crate::error::TlsError;
-use crate::versions::LEGACY_PROTO_VERS;
+use crate::extensions::versions::LEGACY_PROTO_VERS;
 
 use std::ffi::c_void;
 use std::time::{Duration, Instant};
@@ -184,7 +184,8 @@ impl RecordLayer {
 
     fn encode_and_protect(&mut self) {
         if self.aead.is_some() {
-            let msg_type = std::mem::replace(&mut self.buf[0], ContentType::ApplicationData.to_byte());
+            let msg_type =
+                std::mem::replace(&mut self.buf[0], ContentType::ApplicationData.to_byte());
             self.buf[self.len] = msg_type;
             self.len += 1;
             // TODO: pad the record
