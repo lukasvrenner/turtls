@@ -26,7 +26,7 @@ impl ExtList {
             return Ok(());
         }
         // SAFETY: We just checked for null and the caller guarantees the string is
-        // null-terminated.
+        // nul-terminated.
         let as_slice = unsafe { std::slice::from_raw_parts(self.app_protos, self.app_proto_count) };
 
         rl.push_u16(ExtensionType::AppLayerProtoNeg.as_int())?;
@@ -36,7 +36,7 @@ impl ExtList {
 
         for proto in as_slice {
             // SAFETY: the caller guarntees the pointer is valid and that the string is
-            // null-terminated.
+            // nul-terminated.
             let proto_name = unsafe { CStr::from_ptr(*proto) }.to_bytes();
             // TODO: properly handle the error
             rl.push(proto_name.len().try_into().unwrap())?;

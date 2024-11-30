@@ -75,7 +75,7 @@ pub struct ExtList {
     ///
     /// If `server_name` is `null`, the extension won't be sent.
     ///
-    /// `server_name` MUST be null-terminated
+    /// `server_name` MUST be nul-terminated
     pub server_name: *const c_char,
 
     /// The signature algorithms to support.
@@ -84,11 +84,15 @@ pub struct ExtList {
     /// The methods to use for key exchange.
     pub sup_groups: u16,
 
-    /// A list of supported null-terminated application protocols.
+    /// A list of supported nul-terminated application protocols.
     ///
     /// If `app_protos` is null, the extension isn't sent.
+    /// Each string MUST be non-null and nul-terminated.
     ///
-    /// Each string MUST be valid and null-terminated.
+    /// A URL containing a list of protocol names is provided below.
+    /// For example, HTTP/2 over TLS is "h2".
+    ///
+    /// https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids
     pub app_protos: *const *const c_char,
 
     /// The number of supported application protocols.

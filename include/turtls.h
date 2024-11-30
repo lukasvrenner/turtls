@@ -260,7 +260,7 @@ struct turtls_ExtList {
      *
      * If `server_name` is `null`, the extension won't be sent.
      *
-     * `server_name` MUST be null-terminated
+     * `server_name` MUST be nul-terminated
      */
     const char *server_name;
     /**
@@ -272,11 +272,15 @@ struct turtls_ExtList {
      */
     uint16_t sup_groups;
     /**
-     * A list of supported null-terminated application protocols.
+     * A list of supported nul-terminated application protocols.
      *
      * If `app_protos` is null, the extension isn't sent.
+     * Each string MUST be non-null and nul-terminated.
      *
-     * Each string MUST be valid and null-terminated.
+     * A URL containing a list of protocol names is provided below.
+     * For example, HTTP/2 over TLS is "h2".
+     *
+     * https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids
      */
     const char *const *app_protos;
     /**
