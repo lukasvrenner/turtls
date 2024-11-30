@@ -279,7 +279,7 @@ impl ExtList {
 }
 
 pub(crate) struct ExtRef<'a> {
-    ext_type: [u8; 2],
+    ext_type: &'a [u8; 2],
     data: &'a [u8],
 }
 
@@ -323,7 +323,7 @@ pub(crate) fn parse_ser_hel(exts: &[u8]) -> Result<&[u8], Alert> {
     let mut key_share: &[u8] = &[];
     for ext in ExtIter::new(exts) {
         match ext.ext_type {
-            x if x == ExtensionType::SupportedVersions.to_be_bytes() => {
+            x if x == &ExtensionType::SupportedVersions.to_be_bytes() => {
                 if ext.data.len() != size_of::<ProtocolVersion>() {
                     return Err(Alert::DecodeError);
                 }
@@ -333,7 +333,7 @@ pub(crate) fn parse_ser_hel(exts: &[u8]) -> Result<&[u8], Alert> {
                     return Err(Alert::ProtocolVersion);
                 }
             },
-            x if x == ExtensionType::KeyShare.to_be_bytes() => {
+            x if x == &ExtensionType::KeyShare.to_be_bytes() => {
                 key_share = ext.data;
             },
             _ => return Err(Alert::UnsupportedExtension),
