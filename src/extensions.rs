@@ -4,6 +4,7 @@ use std::ptr::null;
 use crate::alert::Alert;
 use crate::record::{IoError, RecordLayer};
 
+pub mod app_proto;
 pub mod key_share;
 pub mod server_name;
 pub mod sig_algs;
@@ -25,8 +26,7 @@ pub(crate) enum ExtensionType {
     UseSrtp = 14,
     #[expect(unused, reason = "Heartbeat not yet supported")]
     Heartbeat = 15,
-    #[expect(unused, reason = "AppLayerProtoReneg not yet supported")]
-    AppLayerProtoReneg = 16,
+    AppLayerProtoNeg = 16,
     #[expect(unused, reason = "SignedCertTimestamp not yet supported")]
     SignedCertTimestamp = 18,
     #[expect(unused, reason = "ClientCertType not yet supported")]
@@ -75,28 +75,36 @@ pub struct ExtList {
     ///
     /// If `server_name` is `null`, the extension won't be sent.
     ///
-    /// `server_name` need not be null-terminated.
+    /// `server_name` MUST be null-terminated
     pub server_name: *const c_char,
-
-    /// The length of the `server_name` string in bytes.
-    ///
-    /// If `server_name_len` is `0`, the extension won't be sent.
-    pub server_name_len: usize,
 
     /// The signature algorithms to support.
     pub sig_algs: u16,
 
     /// The methods to use for key exchange.
     pub sup_groups: u16,
+
+    /// A list of supported null-terminated application protocols.
+    ///
+    /// If `app_protos` is null, the extension isn't sent.
+    ///
+    /// Each string MUST be valid and null-terminated.
+    pub app_protos: *const *const c_char,
+
+    /// The number of supported application protocols.
+    ///
+    /// If `app_proto_count` is null, the extension isn't sent.
+    pub app_proto_count: usize,
 }
 
 impl Default for ExtList {
     fn default() -> Self {
         Self {
             server_name: null(),
-            server_name_len: 0,
             sig_algs: ECDSA_SECP256R1,
             sup_groups: SECP256R1,
+            app_protos: null(),
+            app_proto_count: 0,
         }
     }
 }
@@ -117,6 +125,7 @@ impl ExtList {
         len += ext_len(self.sup_groups_len());
         len += ext_len(self.sup_versions_len());
         len += ext_len(self.key_share_client_len());
+        len += ext_len(self.app_proto_len());
 
         len
     }
@@ -131,7 +140,8 @@ impl ExtList {
         self.write_sig_algs(rl)?;
         self.write_sup_versions_client(rl)?;
         self.write_sup_groups(rl)?;
-        self.write_key_share_client(rl, keys)
+        self.write_key_share_client(rl, keys)?;
+        self.write_app_proto_client(rl)
     }
 }
 

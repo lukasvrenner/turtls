@@ -134,6 +134,7 @@ impl ExtList {
     pub(super) const fn sup_groups_len(&self) -> usize {
         Self::LEN_SIZE + self.sup_groups.count_ones() as usize * size_of::<NamedGroup>()
     }
+
     pub(super) fn write_sup_groups(&self, rl: &mut RecordLayer) -> Result<(), IoError> {
         if self.sup_groups == 0 {
             return Ok(());

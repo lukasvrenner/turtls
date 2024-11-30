@@ -33,6 +33,7 @@ impl ProtocolVersion {
         self as u16
     }
 }
+
 impl ExtList {
     pub(super) const fn sup_versions_len(&self) -> usize {
         SUP_VERSIONS.len() - Self::HEADER_SIZE

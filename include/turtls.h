@@ -260,15 +260,9 @@ struct turtls_ExtList {
      *
      * If `server_name` is `null`, the extension won't be sent.
      *
-     * `server_name` need not be null-terminated.
+     * `server_name` MUST be null-terminated
      */
     const char *server_name;
-    /**
-     * The length of the `server_name` string in bytes.
-     *
-     * If `server_name_len` is `0`, the extension won't be sent.
-     */
-    size_t server_name_len;
     /**
      * The signature algorithms to support.
      */
@@ -277,6 +271,20 @@ struct turtls_ExtList {
      * The methods to use for key exchange.
      */
     uint16_t sup_groups;
+    /**
+     * A list of supported null-terminated application protocols.
+     *
+     * If `app_protos` is null, the extension isn't sent.
+     *
+     * Each string MUST be valid and null-terminated.
+     */
+    const char *const *app_protos;
+    /**
+     * The number of supported application protocols.
+     *
+     * If `app_proto_count` is null, the extension isn't sent.
+     */
+    size_t app_proto_count;
 };
 
 /**
