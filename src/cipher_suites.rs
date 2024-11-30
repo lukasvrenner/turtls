@@ -28,11 +28,11 @@ impl CipherList {
     }
 
     pub(crate) fn write_to(&self, record_layer: &mut RecordLayer) -> Result<(), IoError> {
-        if self.suites & Self::AES_128_GCM_SHA256 > 0 {
-            record_layer.push_u16(CipherSuite::Aes128GcmSha256.as_int())?;
-        }
         if self.suites & Self::CHA_CHA_POLY1305_SHA256 > 0 {
             record_layer.push_u16(CipherSuite::ChaCha20Poly1305Sha256.as_int())?;
+        }
+        if self.suites & Self::AES_128_GCM_SHA256 > 0 {
+            record_layer.push_u16(CipherSuite::Aes128GcmSha256.as_int())?;
         }
         Ok(())
     }
