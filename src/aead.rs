@@ -5,7 +5,7 @@ use crylib::hash::Sha256;
 
 use crate::{key_schedule, CipherList};
 
-pub(crate) enum ManyAead {
+enum ManyAead {
     Aes128Gcm {
         writer: Gcm<Aes128>,
         reader: Gcm<Aes128>,
@@ -17,7 +17,7 @@ pub(crate) enum ManyAead {
 }
 
 impl ManyAead {
-    pub(crate) fn encrypt_inline(
+    fn encrypt_inline(
         &mut self,
         msg: &mut [u8],
         add_data: &[u8],
@@ -29,7 +29,7 @@ impl ManyAead {
         }
     }
 
-    pub(crate) fn decrypt_inline(
+    fn decrypt_inline(
         &mut self,
         msg: &mut [u8],
         add_data: &[u8],
@@ -52,7 +52,7 @@ pub(crate) struct TlsAead {
 }
 
 impl TlsAead {
-    pub(crate) const NONCE_INIT: u64 = 0;
+    const NONCE_INIT: u64 = 0;
 
     pub(crate) fn new(
         write_secret: &[u8; Sha256::HASH_SIZE],
