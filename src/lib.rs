@@ -50,7 +50,7 @@ pub extern "C" fn turtls_generate_config() -> Config {
 /// This buffer must be freed by `turtls_free` to avoid memory leakage.
 #[no_mangle]
 pub extern "C" fn turtls_alloc() -> *mut Connection {
-    Box::leak(Box::new(Connection::new()))
+    Box::leak(Connection::new())
 }
 
 /// Frees a connection buffer.

@@ -8,10 +8,10 @@ pub struct Connection {
 }
 
 impl Connection {
-    pub(crate) fn new() -> Self {
-        Self {
+    pub(crate) fn new() -> Box<Self> {
+        Box::new(Self {
             rl: None,
             app_proto: [0; 256],
-        }
+        })
     }
 }
