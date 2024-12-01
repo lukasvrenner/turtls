@@ -10,6 +10,7 @@ mod alert;
 mod cipher_suites;
 mod client_hello;
 mod config;
+mod connect;
 mod handshake;
 mod key_schedule;
 mod record;
@@ -34,13 +35,9 @@ pub use alert::turtls_stringify_alert;
 pub use alert::Alert;
 pub use cipher_suites::CipherList;
 pub use config::{Config, ConfigError};
+pub use connect::Connection;
 pub use error::ShakeResult;
 pub use record::Io;
-
-/// A TLS connection buffer.
-///
-/// This connection buffer may be reused between multiple consecutive connections.
-pub struct Connection(Option<RecordLayer>);
 
 /// Generates a default configuration struct.
 #[no_mangle]
@@ -53,7 +50,7 @@ pub extern "C" fn turtls_generate_config() -> Config {
 /// This buffer must be freed by `turtls_free` to avoid memory leakage.
 #[no_mangle]
 pub extern "C" fn turtls_alloc() -> *mut Connection {
-    Box::leak(Box::new(Connection(None)))
+    Box::leak(Box::new(Connection::new()))
 }
 
 /// Frees a connection buffer.
@@ -112,12 +109,12 @@ pub unsafe extern "C" fn turtls_connect(
         &[0; Sha256::HASH_SIZE],
     );
 
-    *connection = Connection(Some(RecordLayer::new(io, record_timeout)));
-    let rl = connection.0.as_mut().unwrap();
+    connection.rl = Some(RecordLayer::new(io, record_timeout));
+    let rl = connection.rl.as_mut().unwrap();
 
     if let Err(err) = client_hello.write_to(rl, &priv_keys) {
         rl.close(Alert::InternalError);
-        *connection = Connection(None);
+        connection.rl = None;
         return err.into();
     }
 
@@ -127,7 +124,7 @@ pub unsafe extern "C" fn turtls_connect(
             if let ReadError::Alert(TlsError::Sent(alert)) = err {
                 rl.close(alert);
             }
-            *connection = Connection(None);
+            connection.rl = None;
             return err.into();
         },
     };
@@ -145,7 +142,7 @@ pub unsafe extern "C" fn turtls_connect(
                 secp256r1_shared_secret(server_hello.key_share, &priv_keys)
             else {
                 rl.close(Alert::IllegalParam);
-                *connection = Connection(None);
+                connection.rl = None;
                 return ShakeResult::SentAlert(Alert::IllegalParam);
             };
             hkdf::extract::<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>(
@@ -155,7 +152,7 @@ pub unsafe extern "C" fn turtls_connect(
         },
         _ => {
             rl.close(Alert::HandshakeFailure);
-            *connection = Connection(None);
+            connection.rl = None;
             return ShakeResult::SentAlert(Alert::HandshakeFailure);
         },
     };
@@ -168,7 +165,7 @@ pub unsafe extern "C" fn turtls_connect(
     rl.aead = TlsAead::new(&cli_shake_traf_secret, &ser_shake_traf_secret, cipher_suite);
     if rl.aead.is_none() {
         rl.close(Alert::HandshakeFailure);
-        *connection = Connection(None);
+        connection.rl = None;
         return ShakeResult::SentAlert(Alert::HandshakeFailure);
     }
 
@@ -202,8 +199,8 @@ pub unsafe extern "C" fn turtls_close(connection: *mut Connection) {
     // SAFETY: the caller guarantees that the pointer is valid.
     let connection = unsafe { &mut *connection };
 
-    if let Some(ref mut rl) = connection.0 {
+    if let Some(ref mut rl) = connection.rl {
         rl.close(Alert::CloseNotify);
-        *connection = Connection(None);
     }
+    connection.rl = None;
 }

@@ -344,6 +344,21 @@ extern "C" {
 struct turtls_Connection *turtls_alloc(void);
 
 /**
+ * Returns a pointer to name of the negotiated application protocol.
+ *
+ * The string is nul-terminated.
+ *
+ * # Safety
+ * `connection` must be valid. If `connection` is null, a null pointer will be returned.
+ * If `connection` isn't null, a null pointer will never be returned.
+ *
+ * Lifetime: the returned pointer is valid for the entire lifetime of `connection`. If a new
+ * connection is created with the same allocation, pointer is still valid and will point to the
+ * new application protocol.
+ */
+char *turtls_app_proto(struct turtls_Connection *connection);
+
+/**
  * Alerts the peer and closes the connection.
  *
  * # Safety:

@@ -1,7 +1,7 @@
 use super::{ExtList, ExtensionType};
-use crate::record::{IoError, RecordLayer};
+use crate::{record::{IoError, RecordLayer}, Connection};
 
-use std::ffi::CStr;
+use std::{ffi::{c_char, CStr}, ptr::{null, null_mut}};
 
 impl ExtList {
     pub(super) fn app_proto_len(&self) -> usize {
@@ -44,4 +44,24 @@ impl ExtList {
         }
         Ok(())
     }
+}
+
+/// Returns a pointer to name of the negotiated application protocol.
+///
+/// The string is nul-terminated.
+///
+/// # Safety
+/// `connection` must be valid. If `connection` is null, a null pointer will be returned.
+/// If `connection` isn't null, a null pointer will never be returned.
+///
+/// Lifetime: the returned pointer is valid for the entire lifetime of `connection`. If a new
+/// connection is created with the same allocation, pointer is still valid and will point to the
+/// new application protocol.
+#[no_mangle]
+pub unsafe extern "C" fn turtls_app_proto(connection: *mut Connection) -> *mut c_char {
+    if connection.is_null() {
+        return null_mut();
+    }
+    // SAFETY: the caller guarantees that the pointer is valid.
+    unsafe { &raw mut (*connection).app_proto as *mut c_char }
 }
