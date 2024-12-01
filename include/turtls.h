@@ -97,6 +97,9 @@ enum turtls_Alert
      * An unrelated internal error has occured.
      */
     TURTLS_ALERT_INTERNAL_ERROR = 80,
+    /**
+     * An inappropriate downgrade was attempted.
+     */
     TURTLS_ALERT_INAPPROPRIATE_FALLBACK = 86,
     /**
      * The user interupted the handshake.
@@ -114,7 +117,13 @@ enum turtls_Alert
      * The provided server name is unrecognized.
      */
     TURTLS_ALERT_UNRECOGNIZED_NAME = 112,
+    /**
+     * An invalid or unacceptable OCSP was provided.
+     */
     TURTLS_ALERT_BAD_CERT_STATUS_RESPONSE = 113,
+    /**
+     * PSK is desired but no acceptable PSK identity is sent by the client.
+     */
     TURTLS_ALERT_UNKNOWN_PSK_IDENTITY = 115,
     /**
      * A certificate is required.
@@ -281,7 +290,7 @@ struct turtls_ExtList {
      * A URL containing a list of protocol names is provided below.
      * For example, HTTP/2 over TLS is "h2".
      *
-     * https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids
+     * <https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids>
      */
     const char *app_protos;
     /**
@@ -357,13 +366,13 @@ struct turtls_Connection *turtls_alloc(void);
  * connection is created with the same allocation, pointer is still valid and will point to the
  * new application protocol.
  */
-char *turtls_app_proto(struct turtls_Connection *connection);
+const char *turtls_app_proto(const struct turtls_Connection *connection);
 
 /**
  * Alerts the peer and closes the connection.
  *
  * # Safety:
- * `connection` may be `NULL` but must be valid.
+ * `connection` must be valid.
  */
 void turtls_close(struct turtls_Connection *connection);
 
@@ -385,7 +394,7 @@ struct turtls_ShakeResult turtls_connect(struct turtls_Io io,
 /**
  * Frees a connection buffer.
  *
- * This buffer must have been allocated by `turtls_alloc`.
+ * After this function is called, `connection` is no longer a valid pointer. Do NOT use it again.
  *
  * # Safety:
  * `connection` must be allocated by `turtls_alloc`.

@@ -93,7 +93,7 @@ pub struct ExtList {
     /// A URL containing a list of protocol names is provided below.
     /// For example, HTTP/2 over TLS is "h2".
     ///
-    /// https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids
+    /// <https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids>
     pub app_protos: *const c_char,
 
     /// The number of supported application protocols.

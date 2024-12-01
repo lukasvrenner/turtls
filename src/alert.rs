@@ -45,6 +45,7 @@ pub enum Alert {
     InsufficientSecurity = 71,
     /// An unrelated internal error has occured.
     InternalError = 80,
+    /// An inappropriate downgrade was attempted.
     InappropriateFallback = 86,
     /// The user interupted the handshake.
     UserCancelled = 90,
@@ -54,7 +55,9 @@ pub enum Alert {
     UnsupportedExtension = 110,
     /// The provided server name is unrecognized.
     UnrecognizedName = 112,
+    /// An invalid or unacceptable OCSP was provided.
     BadCertStatusResponse = 113,
+    /// PSK is desired but no acceptable PSK identity is sent by the client.
     UnknownPskIdentity = 115,
     /// A certificate is required.
     CertRequired = 116,

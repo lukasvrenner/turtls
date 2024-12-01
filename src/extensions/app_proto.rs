@@ -1,7 +1,11 @@
 use super::{ExtList, ExtensionType};
-use crate::{record::{IoError, RecordLayer}, Connection};
+use crate::{
+    record::{IoError, RecordLayer},
+    Connection,
+};
 
-use std::{ffi::{c_char, CStr}, ptr::{null, null_mut}};
+use std::ffi::c_char;
+use std::ptr::null;
 
 impl ExtList {
     pub(super) fn app_proto_len(&self) -> usize {
@@ -19,7 +23,9 @@ impl ExtList {
         }
         // SAFETY: We just checked for null and the caller guarantees the string is
         // nul-terminated.
-        let as_slice = unsafe { std::slice::from_raw_parts(self.app_protos as *const u8, self.app_protos_len) };
+        let as_slice = unsafe {
+            std::slice::from_raw_parts(self.app_protos as *const u8, self.app_protos_len)
+        };
 
         rl.push_u16(ExtensionType::AppLayerProtoNeg.as_int())?;
 
@@ -41,10 +47,10 @@ impl ExtList {
 /// connection is created with the same allocation, pointer is still valid and will point to the
 /// new application protocol.
 #[no_mangle]
-pub unsafe extern "C" fn turtls_app_proto(connection: *mut Connection) -> *mut c_char {
+pub unsafe extern "C" fn turtls_app_proto(connection: *const Connection) -> *const c_char {
     if connection.is_null() {
-        return null_mut();
+        return null();
     }
     // SAFETY: the caller guarantees that the pointer is valid.
-    unsafe { &raw mut (*connection).app_proto as *mut c_char }
+    unsafe { &raw const (*connection).app_proto as *const c_char }
 }

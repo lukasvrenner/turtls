@@ -11,20 +11,20 @@ mod cipher_suites;
 mod client_hello;
 mod config;
 mod connect;
+mod error;
+mod extensions;
 mod handshake;
 mod key_schedule;
 mod record;
 mod server_hello;
 
-pub mod error;
-pub mod extensions;
-
 use std::time::Duration;
+
+use crylib::hash::{Hasher, Sha256};
+use crylib::hkdf;
 
 use aead::TlsAead;
 use client_hello::ClientHello;
-use crylib::hash::{Hasher, Sha256};
-use crylib::hkdf;
 use error::TlsError;
 use extensions::key_share::SECP256R1;
 use extensions::key_share::{secp256r1_shared_secret, GroupKeys, NamedGroup};
@@ -37,6 +37,8 @@ pub use cipher_suites::CipherList;
 pub use config::{Config, ConfigError};
 pub use connect::Connection;
 pub use error::ShakeResult;
+pub use extensions::app_proto::turtls_app_proto;
+pub use extensions::ExtList;
 pub use record::Io;
 
 /// Generates a default configuration struct.
@@ -55,7 +57,7 @@ pub extern "C" fn turtls_alloc() -> *mut Connection {
 
 /// Frees a connection buffer.
 ///
-/// This buffer must have been allocated by `turtls_alloc`.
+/// After this function is called, `connection` is no longer a valid pointer. Do NOT use it again.
 ///
 /// # Safety:
 /// `connection` must be allocated by `turtls_alloc`.
@@ -190,7 +192,7 @@ pub unsafe extern "C" fn turtls_connect(
 /// Alerts the peer and closes the connection.
 ///
 /// # Safety:
-/// `connection` may be `NULL` but must be valid.
+/// `connection` must be valid.
 #[no_mangle]
 pub unsafe extern "C" fn turtls_close(connection: *mut Connection) {
     if connection.is_null() || !connection.is_aligned() {
