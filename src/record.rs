@@ -195,6 +195,7 @@ impl RecordLayer {
         }
         self.encode_len();
         self.encrypt();
+        self.bytes_read = self.len - Self::HEADER_SIZE;
     }
 
     pub(crate) fn finish(&mut self) -> Result<(), IoError> {
@@ -276,7 +277,7 @@ impl RecordLayer {
 
         if self.msg_type() == ContentType::Alert.to_byte() {
             return Err(ReadError::Alert(TlsError::Received(Alert::from_byte(
-                self.buf[Self::HEADER_SIZE + size_of::<AlertLevel>()],
+                            self.buf[Self::HEADER_SIZE + size_of::<AlertLevel>()],
             ))));
         }
         if self.msg_type() == ContentType::Handshake.to_byte() {

@@ -4,10 +4,16 @@
 use crylib::big_int::UBigInt;
 use crylib::ec::{AffinePoint, EllipticCurve, Secp256r1};
 use crylib::finite_field::FieldElement;
+use crylib::hash::{Hasher, Sha256};
+use crylib::hkdf;
 use getrandom::getrandom;
 
 use super::{ExtList, ExtensionType};
+use crate::aead::TlsAead;
+use crate::alert::Alert;
+use crate::key_schedule;
 use crate::record::{IoError, RecordLayer};
+use crate::state::{RlState, ShakeState};
 
 const KEY_SHARE_LEGACY_FORM: u8 = 4;
 /// Key exchange via ECDH on the secp256r1 (NIST-P 256) curve.
@@ -167,6 +173,36 @@ pub(crate) fn secp256r1_shared_secret(
     point.mul_scalar_assign(&group_keys.secp256r1);
     let as_affine = point
         .as_affine()
-        .expect("private key isn't zero and point is on curve");
+        .expect("private key isn't zero");
     Some(as_affine.x().to_be_bytes())
+}
+
+pub(super) fn parse_ser(key_share: &[u8], rl_state: &mut RlState) -> Result<(), Alert> {
+    let salt = key_schedule::derive_secret(&rl_state.secret, b"derived", &Sha256::hash(b""));
+    rl_state.secret = match &key_share[..size_of::<NamedGroup>()] {
+        x if x == NamedGroup::Secp256r1.to_be_bytes() && rl_state.sup_groups != 0 => {
+            let shared_secret =
+                secp256r1_shared_secret(&key_share[size_of::<NamedGroup>() + ExtList::LEN_SIZE..], &rl_state.priv_keys)
+                    .ok_or(Alert::IllegalParam)?;
+
+            hkdf::extract::<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>(
+                &shared_secret,
+                &salt,
+            )
+        },
+        _ => return Err(Alert::HandshakeFailure),
+    };
+    let transcript = rl_state.rl.transcript();
+
+    let cli_shake_traf_secret =
+        key_schedule::derive_secret(&rl_state.secret, b"c hs traffic", &transcript);
+    let ser_shake_traf_secret =
+        key_schedule::derive_secret(&rl_state.secret, b"s hs traffic", &transcript);
+
+    rl_state.rl.aead = TlsAead::new(
+        &cli_shake_traf_secret,
+        &ser_shake_traf_secret,
+        rl_state.ciphers,
+    );
+    Ok(())
 }

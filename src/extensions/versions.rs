@@ -1,4 +1,5 @@
 use super::{ExtList, ExtensionType};
+use crate::alert::Alert;
 use crate::record::{IoError, RecordLayer};
 #[repr(u16)]
 pub(crate) enum ProtocolVersion {
@@ -42,4 +43,14 @@ impl ExtList {
     pub(super) fn write_sup_versions_client(&self, rl: &mut RecordLayer) -> Result<(), IoError> {
         rl.extend_from_slice(&SUP_VERSIONS)
     }
+}
+
+pub(super) fn parse_ser(version: &[u8]) -> Result<(), Alert> {
+    if version.len() != size_of::<ProtocolVersion>() {
+        return Err(Alert::DecodeError);
+    }
+    if version[..size_of::<ProtocolVersion>()] != ProtocolVersion::TlsOneThree.to_be_bytes() {
+        return Err(Alert::ProtocolVersion);
+    }
+    Ok(())
 }

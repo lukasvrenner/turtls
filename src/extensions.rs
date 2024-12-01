@@ -3,6 +3,7 @@ use std::ptr::null;
 
 use crate::alert::Alert;
 use crate::record::{IoError, RecordLayer};
+use crate::state::ShakeState;
 
 pub mod app_proto;
 pub mod key_share;
@@ -190,29 +191,17 @@ impl<'a> Iterator for ExtIter<'a> {
     }
 }
 
-/// Returns the key share from the SeverHello extensions list.
-pub(crate) fn parse_ser_hel(exts: &[u8]) -> Result<&[u8], Alert> {
-    let mut key_share: &[u8] = &[];
-    for ext in ExtIter::new(exts) {
+pub(crate) fn parse_ser_hel_exts(state: &mut ShakeState) -> Result<(), Alert> {
+    for ext in ExtIter::new(state.msg_buf.buf()) {
         match ext.ext_type {
             x if x == &ExtensionType::SupportedVersions.to_be_bytes() => {
-                if ext.data.len() != size_of::<ProtocolVersion>() {
-                    return Err(Alert::DecodeError);
-                }
-                if ext.data[..size_of::<ProtocolVersion>()]
-                    != ProtocolVersion::TlsOneThree.to_be_bytes()
-                {
-                    return Err(Alert::ProtocolVersion);
-                }
+                versions::parse_ser(ext.data)?;
             },
             x if x == &ExtensionType::KeyShare.to_be_bytes() => {
-                key_share = ext.data;
+                key_share::parse_ser(ext.data, &mut state.rl_state)?;
             },
             _ => return Err(Alert::UnsupportedExtension),
         }
     }
-    if key_share.len() == 0 {
-        return Err(Alert::MissingExtension);
-    }
-    Ok(key_share)
+    Ok(())
 }

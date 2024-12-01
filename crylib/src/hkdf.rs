@@ -2,8 +2,8 @@ use crate::hash::{BlockHasher, BufHasher};
 use crate::hmac::Hmac;
 
 pub fn extract<const H_LEN: usize, const B_LEN: usize, H: BlockHasher<H_LEN, B_LEN>>(
-    salt: &[u8],
     ikm: &[u8],
+    salt: &[u8],
 ) -> [u8; H_LEN] {
     Hmac::<H_LEN, B_LEN, H>::auth(salt, ikm)
 }
@@ -43,7 +43,7 @@ pub mod tests {
             0xd7, 0xc2, 0xb3, 0xe5,
         ];
         assert_eq!(
-            super::extract::<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>(&salt, &ikm),
+            super::extract::<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>(&ikm, &salt),
             pseudo_random_key
         );
     }

@@ -10,36 +10,36 @@ mod alert;
 mod cipher_suites;
 mod client_hello;
 mod config;
-mod connect;
 mod error;
 mod extensions;
 mod handshake;
 mod key_schedule;
 mod record;
 mod server_hello;
+mod state;
 
+use core::panic;
 use std::time::Duration;
 
-use crylib::hash::{Hasher, Sha256};
+use crylib::hash::Sha256;
 use crylib::hkdf;
 
-use aead::TlsAead;
 use client_hello::ClientHello;
 use error::TlsError;
-use extensions::key_share::SECP256R1;
-use extensions::key_share::{secp256r1_shared_secret, GroupKeys, NamedGroup};
+use extensions::key_share::GroupKeys;
+use handshake::MsgBuf;
 use record::{ContentType, ReadError, RecordLayer};
-use server_hello::SerHelloRef;
 
 pub use alert::turtls_stringify_alert;
 pub use alert::Alert;
 pub use cipher_suites::CipherList;
 pub use config::{Config, ConfigError};
-pub use connect::Connection;
 pub use error::ShakeResult;
 pub use extensions::app_proto::turtls_app_proto;
 pub use extensions::ExtList;
 pub use record::Io;
+pub use state::Connection;
+use state::{RlState, ShakeState};
 
 /// Generates a default configuration struct.
 #[no_mangle]
@@ -120,55 +120,27 @@ pub unsafe extern "C" fn turtls_connect(
         return err.into();
     }
 
-    let server_hello = match SerHelloRef::read_and_parse(rl) {
-        Ok(server_hello) => server_hello,
-        Err(err) => {
-            if let ReadError::Alert(TlsError::Sent(alert)) = err {
+    let mut shake_state = ShakeState {
+        rl_state: RlState {
+            secret: early_secret,
+            priv_keys,
+            ciphers: config.cipher_suites,
+            sup_groups: config.extensions.sig_algs,
+            sig_algs: config.extensions.sig_algs,
+            rl,
+        },
+        msg_buf: MsgBuf::new(),
+    };
+
+    if let Err(err) = server_hello::read_and_parse(&mut shake_state) {
+        match err {
+            ReadError::Alert(TlsError::Sent(alert)) => {
                 rl.close(alert);
-            }
-            connection.rl = None;
-            return err.into();
-        },
-    };
-
-    let cipher_suite = CipherList {
-        suites: server_hello.cipher_suite.suites & config.cipher_suites.suites,
-    };
-
-    let salt = key_schedule::derive_secret(&early_secret, b"derived", &Sha256::hash(b""));
-    let handshake_secret = match server_hello.key_share_type {
-        x if x == NamedGroup::Secp256r1.to_be_bytes()
-            && config.extensions.sup_groups & SECP256R1 > 0 =>
-        {
-            let Some(dh_shared_secret) =
-                secp256r1_shared_secret(server_hello.key_share, &priv_keys)
-            else {
-                rl.close(Alert::IllegalParam);
                 connection.rl = None;
-                return ShakeResult::SentAlert(Alert::IllegalParam);
-            };
-            hkdf::extract::<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>(
-                &salt,
-                &dh_shared_secret,
-            )
-        },
-        _ => {
-            rl.close(Alert::HandshakeFailure);
-            connection.rl = None;
-            return ShakeResult::SentAlert(Alert::HandshakeFailure);
-        },
-    };
-    let transcript = rl.transcript();
-    let cli_shake_traf_secret =
-        key_schedule::derive_secret(&handshake_secret, b"c hs traffic", &transcript);
-    let ser_shake_traf_secret =
-        key_schedule::derive_secret(&handshake_secret, b"s hs traffic", &transcript);
-
-    rl.aead = TlsAead::new(&cli_shake_traf_secret, &ser_shake_traf_secret, cipher_suite);
-    if rl.aead.is_none() {
-        rl.close(Alert::HandshakeFailure);
-        connection.rl = None;
-        return ShakeResult::SentAlert(Alert::HandshakeFailure);
+                return ShakeResult::SentAlert(alert);
+            },
+            _ => return err.into(),
+        }
     }
 
     if let Err(err) = rl.read() {
