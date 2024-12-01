@@ -131,8 +131,9 @@ pub(crate) struct RecordLayer {
     buf: [u8; Self::BUF_SIZE],
     /// The number of bytes in the buffer *including* the header.
     ///
-    /// This is *not* the same as `self.len()`
+    /// This is *not* the same as `self.data_len()`
     len: usize,
+    bytes_read: usize,
     io: Io,
     pub(crate) timeout: Duration,
     pub(crate) aead: Option<TlsAead>,
@@ -156,6 +157,7 @@ impl RecordLayer {
                 buf
             },
             len: 0,
+            bytes_read: 0,
             io,
             timeout,
             aead: None,
@@ -261,6 +263,8 @@ impl RecordLayer {
 
     /// Reads a single record into [`RecordLayer`]'s internal buffer, decrypting and processing if
     /// necessary.
+    ///
+    /// WARNING: if there is unread data in the buffer, it will be overwritten.
     pub(crate) fn read(&mut self) -> Result<(), ReadError> {
         self.plain_read()?;
 
@@ -301,10 +305,11 @@ impl RecordLayer {
         self.len = record_len + Self::HEADER_SIZE;
 
         self.io.read_all(
-            &mut self.buf[Self::HEADER_SIZE..][..record_len],
+            &mut self.buf[Self::HEADER_SIZE..self.len],
             start_time,
             self.timeout,
         )?;
+        self.bytes_read = 0;
         Ok(())
     }
 
@@ -338,6 +343,20 @@ impl RecordLayer {
         self.buf[0] = self.data()[self.data_len() - 1];
         self.len -= 1;
         Ok(())
+    }
+
+    /// Reads data into `buf` until either the entire record has been read or `buf` is full.
+    ///
+    /// If `buf` fills before the entire record is read, the data will be saved and read to `buf`
+    /// next time it is called.
+    pub(crate) fn read_to(&mut self, buf: &mut [u8]) -> Result<usize, ReadError> {
+        if self.bytes_read == self.data_len() {
+            self.read()?;
+        }
+        let new_bytes = std::cmp::min(self.data_len() - self.bytes_read, buf.len());
+        buf[..new_bytes].copy_from_slice(&self.data()[self.bytes_read..][..new_bytes]);
+        self.bytes_read += new_bytes;
+        Ok(new_bytes)
     }
 
     fn encrypt(&mut self) {
