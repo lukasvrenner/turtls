@@ -74,7 +74,7 @@ pub unsafe extern "C" fn turtls_free(connection: *mut Connection) {
 ///
 /// # Safety:
 /// `connection` must be valid.
-/// `config` must be valid.
+/// `config` must be valid, as well as all of the pointers it stores.
 ///
 /// Lifetime: `io.ctx` must be valid until the connction is closed.
 #[no_mangle]

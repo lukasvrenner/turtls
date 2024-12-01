@@ -274,21 +274,22 @@ struct turtls_ExtList {
     /**
      * A list of supported nul-terminated application protocols.
      *
+     * Each name is encoded as a one-byte length and then the name.
+     *
      * If `app_protos` is null, the extension isn't sent.
-     * Each string MUST be non-null and nul-terminated.
      *
      * A URL containing a list of protocol names is provided below.
      * For example, HTTP/2 over TLS is "h2".
      *
      * https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids
      */
-    const char *const *app_protos;
+    const char *app_protos;
     /**
      * The number of supported application protocols.
      *
      * If `app_proto_count` is null, the extension isn't sent.
      */
-    size_t app_proto_count;
+    size_t app_protos_len;
 };
 
 /**
@@ -373,7 +374,7 @@ void turtls_close(struct turtls_Connection *connection);
  *
  * # Safety:
  * `connection` must be valid.
- * `config` must be valid.
+ * `config` must be valid, as well as all of the pointers it stores.
  *
  * Lifetime: `io.ctx` must be valid until the connction is closed.
  */

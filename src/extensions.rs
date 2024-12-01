@@ -86,19 +86,20 @@ pub struct ExtList {
 
     /// A list of supported nul-terminated application protocols.
     ///
+    /// Each name is encoded as a one-byte length and then the name.
+    ///
     /// If `app_protos` is null, the extension isn't sent.
-    /// Each string MUST be non-null and nul-terminated.
     ///
     /// A URL containing a list of protocol names is provided below.
     /// For example, HTTP/2 over TLS is "h2".
     ///
     /// https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids
-    pub app_protos: *const *const c_char,
+    pub app_protos: *const c_char,
 
     /// The number of supported application protocols.
     ///
     /// If `app_proto_count` is null, the extension isn't sent.
-    pub app_proto_count: usize,
+    pub app_protos_len: usize,
 }
 
 impl Default for ExtList {
@@ -108,7 +109,7 @@ impl Default for ExtList {
             sig_algs: ECDSA_SECP256R1,
             sup_groups: SECP256R1,
             app_protos: null(),
-            app_proto_count: 0,
+            app_protos_len: 0,
         }
     }
 }
