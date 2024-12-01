@@ -74,6 +74,15 @@ A work-in-progress implementation of the TLS 1.3 protocol (RFC 8446) in Rust, pr
 - [ ] Derive client_application_traffic
 - [ ] Derive server_application_traffic
 
+### Supported Extensions
+- [x] server_name
+- [x] supported_groups
+- [x] signature_algorithms
+- [x] application_layer_protocol_negotiation
+- [x] supported_versions
+- [ ] cookie
+- [x] key_share
+
 ### 3. TLS 1.3 Specification Compliance Requirements
 - [ ] Mandatory signature algorithms
     - [x] ecdsa_secp256r1
