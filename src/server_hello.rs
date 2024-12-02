@@ -29,63 +29,42 @@ pub(crate) fn read_and_parse(
     state: &mut ShakeState,
 ) -> Result<(), ReadError> {
     state.read()?;
-    if state.rl_state.rl.msg_type() != ContentType::Handshake.to_byte() {
+
+    if state.msg_buf.msg_type() != ShakeType::ServerHello.to_byte() {
         return Err(ReadError::Alert(TlsError::Sent(Alert::UnexpectedMessage)));
     }
 
-    if state.msg_buf.msg_len() < SHAKE_HEADER_SIZE + ServerHello::MIN_LEN {
+    if state.msg_buf.len() < ServerHello::MIN_LEN {
         return Err(ReadError::Alert(TlsError::Sent(Alert::DecodeError)));
     }
 
-    if state.msg_buf.buf()[0] != ShakeType::ServerHello.to_byte() {
-        return Err(ReadError::Alert(TlsError::Sent(Alert::UnexpectedMessage)));
-    }
 
-    let len =
-        u32::from_be_bytes([0, state.msg_buf.buf()[1], state.msg_buf.buf()[2], state.msg_buf.buf()[3]]) as usize;
+    let mut pos = size_of::<ProtocolVersion>() + ServerHello::RANDOM_BYTES_LEN;
 
-    // ServerHello must be the only message in the record
-    if len < state.msg_buf.msg_len() - SHAKE_HEADER_SIZE {
-        return Err(ReadError::Alert(TlsError::Sent(Alert::DecodeError)));
-    }
-
-    // ServerHello must not be more than one record (implemntation detail)
-    if len > state.msg_buf.msg_len() - SHAKE_HEADER_SIZE {
-        return Err(ReadError::Alert(TlsError::Sent(Alert::HandshakeFailure)));
-    }
-
-    if len < ServerHello::MIN_LEN {
-        return Err(ReadError::Alert(TlsError::Sent(Alert::DecodeError)));
-    }
-
-    state.msg_buf.advance(SHAKE_HEADER_SIZE);
-
-    state.msg_buf.advance(size_of::<ProtocolVersion>() + ServerHello::RANDOM_BYTES_LEN);
-
-    let leg_session_id_len = state.msg_buf.buf()[0];
+    let leg_session_id_len = state.msg_buf.data()[pos];
 
     if leg_session_id_len > 32 {
         return Err(ReadError::Alert(TlsError::Sent(Alert::DecodeError)));
     }
-    state.msg_buf.advance(size_of_val(&leg_session_id_len) + leg_session_id_len as usize);
+    pos += size_of_val(&leg_session_id_len) + leg_session_id_len as usize;
 
     state.rl_state.ciphers.suites &= CipherList::parse_singular(
-        state.msg_buf.buf()[..size_of::<CipherSuite>()]
+        state.msg_buf.data()[pos..][..size_of::<CipherSuite>()]
             .try_into()
             .unwrap(),
     )
     .suites;
-    state.msg_buf.advance(size_of::<CipherSuite>());
+    pos += size_of::<CipherSuite>();
 
-    state.msg_buf.advance(size_of_val(&ServerHello::LEGACY_COMPRESSION_METHOD));
+    pos += size_of_val(&ServerHello::LEGACY_COMPRESSION_METHOD);
 
-    let extensions_len = u16::from_be_bytes(state.msg_buf.buf()[..2].try_into().unwrap()) as usize;
+    let extensions_len = u16::from_be_bytes(state.msg_buf.data()[pos..][..2].try_into().unwrap()) as usize;
 
-    state.msg_buf.advance(ExtList::LEN_SIZE);
-    if extensions_len != state.msg_buf.buf().len() {
+    pos += ExtList::LEN_SIZE;
+    if extensions_len != state.msg_buf.data().len() - pos {
         return Err(ReadError::Alert(TlsError::Sent(Alert::DecodeError)));
     }
-    if let Err(alert) = extensions::parse_ser_hel_exts(state) {
+    if let Err(alert) = extensions::parse_ser_hel_exts(&state.msg_buf.data()[pos..], &mut state.rl_state) {
         return Err(ReadError::Alert(TlsError::Sent(alert)));
     }
     Ok(())

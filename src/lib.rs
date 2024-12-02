@@ -129,7 +129,7 @@ pub unsafe extern "C" fn turtls_connect(
             sig_algs: config.extensions.sig_algs,
             rl,
         },
-        msg_buf: MsgBuf::new(),
+        msg_buf: MsgBuf::new(0x20000),
     };
 
     if let Err(err) = server_hello::read_and_parse(&mut shake_state) {

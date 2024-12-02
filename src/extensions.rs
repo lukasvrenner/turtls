@@ -3,7 +3,7 @@ use std::ptr::null;
 
 use crate::alert::Alert;
 use crate::record::{IoError, RecordLayer};
-use crate::state::ShakeState;
+use crate::state::{RlState, ShakeState};
 
 pub mod app_proto;
 pub mod key_share;
@@ -191,14 +191,14 @@ impl<'a> Iterator for ExtIter<'a> {
     }
 }
 
-pub(crate) fn parse_ser_hel_exts(state: &mut ShakeState) -> Result<(), Alert> {
-    for ext in ExtIter::new(state.msg_buf.buf()) {
+pub(crate) fn parse_ser_hel_exts(exts: &[u8], rl_state: &mut RlState) -> Result<(), Alert> {
+    for ext in ExtIter::new(exts) {
         match ext.ext_type {
             x if x == &ExtensionType::SupportedVersions.to_be_bytes() => {
                 versions::parse_ser(ext.data)?;
             },
             x if x == &ExtensionType::KeyShare.to_be_bytes() => {
-                key_share::parse_ser(ext.data, &mut state.rl_state)?;
+                key_share::parse_ser(ext.data, rl_state)?;
             },
             _ => return Err(Alert::UnsupportedExtension),
         }

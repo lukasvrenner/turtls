@@ -78,7 +78,7 @@ impl Io {
     }
 
     /// Reads to the entire buffer unless timeout or another error occurs.
-    fn read_all(
+    fn fill(
         &self,
         buf: &mut [u8],
         start_time: Instant,
@@ -147,7 +147,7 @@ impl RecordLayer {
     pub(crate) const SUFFIX_SIZE: usize = 0x100;
     pub(crate) const BUF_SIZE: usize = Self::HEADER_SIZE + Self::MAX_LEN + Self::SUFFIX_SIZE;
 
-    pub(crate) const MIN_PROT_LEN: usize = TAG_SIZE + 1;
+    pub(crate) const MIN_PROT_LEN: usize = TAG_SIZE + size_of::<ContentType>();
 
     pub(crate) fn new(io: Io, timeout: Duration) -> Self {
         Self {
@@ -176,32 +176,32 @@ impl RecordLayer {
 
     pub(crate) fn start(&mut self) {
         debug_assert_eq!(self.buf[1..3], LEGACY_PROTO_VERS.to_be_bytes());
-        self.len = Self::HEADER_SIZE;
+        self.len = 0;
     }
 
     fn encode_len(&mut self) {
-        self.buf[Self::HEADER_SIZE - Self::LEN_SIZE] = (self.data_len() >> 8) as u8;
-        self.buf[Self::HEADER_SIZE - Self::LEN_SIZE + 1] = self.data_len() as u8;
+        self.buf[Self::HEADER_SIZE - Self::LEN_SIZE] = (self.len() >> 8) as u8;
+        self.buf[Self::HEADER_SIZE - Self::LEN_SIZE + 1] = self.len() as u8;
     }
 
     fn encode_and_protect(&mut self) {
         if self.aead.is_some() {
             let msg_type =
                 std::mem::replace(&mut self.buf[0], ContentType::ApplicationData.to_byte());
-            self.buf[self.len] = msg_type;
+            self.buf[Self::HEADER_SIZE + self.len] = msg_type;
             self.len += 1;
             // TODO: pad the record
             self.len += TAG_SIZE;
         }
         self.encode_len();
         self.encrypt();
-        self.bytes_read = self.len - Self::HEADER_SIZE;
+        self.bytes_read = self.len;
     }
 
     pub(crate) fn finish(&mut self) -> Result<(), IoError> {
         if self.msg_type() == ContentType::Handshake.to_byte() {
             self.transcript
-                .update_with(&self.buf[Self::HEADER_SIZE..self.len]);
+                .update_with(&self.buf[Self::HEADER_SIZE..][..self.len]);
         }
         self.encode_and_protect();
         let start = Instant::now();
@@ -210,21 +210,21 @@ impl RecordLayer {
 
     /// The length of the data in the buffer.
     ///
-    /// This is the equivalent to `self.buf().len()`.
-    pub(crate) const fn data_len(&self) -> usize {
-        self.len - Self::HEADER_SIZE
+    /// This is the equivalent to `self.data().len()`.
+    pub(crate) const fn len(&self) -> usize {
+        self.len
     }
 
     pub(crate) fn data(&self) -> &[u8] {
-        &self.buf[Self::HEADER_SIZE..self.len]
+        &self.buf[Self::HEADER_SIZE..][..self.len]
     }
 
     pub(crate) fn push(&mut self, value: u8) -> Result<(), IoError> {
-        if self.data_len() == Self::MAX_LEN {
+        if self.len() == Self::MAX_LEN {
             self.finish()?;
             self.start();
         }
-        self.buf[self.len] = value;
+        self.buf[Self::HEADER_SIZE + self.len] = value;
         self.len += 1;
         Ok(())
     }
@@ -242,28 +242,30 @@ impl RecordLayer {
     }
 
     pub(crate) fn extend_from_slice(&mut self, slice: &[u8]) -> Result<(), IoError> {
-        let diff = Self::MAX_LEN - self.data_len();
+        let diff = Self::MAX_LEN - self.len();
 
         if slice.len() <= diff {
-            self.buf[self.len..][..slice.len()].copy_from_slice(slice);
+            self.buf[Self::HEADER_SIZE + self.len..][..slice.len()].copy_from_slice(slice);
             self.len += slice.len();
             return Ok(());
         }
 
-        self.buf[self.len..].copy_from_slice(&slice[..diff]);
-        self.len = Self::MAX_LEN + Self::HEADER_SIZE;
+        self.buf[Self::HEADER_SIZE + self.len..].copy_from_slice(&slice[..diff]);
+        self.len = Self::MAX_LEN;
 
         for chunk in slice[diff..].chunks(Self::MAX_LEN) {
             self.finish()?;
             self.start();
             self.buf[Self::HEADER_SIZE..][..chunk.len()].copy_from_slice(chunk);
-            self.len = Self::HEADER_SIZE + chunk.len();
+            self.len = chunk.len();
         }
         Ok(())
     }
 
     /// Reads a single record into [`RecordLayer`]'s internal buffer, decrypting and processing if
     /// necessary.
+    ///
+    /// At least one byte is guaranteed to be read.
     ///
     /// WARNING: if there is unread data in the buffer, it will be overwritten.
     pub(crate) fn read(&mut self) -> Result<(), ReadError> {
@@ -273,16 +275,20 @@ impl RecordLayer {
             return Err(ReadError::Alert(TlsError::Sent(alert)));
         }
 
+        if self.len() == 0 {
+            return Err(ReadError::Timeout);
+        }
+
         [self.buf[1], self.buf[2]] = LEGACY_PROTO_VERS.to_be_bytes();
 
         if self.msg_type() == ContentType::Alert.to_byte() {
             return Err(ReadError::Alert(TlsError::Received(Alert::from_byte(
-                            self.buf[Self::HEADER_SIZE + size_of::<AlertLevel>()],
+                self.buf[Self::HEADER_SIZE + size_of::<AlertLevel>()],
             ))));
         }
         if self.msg_type() == ContentType::Handshake.to_byte() {
             self.transcript
-                .update_with(&self.buf[Self::HEADER_SIZE..self.len]);
+                .update_with(&self.buf[Self::HEADER_SIZE..][..self.len]);
         }
         Ok(())
     }
@@ -293,7 +299,7 @@ impl RecordLayer {
         let start_time = Instant::now();
 
         self.io
-            .read_all(&mut self.buf[..Self::HEADER_SIZE], start_time, self.timeout)?;
+            .fill(&mut self.buf[..Self::HEADER_SIZE], start_time, self.timeout)?;
 
         let record_len = u16::from_be_bytes([
             self.buf[Self::HEADER_SIZE - 2],
@@ -303,10 +309,10 @@ impl RecordLayer {
         if record_len > Self::MAX_LEN + Self::SUFFIX_SIZE {
             return Err(ReadError::Alert(TlsError::Sent(Alert::RecordOverflow)));
         }
-        self.len = record_len + Self::HEADER_SIZE;
+        self.len = record_len;
 
-        self.io.read_all(
-            &mut self.buf[Self::HEADER_SIZE..self.len],
+        self.io.fill(
+            &mut self.buf[Self::HEADER_SIZE..][..self.len],
             start_time,
             self.timeout,
         )?;
@@ -322,11 +328,12 @@ impl RecordLayer {
             return Ok(());
         };
 
-        if self.len - Self::HEADER_SIZE < Self::MIN_PROT_LEN {
+        if self.len < Self::MIN_PROT_LEN {
             return Err(Alert::DecodeError);
         }
 
-        let (header, msg) = self.buf[..self.len].split_at_mut(RecordLayer::HEADER_SIZE);
+        let (header, msg) =
+            self.buf[..Self::HEADER_SIZE + self.len].split_at_mut(RecordLayer::HEADER_SIZE);
         let (msg, tag) = msg.split_at_mut(msg.len() - TAG_SIZE);
         let tag = (tag as &[u8]).try_into().unwrap();
 
@@ -341,7 +348,7 @@ impl RecordLayer {
         };
 
         self.len -= padding;
-        self.buf[0] = self.data()[self.data_len() - 1];
+        self.buf[0] = self.data()[self.len() - 1];
         self.len -= 1;
         Ok(())
     }
@@ -351,21 +358,30 @@ impl RecordLayer {
     /// If `buf` fills before the entire record is read, the data will be saved and read to `buf`
     /// next time it is called.
     pub(crate) fn read_to(&mut self, buf: &mut [u8]) -> Result<usize, ReadError> {
-        if self.bytes_read == self.data_len() {
+        if self.bytes_read == self.len() {
             self.read()?;
         }
-        let new_bytes = std::cmp::min(self.data_len() - self.bytes_read, buf.len());
+        let new_bytes = std::cmp::min(self.len() - self.bytes_read, buf.len());
         buf[..new_bytes].copy_from_slice(&self.data()[self.bytes_read..][..new_bytes]);
         self.bytes_read += new_bytes;
         Ok(new_bytes)
+    }
+
+    pub(crate) fn fill(&mut self, buf: &mut [u8]) -> Result<(), ReadError> {
+        let mut bytes_read = 0;
+        while bytes_read < buf.len() {
+            bytes_read += self.read_to(&mut buf[bytes_read..])?;
+        }
+        Ok(())
     }
 
     fn encrypt(&mut self) {
         let Some(ref mut aead) = self.aead else {
             return;
         };
-        let (header, msg) = self.buf[..self.len].split_at_mut(Self::HEADER_SIZE);
-        let (msg, tag) = msg.split_at_mut(self.len - Self::HEADER_SIZE - TAG_SIZE);
+        let (header, msg) =
+            self.buf[..Self::HEADER_SIZE + self.len].split_at_mut(Self::HEADER_SIZE);
+        let (msg, tag) = msg.split_at_mut(self.len - TAG_SIZE);
         let tag: &mut [u8; TAG_SIZE] = tag.try_into().unwrap();
         *tag = aead.encrypt_inline(msg, header);
     }
@@ -375,10 +391,9 @@ impl RecordLayer {
 
         debug_assert_eq!(self.buf[1..3], LEGACY_PROTO_VERS.to_be_bytes());
 
-        self.len = Self::HEADER_SIZE + AlertMsg::SIZE;
-
-        [self.buf[Self::HEADER_SIZE], self.buf[Self::HEADER_SIZE + 1]] =
-            AlertMsg::new(alert).to_be_bytes();
+        self.len = AlertMsg::SIZE;
+        self.buf[Self::HEADER_SIZE..][..AlertMsg::SIZE]
+            .copy_from_slice(&AlertMsg::new(alert).to_be_bytes());
 
         // the return value doesn't matter because we're closing anyways
         let _ = self.finish();
@@ -387,6 +402,10 @@ impl RecordLayer {
 
     pub(crate) fn transcript(&self) -> [u8; Sha256::HASH_SIZE] {
         self.transcript.clone().finish()
+    }
+
+    pub(crate) fn clear(&mut self) {
+        self.bytes_read = self.len();
     }
 }
 
