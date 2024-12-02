@@ -1,9 +1,13 @@
 use crylib::aead::chacha::ChaCha20Poly1305;
 use crylib::aead::gcm::{Aes128, AesCipher, Gcm};
 use crylib::aead::{Aead, BadData, IV_SIZE, TAG_SIZE};
-use crylib::hash::Sha256;
+use crylib::hash::{Hasher, Sha256};
+use crylib::hkdf;
 
-use crate::{key_schedule, CipherList};
+use crate::alert::Alert;
+use crate::cipher_suites::CipherList;
+use crate::key_schedule;
+use crate::state::RlState;
 
 enum ManyAead {
     Aes128Gcm {
@@ -133,5 +137,29 @@ impl TlsAead {
         self.read_nonce = self.read_nonce.checked_add(1).unwrap();
 
         self.aead.encrypt_inline(msg, add_data, &init_vec)
+    }
+}
+
+pub(crate) fn handshake_aead(rl_state: &mut RlState, dh_secret: &[u8]) -> Option<()> {
+    let salt = key_schedule::derive_secret(&rl_state.secret, b"derived", &Sha256::hash(b""));
+
+    rl_state.secret =
+        hkdf::extract::<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>(&dh_secret, &salt);
+
+    let transcript = rl_state.rl.transcript();
+
+    let cli_shake_traf_secret =
+        key_schedule::derive_secret(&rl_state.secret, b"c hs traffic", &transcript);
+    let ser_shake_traf_secret =
+        key_schedule::derive_secret(&rl_state.secret, b"s hs traffic", &transcript);
+
+    rl_state.rl.aead = TlsAead::new(
+        &cli_shake_traf_secret,
+        &ser_shake_traf_secret,
+        rl_state.ciphers,
+    );
+    match rl_state.rl.aead {
+        Some(_) => Some(()),
+        None => None,
     }
 }
