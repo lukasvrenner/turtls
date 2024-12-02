@@ -4,7 +4,7 @@ use crate::error::TlsError;
 use crate::extensions::versions::ProtocolVersion;
 use crate::extensions::{self, ExtList};
 use crate::handshake::ShakeType;
-use crate::record::{ContentType, ReadError};
+use crate::record::ReadError;
 use crate::state::ShakeState;
 
 pub(crate) struct ServerHello<'a> {
@@ -25,9 +25,7 @@ impl<'a> ServerHello<'a> {
         + ExtList::LEN_SIZE;
 }
 
-pub(crate) fn read_and_parse(
-    state: &mut ShakeState,
-) -> Result<(), ReadError> {
+pub(crate) fn read_and_parse(state: &mut ShakeState) -> Result<(), ReadError> {
     state.read()?;
 
     if state.msg_buf.msg_type() != ShakeType::ServerHello.to_byte() {
@@ -37,7 +35,6 @@ pub(crate) fn read_and_parse(
     if state.msg_buf.len() < ServerHello::MIN_LEN {
         return Err(ReadError::Alert(TlsError::Sent(Alert::DecodeError)));
     }
-
 
     let mut pos = size_of::<ProtocolVersion>() + ServerHello::RANDOM_BYTES_LEN;
 
@@ -58,13 +55,9 @@ pub(crate) fn read_and_parse(
 
     pos += size_of_val(&ServerHello::LEGACY_COMPRESSION_METHOD);
 
-    let extensions_len = u16::from_be_bytes(state.msg_buf.data()[pos..][..2].try_into().unwrap()) as usize;
-
-    pos += ExtList::LEN_SIZE;
-    if extensions_len != state.msg_buf.data().len() - pos {
-        return Err(ReadError::Alert(TlsError::Sent(Alert::DecodeError)));
-    }
-    if let Err(alert) = extensions::parse_ser_hel_exts(&state.msg_buf.data()[pos..], &mut state.rl_state) {
+    if let Err(alert) =
+        extensions::parse_ser_hel_exts(&mut state.rl_state, &state.msg_buf.data()[pos..])
+    {
         return Err(ReadError::Alert(TlsError::Sent(alert)));
     }
     Ok(())

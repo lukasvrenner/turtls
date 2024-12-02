@@ -191,8 +191,12 @@ impl<'a> Iterator for ExtIter<'a> {
     }
 }
 
-pub(crate) fn parse_ser_hel_exts(exts: &[u8], rl_state: &mut RlState) -> Result<(), Alert> {
-    for ext in ExtIter::new(exts) {
+pub(crate) fn parse_ser_hel_exts(rl_state: &mut RlState, exts: &[u8]) -> Result<(), Alert> {
+    let len = u16::from_be_bytes(exts[..ExtList::LEN_SIZE].try_into().unwrap()) as usize;
+    if len != exts.len() - ExtList::LEN_SIZE {
+        return Err(Alert::DecodeError);
+    }
+    for ext in ExtIter::new(&exts[ExtList::LEN_SIZE..]) {
         match ext.ext_type {
             x if x == &ExtensionType::SupportedVersions.to_be_bytes() => {
                 versions::parse_ser(ext.data)?;
@@ -204,4 +208,15 @@ pub(crate) fn parse_ser_hel_exts(exts: &[u8], rl_state: &mut RlState) -> Result<
         }
     }
     Ok(())
+}
+
+pub(crate) fn parse_enc_exts(exts: &[u8], rl_state: &mut RlState) -> Result<(), Alert> {
+    let len = u16::from_be_bytes(exts[..ExtList::LEN_SIZE].try_into().unwrap()) as usize;
+    if len != exts.len() - ExtList::LEN_SIZE {
+        return Err(Alert::DecodeError);
+    }
+    for ext in ExtIter::new(&exts[ExtList::LEN_SIZE..]) {
+        println!("type: {:?}, data: {:?}", ext.ext_type, ext.data);
+    }
+    todo!()
 }

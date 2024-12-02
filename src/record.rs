@@ -78,12 +78,7 @@ impl Io {
     }
 
     /// Reads to the entire buffer unless timeout or another error occurs.
-    fn fill(
-        &self,
-        buf: &mut [u8],
-        start_time: Instant,
-        timeout: Duration,
-    ) -> Result<(), IoError> {
+    fn fill(&self, buf: &mut [u8], start_time: Instant, timeout: Duration) -> Result<(), IoError> {
         let mut bytes_read = 0;
 
         while bytes_read < buf.len() {
@@ -268,8 +263,8 @@ impl RecordLayer {
     /// At least one byte is guaranteed to be read.
     ///
     /// WARNING: if there is unread data in the buffer, it will be overwritten.
-    pub(crate) fn read(&mut self) -> Result<(), ReadError> {
-        self.plain_read()?;
+    pub(crate) fn peek(&mut self) -> Result<(), ReadError> {
+        self.peek_raw()?;
 
         if let Err(alert) = self.deprotect() {
             return Err(ReadError::Alert(TlsError::Sent(alert)));
@@ -290,12 +285,15 @@ impl RecordLayer {
             self.transcript
                 .update_with(&self.buf[Self::HEADER_SIZE..][..self.len]);
         }
+        let len = std::cmp::min(crate::MsgBuf::HEADER_SIZE, self.len());
+        println!("record type: {}", self.msg_type());
+        println!("record {:?}", &self.data()[..len]);
         Ok(())
     }
 
     /// Reads a single record into [`RecordLayer`]'s internal buffer without decrypting or
     /// processing it.
-    fn plain_read(&mut self) -> Result<(), ReadError> {
+    fn peek_raw(&mut self) -> Result<(), ReadError> {
         let start_time = Instant::now();
 
         self.io
@@ -353,26 +351,27 @@ impl RecordLayer {
         Ok(())
     }
 
+    /// Reads data into `buf` without retreiving a new record.
+    pub(crate) fn read_remaining(&mut self, buf: &mut [u8]) -> usize {
+        let new_bytes = std::cmp::min(self.remaining_bytes(), buf.len());
+        buf[..new_bytes].copy_from_slice(&self.data()[self.bytes_read..][..new_bytes]);
+        self.bytes_read += new_bytes;
+        new_bytes
+    }
+
+    pub(crate) fn remaining_bytes(&self) -> usize {
+        self.len() - self.bytes_read
+    }
+
     /// Reads data into `buf` until either the entire record has been read or `buf` is full.
     ///
     /// If `buf` fills before the entire record is read, the data will be saved and read to `buf`
     /// next time it is called.
-    pub(crate) fn read_to(&mut self, buf: &mut [u8]) -> Result<usize, ReadError> {
+    pub(crate) fn read(&mut self, buf: &mut [u8]) -> Result<usize, ReadError> {
         if self.bytes_read == self.len() {
-            self.read()?;
+            self.peek()?;
         }
-        let new_bytes = std::cmp::min(self.len() - self.bytes_read, buf.len());
-        buf[..new_bytes].copy_from_slice(&self.data()[self.bytes_read..][..new_bytes]);
-        self.bytes_read += new_bytes;
-        Ok(new_bytes)
-    }
-
-    pub(crate) fn fill(&mut self, buf: &mut [u8]) -> Result<(), ReadError> {
-        let mut bytes_read = 0;
-        while bytes_read < buf.len() {
-            bytes_read += self.read_to(&mut buf[bytes_read..])?;
-        }
-        Ok(())
+        Ok(self.read_remaining(buf))
     }
 
     fn encrypt(&mut self) {

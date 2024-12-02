@@ -186,6 +186,8 @@ pub(super) fn parse_ser(key_share: &[u8], rl_state: &mut RlState) -> Result<(), 
 
             handshake_aead(rl_state, &dh_secret).ok_or(Alert::HandshakeFailure)
         },
-        _ => return Err(Alert::HandshakeFailure),
+        _ => {
+            return Err(Alert::HandshakeFailure)
+        },
     }
 }

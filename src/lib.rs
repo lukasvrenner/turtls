@@ -139,23 +139,39 @@ pub unsafe extern "C" fn turtls_connect(
                 connection.rl = None;
                 return ShakeResult::SentAlert(alert);
             },
-            _ => return err.into(),
+            _ => {
+                connection.rl = None;
+                return err.into();
+            },
         }
     }
-
-    if let Err(err) = rl.read() {
-        if let ReadError::Alert(TlsError::Sent(alert)) = err {
-            rl.close(alert);
-        }
-        return err.into();
-    }
-
-    if rl.msg_type() == ContentType::ChangeCipherSpec.to_byte() {
-        if let Err(err) = rl.read() {
-            if let ReadError::Alert(TlsError::Sent(alert)) = err {
+    //
+    //if let Err(err) = rl.read() {
+    //    if let ReadError::Alert(TlsError::Sent(alert)) = err {
+    //        rl.close(alert);
+    //    }
+    //    return err.into();
+    //}
+    //
+    //if rl.msg_type() == ContentType::ChangeCipherSpec.to_byte() {
+    //    if let Err(err) = rl.read() {
+    //        if let ReadError::Alert(TlsError::Sent(alert)) = err {
+    //            rl.close(alert);
+    //        }
+    //        return err.into();
+    //    }
+    //}
+    if let Err(err) = shake_state.read() {
+        match err {
+            ReadError::Alert(TlsError::Sent(alert)) => {
                 rl.close(alert);
-            }
-            return err.into();
+                connection.rl = None;
+                return ShakeResult::SentAlert(alert);
+            },
+            _ => {
+                connection.rl = None;
+                return err.into();
+            },
         }
     }
     todo!("finish handshake");
