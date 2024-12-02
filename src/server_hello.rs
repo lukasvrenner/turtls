@@ -3,7 +3,7 @@ use crate::cipher_suites::{CipherList, CipherSuite};
 use crate::error::TlsError;
 use crate::extensions::versions::ProtocolVersion;
 use crate::extensions::{self, ExtList};
-use crate::handshake::{ShakeType, SHAKE_HEADER_SIZE};
+use crate::handshake::ShakeType;
 use crate::record::{ContentType, ReadError};
 use crate::state::ShakeState;
 
