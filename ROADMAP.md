@@ -44,13 +44,10 @@ A work-in-progress implementation of the TLS 1.3 protocol (RFC 8446) in Rust, pr
 - [ ] Handle HelloRetryRequest
 - [x] Derive client_handshake_traffic
 - [x] Derive server_handshake_traffic
-    - [ ] Derive client_application_traffic
-    - [ ] Derive server_application_traffic
 - [ ] EncryptedExtensions
 - [ ] CertificateRequest support (optional)
 - [ ] Certificate handling
-    - [ ] Define certificate format
-    - [ ] Implement certificate user input mechanism
+    - [ ] Get certificates from user
 - [ ] CertificateVerify
 - [ ] Finished message
 - [ ] Derive client_application_traffic
@@ -89,14 +86,13 @@ A work-in-progress implementation of the TLS 1.3 protocol (RFC 8446) in Rust, pr
     - [ ] rsa_pkcs1_sha256 (for certificates)
     - [ ] rsa_pss_rsae_sha256 (for CertificateVerify and certificates)
 - [x] Mandatory key-exchange methods
-    - [x] Secp256r1
+    - [x] secp256r1
 - [x] Mandatory Cipher Suites
     - [x] AES_128_GCM_SHA_256
 - [x] Record Layer Protocol
-    - [x] Unprotected read
-    - [x] Unprotected write
-    - [x] Protected read
-    - [x] Protected write
+    - [x] Pprotected and unprotected read
+    - [x] Protected and unprotected write
+    - [x] Buffered reading to ensure no data is lost 
 - [ ] Handshake Protocol
 - [x] Alert Protocol
 
@@ -123,6 +119,7 @@ A work-in-progress implementation of the TLS 1.3 protocol (RFC 8446) in Rust, pr
 
 ### 5. Optional Enhancements
 - [ ] Additional Features
+    - [x] CHACHA20_POLY1305_SHA_256
     - [ ] AES_256_GCM_SHA_384
     - [ ] Additional curve support
     - [ ] Pre-shared key (PSK)
@@ -170,7 +167,7 @@ A work-in-progress implementation of the TLS 1.3 protocol (RFC 8446) in Rust, pr
 ### Security Requirements
 - [x] Secure random number generation
 - [ ] Protection against timing attacks
-- [x] Memory zeroization
+- [ ] Memory zeroization
 - [ ] Side-channel resistance
 - [ ] Safe buffer handling
 - [x] Resource cleanup
@@ -183,11 +180,11 @@ A work-in-progress implementation of the TLS 1.3 protocol (RFC 8446) in Rust, pr
 
 ## Documentation and Resources
 - Repository Links:
-  - TurTLS: https://github.com/lukasvrenner/turtls
-  - Pull (HTTPS client): https://github.com/lukasvrenner/pull
+  - TurTLS: <https://github.com/lukasvrenner/turtls>
+  - Pull (HTTPS client): <https://github.com/lukasvrenner/pull>
 - Specification Links:
-  - TLS 1.3: https://datatracker.ietf.org/doc/html/rfc8446
-  - Compliance Requirements: https://datatracker.ietf.org/doc/html/rfc8446#section-9
+  - TLS 1.3: <https://datatracker.ietf.org/doc/html/rfc8446>
+  - Compliance Requirements: <https://datatracker.ietf.org/doc/html/rfc8446#section-9>
 
 ## Project Timeline
 ### Short Term (1-2 months)
