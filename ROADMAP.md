@@ -36,6 +36,8 @@ A work-in-progress implementation of the TLS 1.3 protocol (RFC 8446) in Rust, pr
     - [x] SHA-256
     - [x] SHA-512
     - [ ] SHA-384
+    - [x] HMAC
+    - [x] HKDF
 - [ ] RSA
 
 ### 1. Client implementation
