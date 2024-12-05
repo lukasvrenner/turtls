@@ -7,7 +7,6 @@ use crate::error::TlsError;
 use crate::extensions::versions::LEGACY_PROTO_VERS;
 
 use std::ffi::c_void;
-use std::time::{Duration, Instant};
 
 #[repr(u8)]
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -77,19 +76,17 @@ impl Io {
         (self.close_fn)(self.ctx);
     }
 
-    /// Reads to the entire buffer unless timeout or another error occurs.
-    fn fill(&self, buf: &mut [u8], start_time: Instant, timeout: Duration) -> Result<(), IoError> {
+    /// Reads to the entire buffer unless an error occurs.
+    fn fill(&self, buf: &mut [u8]) -> Result<(), IoError> {
         let mut bytes_read = 0;
 
         while bytes_read < buf.len() {
             let new_bytes = self.read(&mut buf[bytes_read..]);
 
-            if start_time.elapsed() > timeout {
-                return Err(IoError::Timeout);
-            }
-
-            if new_bytes < 0 {
-                return Err(IoError::IoError);
+            match new_bytes {
+                ..0 => return Err(IoError::IoError),
+                0 => return Err(IoError::WantMore),
+                _ => bytes_read += new_bytes as usize,
             }
 
             bytes_read += new_bytes as usize
@@ -97,14 +94,14 @@ impl Io {
         Ok(())
     }
 
-    /// Writes the entire buffer unless timeout or another error occurs.
-    fn write_all(&self, buf: &[u8], start_time: Instant, timeout: Duration) -> Result<(), IoError> {
+    /// Writes the entire buffer unless an error occurs.
+    fn write_all(&self, buf: &[u8]) -> Result<(), IoError> {
         let mut bytes_written = 0;
         while bytes_written < buf.len() {
             let new_bytes = self.write(buf);
 
-            if start_time.elapsed() > timeout {
-                return Err(IoError::Timeout);
+            if new_bytes == 0 {
+                return Err(IoError::WantMore);
             }
 
             if new_bytes < 0 {
@@ -119,7 +116,7 @@ impl Io {
 
 pub(crate) enum IoError {
     IoError,
-    Timeout,
+    WantMore,
 }
 
 pub(crate) struct RecordLayer {
@@ -130,7 +127,6 @@ pub(crate) struct RecordLayer {
     len: usize,
     bytes_read: usize,
     io: Io,
-    pub(crate) timeout: Duration,
     pub(crate) aead: Option<TlsAead>,
     transcript: BufHasher<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>,
 }
@@ -144,7 +140,7 @@ impl RecordLayer {
 
     pub(crate) const MIN_PROT_LEN: usize = TAG_SIZE + size_of::<ContentType>();
 
-    pub(crate) fn new(io: Io, timeout: Duration) -> Self {
+    pub(crate) fn new(io: Io) -> Self {
         Self {
             buf: {
                 let mut buf = [0; Self::BUF_SIZE];
@@ -154,7 +150,6 @@ impl RecordLayer {
             len: 0,
             bytes_read: 0,
             io,
-            timeout,
             aead: None,
             transcript: BufHasher::new(),
         }
@@ -199,8 +194,7 @@ impl RecordLayer {
                 .update_with(&self.buf[Self::HEADER_SIZE..][..self.len]);
         }
         self.encode_and_protect();
-        let start = Instant::now();
-        self.io.write_all(&self.buf, start, self.timeout)
+        self.io.write_all(&self.buf)
     }
 
     /// The length of the data in the buffer.
@@ -285,7 +279,7 @@ impl RecordLayer {
             self.transcript
                 .update_with(&self.buf[Self::HEADER_SIZE..][..self.len]);
         }
-        let len = std::cmp::min(crate::MsgBuf::HEADER_SIZE, self.len());
+        let len = std::cmp::min(crate::ShakeBuf::HEADER_SIZE, self.len());
         println!("record type: {}", self.msg_type());
         println!("record {:?}", &self.data()[..len]);
         Ok(())
@@ -294,10 +288,9 @@ impl RecordLayer {
     /// Reads a single record into [`RecordLayer`]'s internal buffer without decrypting or
     /// processing it.
     fn peek_raw(&mut self) -> Result<(), ReadError> {
-        let start_time = Instant::now();
 
         self.io
-            .fill(&mut self.buf[..Self::HEADER_SIZE], start_time, self.timeout)?;
+            .fill(&mut self.buf[..Self::HEADER_SIZE])?;
 
         let record_len = u16::from_be_bytes([
             self.buf[Self::HEADER_SIZE - 2],
@@ -311,8 +304,6 @@ impl RecordLayer {
 
         self.io.fill(
             &mut self.buf[Self::HEADER_SIZE..][..self.len],
-            start_time,
-            self.timeout,
         )?;
         self.bytes_read = 0;
         Ok(())
@@ -419,7 +410,7 @@ impl From<IoError> for ReadError {
     fn from(value: IoError) -> Self {
         match value {
             IoError::IoError => Self::IoError,
-            IoError::Timeout => Self::Timeout,
+            IoError::WantMore => Self::Timeout,
         }
     }
 }

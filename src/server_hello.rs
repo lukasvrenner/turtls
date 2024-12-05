@@ -1,11 +1,14 @@
+use crylib::hash::Sha256;
+
 use crate::alert::Alert;
 use crate::cipher_suites::{CipherList, CipherSuite};
+use crate::config::Config;
 use crate::error::TlsError;
 use crate::extensions::versions::ProtocolVersion;
 use crate::extensions::{self, ExtList};
 use crate::handshake::ShakeType;
-use crate::record::ReadError;
-use crate::state::ShakeState;
+use crate::record::{ReadError, RecordLayer};
+use crate::state::{ShakeState, State};
 
 pub(crate) struct ServerHello<'a> {
     leg_sesion_id: &'a [u8],
@@ -25,28 +28,29 @@ impl<'a> ServerHello<'a> {
         + ExtList::LEN_SIZE;
 }
 
-pub(crate) fn read_and_parse(state: &mut ShakeState) -> Result<(), ReadError> {
-    state.read()?;
+pub(crate) fn server_hello_client(shake_state: &mut ShakeState, state: &mut State) -> Result<(), ReadError> {
+    assert!(shake_state.next == ShakeType::ServerHello);
+    shake_state.buf.read(&mut state.rl)?;
 
-    if state.msg_buf.msg_type() != ShakeType::ServerHello.to_byte() {
+    if shake_state.buf.msg_type() != ShakeType::ServerHello.to_byte() {
         return Err(ReadError::Alert(TlsError::Sent(Alert::UnexpectedMessage)));
     }
 
-    if state.msg_buf.len() < ServerHello::MIN_LEN {
+    if shake_state.buf.len() < ServerHello::MIN_LEN {
         return Err(ReadError::Alert(TlsError::Sent(Alert::DecodeError)));
     }
 
     let mut pos = size_of::<ProtocolVersion>() + ServerHello::RANDOM_BYTES_LEN;
 
-    let leg_session_id_len = state.msg_buf.data()[pos];
+    let leg_session_id_len = shake_state.buf.data()[pos];
 
     if leg_session_id_len > 32 {
         return Err(ReadError::Alert(TlsError::Sent(Alert::DecodeError)));
     }
     pos += size_of_val(&leg_session_id_len) + leg_session_id_len as usize;
 
-    state.rl_state.ciphers.suites &= CipherList::parse_singular(
-        state.msg_buf.data()[pos..][..size_of::<CipherSuite>()]
+    shake_state.crypto.ciphers.suites &= CipherList::parse_singular(
+        shake_state.buf.data()[pos..][..size_of::<CipherSuite>()]
             .try_into()
             .unwrap(),
     )
@@ -56,9 +60,10 @@ pub(crate) fn read_and_parse(state: &mut ShakeState) -> Result<(), ReadError> {
     pos += size_of_val(&ServerHello::LEGACY_COMPRESSION_METHOD);
 
     if let Err(alert) =
-        extensions::parse_ser_hel_exts(&mut state.rl_state, &state.msg_buf.data()[pos..])
+        extensions::parse_ser_hel_exts(&shake_state.buf.data()[pos..], &mut shake_state.crypto, state)
     {
         return Err(ReadError::Alert(TlsError::Sent(alert)));
     }
+    shake_state.next = ShakeType::EncryptedExtensions;
     Ok(())
 }

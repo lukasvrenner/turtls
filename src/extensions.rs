@@ -1,9 +1,10 @@
 use std::ffi::c_char;
 use std::ptr::null;
 
+use crate::aead::TlsAead;
 use crate::alert::Alert;
 use crate::record::{IoError, RecordLayer};
-use crate::state::{RlState, ShakeState};
+use crate::state::{ShakeCrypto, ShakeState, State};
 
 pub mod app_proto;
 pub mod key_share;
@@ -12,7 +13,6 @@ pub mod sig_algs;
 pub mod versions;
 use key_share::{GroupKeys, SECP256R1};
 use sig_algs::ECDSA_SECP256R1;
-use versions::ProtocolVersion;
 
 #[repr(u16)]
 pub(crate) enum ExtensionType {
@@ -191,7 +191,7 @@ impl<'a> Iterator for ExtIter<'a> {
     }
 }
 
-pub(crate) fn parse_ser_hel_exts(rl_state: &mut RlState, exts: &[u8]) -> Result<(), Alert> {
+pub(crate) fn parse_ser_hel_exts(exts: &[u8], shake_crypto: &mut ShakeCrypto, state: &mut State) -> Result<(), Alert> {
     let len = u16::from_be_bytes(exts[..ExtList::LEN_SIZE].try_into().unwrap()) as usize;
     if len != exts.len() - ExtList::LEN_SIZE {
         return Err(Alert::DecodeError);
@@ -202,21 +202,10 @@ pub(crate) fn parse_ser_hel_exts(rl_state: &mut RlState, exts: &[u8]) -> Result<
                 versions::parse_ser(ext.data)?;
             },
             x if x == &ExtensionType::KeyShare.to_be_bytes() => {
-                key_share::parse_ser(ext.data, rl_state)?;
+                key_share::parse_ser(ext.data, shake_crypto, state)?;
             },
             _ => return Err(Alert::UnsupportedExtension),
         }
     }
     Ok(())
-}
-
-pub(crate) fn parse_enc_exts(exts: &[u8], rl_state: &mut RlState) -> Result<(), Alert> {
-    let len = u16::from_be_bytes(exts[..ExtList::LEN_SIZE].try_into().unwrap()) as usize;
-    if len != exts.len() - ExtList::LEN_SIZE {
-        return Err(Alert::DecodeError);
-    }
-    for ext in ExtIter::new(&exts[ExtList::LEN_SIZE..]) {
-        println!("type: {:?}, data: {:?}", ext.ext_type, ext.data);
-    }
-    todo!()
 }

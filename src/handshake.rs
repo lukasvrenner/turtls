@@ -1,12 +1,38 @@
 use std::mem::MaybeUninit;
 
 use crate::{
+    client_hello::client_hello_client,
+    config::{self, Config},
     error::TlsError,
     record::{ContentType, ReadError, RecordLayer},
-    Alert,
+    server_hello::server_hello_client,
+    state::{ShakeState, State},
+    Alert, Connection, ShakeResult,
 };
 
+pub(crate) fn handshake_client(
+    shake_state: &mut ShakeState,
+    state: &mut State,
+    config: &Config,
+) -> ShakeResult {
+    loop {
+        match shake_state.next {
+            ShakeType::ClientHello => {
+                client_hello_client(shake_state, state, config);
+            },
+            ShakeType::ServerHello => {
+                server_hello_client(shake_state, state);
+            },
+            ShakeType::EncryptedExtensions => {
+                todo!()
+            },
+            _ => todo!(),
+        };
+    }
+}
+
 /// The message type of a handshake message.
+#[derive(Debug, PartialEq, Eq)]
 #[expect(unused, reason = "not all handshake messages are implemented yet")]
 #[repr(u8)]
 pub(crate) enum ShakeType {
@@ -35,7 +61,7 @@ impl ShakeType {
 /// Currently, once it grows, it does not shrink. This may change.
 ///
 /// This struct is only used for reading messages, not writing.
-pub(crate) struct MsgBuf {
+pub(crate) struct ShakeBuf {
     buf: Box<[u8]>,
     /// The length of the handshake message.
     ///
@@ -45,7 +71,7 @@ pub(crate) struct MsgBuf {
     max_size: usize,
 }
 
-impl MsgBuf {
+impl ShakeBuf {
     const INIT_SIZE: usize = 0x4000;
     pub(crate) const LEN_SIZE: usize = 3;
     pub(crate) const HEADER_SIZE: usize = size_of::<ShakeType>() + Self::LEN_SIZE;

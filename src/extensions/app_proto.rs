@@ -52,5 +52,5 @@ pub unsafe extern "C" fn turtls_app_proto(connection: *const Connection) -> *con
         return null();
     }
     // SAFETY: the caller guarantees that the pointer is valid.
-    unsafe { &raw const (*connection).app_proto as *const c_char }
+    unsafe { &raw const (*connection).state.app_proto as *const c_char }
 }

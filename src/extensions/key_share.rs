@@ -4,16 +4,13 @@
 use crylib::big_int::UBigInt;
 use crylib::ec::{AffinePoint, EllipticCurve, Secp256r1};
 use crylib::finite_field::FieldElement;
-use crylib::hash::{Hasher, Sha256};
-use crylib::hkdf;
 use getrandom::getrandom;
 
 use super::{ExtList, ExtensionType};
-use crate::aead::{handshake_aead, TlsAead};
+use crate::aead::handshake_aead;
 use crate::alert::Alert;
-use crate::key_schedule;
 use crate::record::{IoError, RecordLayer};
-use crate::state::{RlState, ShakeState};
+use crate::state::{ShakeCrypto, State};
 
 const KEY_SHARE_LEGACY_FORM: u8 = 4;
 /// Key exchange via ECDH on the secp256r1 (NIST-P 256) curve.
@@ -175,19 +172,21 @@ pub(crate) fn secp256r1_shared_secret(
     Some(as_affine.x().to_be_bytes())
 }
 
-pub(super) fn parse_ser(key_share: &[u8], rl_state: &mut RlState) -> Result<(), Alert> {
+pub(super) fn parse_ser(
+    key_share: &[u8],
+    shake_crypto: &mut ShakeCrypto,
+    state: &mut State,
+) -> Result<(), Alert> {
     match &key_share[..size_of::<NamedGroup>()] {
-        x if x == NamedGroup::Secp256r1.to_be_bytes() && rl_state.sup_groups != 0 => {
+        x if x == NamedGroup::Secp256r1.to_be_bytes() && shake_crypto.sup_groups != 0 => {
             let dh_secret = secp256r1_shared_secret(
                 &key_share[size_of::<NamedGroup>() + ExtList::LEN_SIZE..],
-                &rl_state.priv_keys,
+                &shake_crypto.priv_keys,
             )
             .ok_or(Alert::IllegalParam)?;
 
-            handshake_aead(rl_state, &dh_secret).ok_or(Alert::HandshakeFailure)
+            handshake_aead(state, &dh_secret, shake_crypto.ciphers).ok_or(Alert::HandshakeFailure)
         },
-        _ => {
-            return Err(Alert::HandshakeFailure)
-        },
+        _ => return Err(Alert::HandshakeFailure),
     }
 }

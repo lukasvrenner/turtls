@@ -1,6 +1,4 @@
 use crate::alert::Alert;
-use crate::client_hello::CliHelError;
-use crate::config::ConfigError;
 use crate::extensions::key_share::KeyGenError;
 use crate::record::{IoError, ReadError};
 
@@ -32,20 +30,7 @@ pub enum ShakeResult {
     Timeout,
     /// Indicates that the randomly-generated private key was zero.
     PrivKeyIsZero,
-    /// Indicates there was an error in the config struct.
-    ConfigError(ConfigError),
-}
-
-impl From<CliHelError> for ShakeResult {
-    fn from(value: CliHelError) -> Self {
-        match value {
-            CliHelError::IoError(err) => match err {
-                IoError::IoError => Self::IoError,
-                IoError::Timeout => Self::Timeout,
-            },
-            CliHelError::RngError => Self::RngError,
-        }
-    }
+    MissingExtensions,
 }
 
 impl From<TlsError> for ShakeResult {
@@ -67,12 +52,21 @@ impl From<ReadError> for ShakeResult {
     }
 }
 
+impl From<IoError> for ShakeResult {
+    fn from(value: IoError) -> Self {
+        match value {
+            IoError::IoError => Self::IoError,
+            IoError::WantMore => Self::Timeout,
+        }
+    }
+}
+
 impl From<KeyGenError> for ShakeResult {
     fn from(value: KeyGenError) -> Self {
         match value {
             KeyGenError::RngError => Self::RngError,
             KeyGenError::PrivKeyIsZero => Self::PrivKeyIsZero,
-            KeyGenError::NoGroups => Self::ConfigError(ConfigError::MissingExtensions),
+            KeyGenError::NoGroups => Self::MissingExtensions,
         }
     }
 }
