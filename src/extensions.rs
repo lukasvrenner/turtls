@@ -194,7 +194,7 @@ pub(crate) fn parse_ser_hel_exts(
     shake_crypto: &mut UnprotShakeState,
     state: &mut GlobalState,
 ) -> Result<TlsAead, Alert> {
-    let mut aead = Err(Alert::MissingExtension);
+    let mut maybe_aead = Err(Alert::MissingExtension);
     let len = u16::from_be_bytes(exts[..ExtList::LEN_SIZE].try_into().unwrap()) as usize;
     if len != exts.len() - ExtList::LEN_SIZE {
         return Err(Alert::DecodeError);
@@ -205,10 +205,10 @@ pub(crate) fn parse_ser_hel_exts(
                 versions::parse_ser(ext.data)?;
             },
             x if x == &ExtensionType::KeyShare.to_be_bytes() => {
-                aead = key_share::parse_ser(ext.data, shake_crypto, state);
+                maybe_aead = key_share::parse_ser(ext.data, shake_crypto, state);
             },
             _ => return Err(Alert::UnsupportedExtension),
         }
     }
-    aead
+    maybe_aead
 }

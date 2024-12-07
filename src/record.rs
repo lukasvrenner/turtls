@@ -73,48 +73,14 @@ impl Io {
     fn close(&self) {
         (self.close_fn)(self.ctx);
     }
-
-    /// Reads to the entire buffer unless an error occurs.
-    fn fill(&self, buf: &mut [u8]) -> Result<(), IoError> {
-        let mut bytes_read = 0;
-
-        while bytes_read < buf.len() {
-            let new_bytes = self.read(&mut buf[bytes_read..]);
-
-            match new_bytes {
-                ..0 => return Err(IoError::IoError),
-                0 => return Err(IoError::WantMore),
-                _ => bytes_read += new_bytes as usize,
-            }
-
-            bytes_read += new_bytes as usize
-        }
-        Ok(())
-    }
-
-    /// Writes the entire buffer unless an error occurs.
-    fn write_all(&self, buf: &[u8]) -> Result<(), IoError> {
-        let mut bytes_written = 0;
-        while bytes_written < buf.len() {
-            let new_bytes = self.write(buf);
-
-            if new_bytes == 0 {
-                return Err(IoError::WantMore);
-            }
-
-            if new_bytes < 0 {
-                return Err(IoError::IoError);
-            }
-
-            bytes_written += new_bytes as usize
-        }
-        Ok(())
-    }
 }
 
-pub(crate) enum IoError {
-    IoError,
-    WantMore,
+pub(crate) struct IoError;
+
+pub(crate) enum IoStatus {
+    NeedsHeader(usize),
+    NeedsData(usize),
+    Complete,
 }
 
 pub(crate) struct RecordLayer {
@@ -125,6 +91,7 @@ pub(crate) struct RecordLayer {
     len: usize,
     bytes_read: usize,
     io: Io,
+    io_status: IoStatus,
 }
 
 impl RecordLayer {
@@ -146,6 +113,7 @@ impl RecordLayer {
             len: 0,
             bytes_read: 0,
             io,
+            io_status: IoStatus::NeedsHeader(0),
         }
     }
 
@@ -241,22 +209,49 @@ impl RecordLayer {
     /// Reads a single record into [`RecordLayer`]'s internal buffer without decrypting or
     /// processing it.
     fn peek_raw(&mut self) -> Result<(), ReadError> {
-        self.io.fill(&mut self.buf[..Self::HEADER_SIZE])?;
+        loop {
+            match self.io_status {
+                IoStatus::NeedsHeader(mut bytes_read) => {
+                    while bytes_read < Self::HEADER_SIZE {
+                        match self.io.read(&mut self.buf[..Self::HEADER_SIZE]) {
+                            ..1 => {
+                                self.io_status = IoStatus::NeedsHeader(bytes_read);
+                                return Err(ReadError::IoError);
+                            },
+                            new_bytes => bytes_read += new_bytes as usize,
+                        }
+                    }
+                    self.len = u16::from_be_bytes(
+                        self.buf[Self::HEADER_SIZE - Self::LEN_SIZE..Self::HEADER_SIZE]
+                            .try_into()
+                            .unwrap(),
+                    ) as usize;
+                    match self.len() {
+                        0 => return Err(ReadError::Alert(Alert::IllegalParam)),
+                        1..Self::MAX_LEN => (),
+                        Self::MAX_LEN.. => return Err(ReadError::Alert(Alert::RecordOverflow)),
+                    }
 
-        let record_len = u16::from_be_bytes([
-            self.buf[Self::HEADER_SIZE - 2],
-            self.buf[Self::HEADER_SIZE - 1],
-        ]) as usize;
-
-        if record_len > Self::MAX_LEN + Self::SUFFIX_SIZE {
-            return Err(ReadError::Alert(Alert::RecordOverflow));
+                    self.io_status = IoStatus::NeedsData(0);
+                },
+                IoStatus::NeedsData(mut bytes_read) => {
+                    while bytes_read < self.len() {
+                        match self
+                            .io
+                            .read(&mut self.buf[Self::HEADER_SIZE + bytes_read..])
+                        {
+                            ..1 => {
+                                self.io_status = IoStatus::NeedsData(bytes_read);
+                                return Err(ReadError::IoError);
+                            },
+                            new_bytes => bytes_read += new_bytes as usize,
+                        }
+                        self.io_status = IoStatus::Complete;
+                    }
+                },
+                IoStatus::Complete => return Ok(()),
+            }
         }
-        self.len = record_len;
-
-        self.io
-            .fill(&mut self.buf[Self::HEADER_SIZE..][..self.len])?;
-        self.bytes_read = 0;
-        Ok(())
     }
 
     fn deprotect(&mut self, aead: &mut TlsAead) -> Result<(), Alert> {
