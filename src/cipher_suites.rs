@@ -1,3 +1,4 @@
+use crate::handshake::ShakeBuf;
 use crate::record::IoError;
 use crate::record::RecordLayer;
 
@@ -27,14 +28,13 @@ impl CipherList {
         self.suites.count_ones() as usize * size_of::<CipherSuite>()
     }
 
-    pub(crate) fn write_to(&self, record_layer: &mut RecordLayer) -> Result<(), IoError> {
+    pub(crate) fn write_to(&self, buf: &mut ShakeBuf) {
         if self.suites & Self::CHA_CHA_POLY1305_SHA256 > 0 {
-            record_layer.push_u16(CipherSuite::ChaCha20Poly1305Sha256.as_int())?;
+            buf.extend_from_slice(&CipherSuite::ChaCha20Poly1305Sha256.to_be_bytes());
         }
         if self.suites & Self::AES_128_GCM_SHA256 > 0 {
-            record_layer.push_u16(CipherSuite::Aes128GcmSha256.as_int())?;
+            buf.extend_from_slice(&CipherSuite::Aes128GcmSha256.to_be_bytes());
         }
-        Ok(())
     }
 
     pub(crate) fn parse_singular(suite: [u8; size_of::<CipherSuite>()]) -> Self {
@@ -75,5 +75,9 @@ pub(crate) enum CipherSuite {
 impl CipherSuite {
     pub(crate) const fn as_int(self) -> u16 {
         self as u16
+    }
+
+    pub(crate) const fn to_be_bytes(self) -> [u8; 2] {
+        self.as_int().to_be_bytes()
     }
 }

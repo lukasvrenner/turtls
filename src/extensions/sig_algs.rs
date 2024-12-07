@@ -1,6 +1,9 @@
 //! The signature_algorithms and supported_groups extensions.
 use super::{ExtList, ExtensionType};
-use crate::record::{IoError, RecordLayer};
+use crate::{
+    handshake::ShakeBuf,
+    record::{IoError, RecordLayer},
+};
 
 #[repr(u16)]
 pub(crate) enum SignatureScheme {
@@ -46,6 +49,10 @@ impl SignatureScheme {
     pub(crate) const fn as_int(self) -> u16 {
         self as u16
     }
+
+    pub(crate) const fn to_be_bytes(self) -> [u8; 2] {
+        self.as_int().to_be_bytes()
+    }
 }
 
 /// The ECDSA signature algoritm over the secp256r1 (NIST-P 256) curve.
@@ -56,18 +63,19 @@ impl ExtList {
         self.sig_algs.count_ones() as usize * size_of::<SignatureScheme>() + Self::LEN_SIZE
     }
 
-    pub(super) fn write_sig_algs(&self, rl: &mut RecordLayer) -> Result<(), IoError> {
+    pub(super) fn write_sig_algs(&self, shake_buf: &mut ShakeBuf) {
         if self.sig_algs == 0 {
-            return Ok(());
+            return;
         }
-        let len = self.sig_algs_len() as u16;
-        rl.push_u16(ExtensionType::SignatureAlgorithms.as_int())?;
-        rl.push_u16(len)?;
+        shake_buf.extend_from_slice(&ExtensionType::SignatureAlgorithms.to_be_bytes());
 
-        rl.push_u16(len - Self::LEN_SIZE as u16)?;
+        let mut len = self.sig_algs_len() as u16;
+        shake_buf.extend_from_slice(&len.to_be_bytes());
+
+        len -= Self::LEN_SIZE as u16;
+        shake_buf.extend_from_slice(&len.to_be_bytes());
         if self.sig_algs & ECDSA_SECP256R1 > 0 {
-            rl.push_u16(SignatureScheme::EcdsaSecp256r1Sha256.as_int())?;
+            shake_buf.extend_from_slice(&SignatureScheme::EcdsaSecp256r1Sha256.to_be_bytes());
         }
-        Ok(())
     }
 }

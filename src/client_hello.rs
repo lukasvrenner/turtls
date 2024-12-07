@@ -2,9 +2,8 @@ use crate::cipher_suites::CipherList;
 use crate::config::Config;
 use crate::extensions::versions::{ProtocolVersion, LEGACY_PROTO_VERS};
 use crate::extensions::ExtList;
-use crate::handshake::ShakeType;
-use crate::record::ContentType;
-use crate::state::{ShakeState, State};
+use crate::handshake::{ShakeBuf, ShakeType};
+use crate::state::UnprotShakeState;
 use crate::ShakeResult;
 use getrandom::getrandom;
 
@@ -13,63 +12,34 @@ pub(crate) const LEGACY_SESSION_ID: u8 = 0;
 pub(crate) const LEGACY_COMPRESSION_METHODS: [u8; 2] = [1, 0];
 
 pub(crate) fn client_hello_client(
-    shake_state: &mut ShakeState,
-    state: &mut State,
+    unprot_state: &mut UnprotShakeState,
+    shake_buf: &mut ShakeBuf,
     config: &Config,
 ) -> ShakeResult {
-    state.rl.start_as(ContentType::Handshake);
-    if let Err(err) = state.rl.push(ShakeType::ClientHello.to_byte()) {
-        return err.into();
-    }
+    shake_buf.start(ShakeType::ClientHello);
 
-    let len = cli_hel_len(config) as u32;
-    if let Err(err) = state.rl.push_u24(len) {
-        return err.into();
-    }
-
-    if let Err(err) = state.rl.push_u16(LEGACY_PROTO_VERS.as_int()) {
-        return err.into();
-    }
+    shake_buf.extend_from_slice(&LEGACY_PROTO_VERS.to_be_bytes());
 
     let mut random_bytes = [0; RANDOM_BYTES_LEN];
     if let Err(_) = getrandom(&mut random_bytes) {
         return ShakeResult::RngError;
     }
+    shake_buf.extend_from_slice(&random_bytes);
 
-    if let Err(err) = state.rl.extend_from_slice(&random_bytes) {
-        return err.into();
-    }
+    shake_buf.push(LEGACY_SESSION_ID);
 
-    if let Err(err) = state.rl.push(LEGACY_SESSION_ID) {
-        return err.into();
-    }
+    let len = (config.cipher_suites.len() as u16).to_be_bytes();
+    shake_buf.extend_from_slice(&len);
 
-    let len = config.cipher_suites.len() as u16;
-    if let Err(err) = state.rl.push_u16(len) {
-        return err.into();
-    }
-    if let Err(err) = config.cipher_suites.write_to(&mut state.rl) {
-        return err.into();
-    }
+    config.cipher_suites.write_to(shake_buf);
 
-    if let Err(err) = state.rl.extend_from_slice(&LEGACY_COMPRESSION_METHODS) {
-        return err.into();
-    }
+    shake_buf.extend_from_slice(&LEGACY_COMPRESSION_METHODS);
 
-    let len = config.extensions.len_client() as u16;
-    if let Err(err) = state.rl.push_u16(len) {
-        return err.into();
-    }
-    if let Err(err) = config
+    let len = (config.extensions.len_client() as u16).to_be_bytes();
+    shake_buf.extend_from_slice(&len);
+    config
         .extensions
-        .write_client(&mut state.rl, &shake_state.crypto.priv_keys)
-    {
-        return err.into();
-    }
-
-    if let Err(err) = state.rl.finish() {
-        return err.into();
-    }
+        .write_client(shake_buf, &unprot_state.priv_keys);
     ShakeResult::Ok
 }
 

@@ -1,5 +1,6 @@
 use super::{ExtList, ExtensionType};
 use crate::{
+    handshake::ShakeBuf,
     record::{IoError, RecordLayer},
     Connection,
 };
@@ -14,12 +15,12 @@ impl ExtList {
         }
         size_of::<u16>() + self.app_protos_len
     }
-    pub(super) fn write_app_proto_client(&self, rl: &mut RecordLayer) -> Result<(), IoError> {
+    pub(super) fn write_app_proto_client(&self, shake_buf: &mut ShakeBuf) {
         // TODO: properly handle the error
         let len: u16 = self.app_proto_len().try_into().unwrap();
 
         if len == 0 {
-            return Ok(());
+            return;
         }
         // SAFETY: We just checked for null and the caller guarantees the string is
         // nul-terminated.
@@ -27,11 +28,11 @@ impl ExtList {
             std::slice::from_raw_parts(self.app_protos as *const u8, self.app_protos_len)
         };
 
-        rl.push_u16(ExtensionType::AppLayerProtoNeg.as_int())?;
+        shake_buf.extend_from_slice(&ExtensionType::AppLayerProtoNeg.to_be_bytes());
 
-        rl.push_u16(len)?;
-        rl.push_u16(len - size_of::<u16>() as u16)?;
-        rl.extend_from_slice(as_slice)
+        shake_buf.extend_from_slice(&len.to_be_bytes());
+        shake_buf.extend_from_slice(&(len - size_of::<u16>() as u16).to_be_bytes());
+        shake_buf.extend_from_slice(as_slice)
     }
 }
 
@@ -52,5 +53,5 @@ pub unsafe extern "C" fn turtls_app_proto(connection: *const Connection) -> *con
         return null();
     }
     // SAFETY: the caller guarantees that the pointer is valid.
-    unsafe { &raw const (*connection).state.app_proto as *const c_char }
+    unsafe { &raw const (*connection).gloabl_state.app_proto as *const c_char }
 }

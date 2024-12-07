@@ -1,29 +1,44 @@
-use std::mem::MaybeUninit;
-
+use crate::aead::TlsAead;
+use crate::state::ProtShakeMsg;
 use crate::{
     client_hello::client_hello_client,
-    config::{self, Config},
-    error::TlsError,
-    record::{ContentType, ReadError, RecordLayer},
+    config::Config,
+    record::{ContentType, IoError, ReadError, RecordLayer},
     server_hello::server_hello_client,
-    state::{ShakeState, State},
-    Alert, Connection, ShakeResult,
+    state::{GlobalState, MaybeProt, ShakeState, TranscriptHasher, UnprotShakeMsg},
+    ShakeResult,
 };
 
 pub(crate) fn handshake_client(
     shake_state: &mut ShakeState,
-    state: &mut State,
+    global_state: &mut GlobalState,
     config: &Config,
 ) -> ShakeResult {
     loop {
-        match shake_state.next {
-            ShakeType::ClientHello => {
-                client_hello_client(shake_state, state, config);
+        match shake_state.state {
+            MaybeProt::Unprot {
+                ref mut next,
+                ref mut state,
+            } if next == &mut UnprotShakeMsg::ClientHello => {
+                client_hello_client(state, &mut shake_state.buf, config);
+                shake_state
+                    .buf
+                    .write_raw(&mut global_state.rl, &mut global_state.transcript);
+                *next = UnprotShakeMsg::ServerHello;
             },
-            ShakeType::ServerHello => {
-                server_hello_client(shake_state, state);
-            },
-            ShakeType::EncryptedExtensions => {
+            MaybeProt::Unprot {
+                ref mut next,
+                ref mut state,
+            } if next == &mut UnprotShakeMsg::ServerHello => {
+                shake_state.buf.read_raw(&mut global_state.rl);
+                let aead = match server_hello_client(shake_state.buf.data(), state, global_state) {
+                    Ok(aead) => aead,
+                    Err(err) => todo!(),
+                };
+                shake_state.state = MaybeProt::Prot {
+                    next: ProtShakeMsg::EncryptedExtensions,
+                    state: aead,
+                };
                 todo!()
             },
             _ => todo!(),
@@ -62,11 +77,7 @@ impl ShakeType {
 ///
 /// This struct is only used for reading messages, not writing.
 pub(crate) struct ShakeBuf {
-    buf: Box<[u8]>,
-    /// The length of the handshake message.
-    ///
-    /// This does NOT include the header.
-    len: usize,
+    buf: Vec<u8>,
     /// The maximum size `buf` is allowed to be.
     max_size: usize,
 }
@@ -79,45 +90,56 @@ impl ShakeBuf {
     /// Constructs a new [`MsgBug`] with
     pub(crate) fn new(max_len: usize) -> Self {
         // TODO: use new_zeroed_slice or similar once stabilized.
-        let mut buf = Box::new_uninit_slice(Self::INIT_SIZE);
-        buf.fill(MaybeUninit::zeroed());
-        let buf = unsafe { buf.assume_init() };
         Self {
-            buf,
-            len: 0,
+            buf: Vec::with_capacity(Self::INIT_SIZE),
             max_size: max_len,
         }
+    }
+
+    pub(crate) fn start(&mut self, msg_type: ShakeType) {
+        self.buf.clear();
+        self.buf.push(msg_type.to_byte());
+        self.buf.extend_from_slice(&[0; Self::LEN_SIZE]);
     }
 
     /// Returns the data sent in the handshake message.
     ///
     /// This does NOT include the header.
     pub(crate) fn data(&self) -> &[u8] {
-        &self.buf[Self::HEADER_SIZE..][..self.len]
+        &self.buf[Self::HEADER_SIZE..]
     }
 
-    pub(crate) fn read(&mut self, rl: &mut RecordLayer) -> Result<(), ReadError> {
-        fn fill(rl: &mut RecordLayer, buf: &[u8]) -> Result<(), ReadError> {
-            todo!()
-        }
-        fill(rl, &mut self.buf[..Self::HEADER_SIZE])?;
-        if rl.msg_type() == ContentType::ChangeCipherSpec.to_byte() {
-            rl.clear();
-            fill(rl, &mut self.buf[..Self::HEADER_SIZE])?;
-        }
-        if rl.msg_type() != ContentType::Handshake.to_byte() {
-            return Err(ReadError::Alert(TlsError::Sent(Alert::UnexpectedMessage)));
-        }
-        let len = u32::from_be_bytes([0, self.buf[1], self.buf[2], self.buf[3]]) as usize;
-        if len > self.max_size {
-            println!("{len}");
-            return Err(ReadError::Alert(TlsError::Sent(Alert::HandshakeFailure)));
-        }
-        if len > self.buf.len() {
-            todo!("resize buffer");
-        }
-        self.len = len;
-        fill(rl, &mut self.buf[Self::HEADER_SIZE..][..len])
+    pub(crate) fn read_raw(&mut self, rl: &mut RecordLayer) -> Result<(), ReadError> {
+        todo!()
+    }
+
+    pub(crate) fn write_raw(
+        &mut self,
+        rl: &mut RecordLayer,
+        transcipt: &mut TranscriptHasher,
+    ) -> Result<(), IoError> {
+        self.encode_len();
+        transcipt.update_with(&self.buf);
+        rl.write_raw(&self.buf, ContentType::Handshake)
+    }
+
+    pub(crate) fn write(
+        &mut self,
+        rl: &mut RecordLayer,
+        transcipt: &mut TranscriptHasher,
+        aead: &mut TlsAead,
+    ) -> Result<(), IoError> {
+        self.encode_len();
+        transcipt.update_with(&self.buf);
+        rl.write(&self.buf, ContentType::Handshake, aead)
+    }
+
+    pub(crate) fn push(&mut self, value: u8) {
+        self.buf.push(value);
+    }
+
+    pub(crate) fn extend_from_slice(&mut self, slice: &[u8]) {
+        self.buf.extend_from_slice(slice);
     }
 
     /// Returns the type of handshake message the message is.
@@ -128,10 +150,8 @@ impl ShakeBuf {
         self.buf[0]
     }
 
-    /// The length of the handshake message.
-    ///
-    /// This does not include the header.
-    pub(crate) fn len(&self) -> usize {
-        self.len
+    pub(crate) fn encode_len(&mut self) {
+        let len = ((self.buf.len() - Self::HEADER_SIZE) as u32).to_be_bytes();
+        self.buf[1..][..Self::LEN_SIZE].copy_from_slice(&len[..Self::LEN_SIZE]);
     }
 }

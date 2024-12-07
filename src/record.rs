@@ -1,9 +1,7 @@
 use crylib::aead::TAG_SIZE;
-use crylib::hash::{BufHasher, Hasher, Sha256};
 
 use crate::aead::TlsAead;
-use crate::alert::{Alert, AlertLevel, AlertMsg};
-use crate::error::TlsError;
+use crate::alert::{Alert, AlertMsg};
 use crate::extensions::versions::LEGACY_PROTO_VERS;
 
 use std::ffi::c_void;
@@ -127,8 +125,6 @@ pub(crate) struct RecordLayer {
     len: usize,
     bytes_read: usize,
     io: Io,
-    pub(crate) aead: Option<TlsAead>,
-    transcript: BufHasher<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>,
 }
 
 impl RecordLayer {
@@ -150,8 +146,6 @@ impl RecordLayer {
             len: 0,
             bytes_read: 0,
             io,
-            aead: None,
-            transcript: BufHasher::new(),
         }
     }
 
@@ -159,14 +153,34 @@ impl RecordLayer {
         self.buf[0]
     }
 
-    pub(crate) fn start_as(&mut self, msg_type: ContentType) {
+    fn start(&mut self, msg_type: ContentType) {
         self.buf[0] = msg_type.to_byte();
-        self.start();
+        self.buf[1..3].copy_from_slice(&LEGACY_PROTO_VERS.to_be_bytes());
     }
 
-    pub(crate) fn start(&mut self) {
-        debug_assert_eq!(self.buf[1..3], LEGACY_PROTO_VERS.to_be_bytes());
-        self.len = 0;
+    pub(crate) fn write_raw(&mut self, buf: &[u8], msg_type: ContentType) -> Result<(), IoError> {
+        self.start(msg_type);
+        for record in buf.chunks(Self::MAX_LEN) {
+            self.buf[Self::HEADER_SIZE..][..record.len()].copy_from_slice(record);
+            self.len = record.len();
+            self.finish_raw()?;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn write(
+        &mut self,
+        buf: &[u8],
+        msg_type: ContentType,
+        aead: &mut TlsAead,
+    ) -> Result<(), IoError> {
+        self.start(ContentType::ApplicationData);
+        for record in buf.chunks(Self::MAX_LEN) {
+            self.buf[Self::HEADER_SIZE..][..record.len()].copy_from_slice(record);
+            self.len = record.len();
+            self.finish(msg_type, aead)?;
+        }
+        Ok(())
     }
 
     fn encode_len(&mut self) {
@@ -174,27 +188,19 @@ impl RecordLayer {
         self.buf[Self::HEADER_SIZE - Self::LEN_SIZE + 1] = self.len() as u8;
     }
 
-    fn encode_and_protect(&mut self) {
-        if self.aead.is_some() {
-            let msg_type =
-                std::mem::replace(&mut self.buf[0], ContentType::ApplicationData.to_byte());
-            self.buf[Self::HEADER_SIZE + self.len] = msg_type;
-            self.len += 1;
-            // TODO: pad the record
-            self.len += TAG_SIZE;
-        }
+    fn finish_raw(&mut self) -> Result<(), IoError> {
         self.encode_len();
-        self.encrypt();
-        self.bytes_read = self.len;
+        self.bytes_read = self.len();
+        self.io.write_all(&self.buf[..Self::HEADER_SIZE + self.len])
     }
 
-    pub(crate) fn finish(&mut self) -> Result<(), IoError> {
-        if self.msg_type() == ContentType::Handshake.to_byte() {
-            self.transcript
-                .update_with(&self.buf[Self::HEADER_SIZE..][..self.len]);
-        }
-        self.encode_and_protect();
-        self.io.write_all(&self.buf)
+    fn finish(&mut self, msg_type: ContentType, aead: &mut TlsAead) -> Result<(), IoError> {
+        self.buf[Self::HEADER_SIZE + self.len] = msg_type.to_byte();
+        self.len += size_of::<ContentType>();
+        self.len += TAG_SIZE;
+        self.encode_len();
+        self.protect(aead);
+        self.io.write_all(&self.buf[..Self::HEADER_SIZE + self.len])
     }
 
     /// The length of the data in the buffer.
@@ -204,51 +210,12 @@ impl RecordLayer {
         self.len
     }
 
-    pub(crate) fn data(&self) -> &[u8] {
+    fn data(&self) -> &[u8] {
         &self.buf[Self::HEADER_SIZE..][..self.len]
     }
 
-    pub(crate) fn push(&mut self, value: u8) -> Result<(), IoError> {
-        if self.len() == Self::MAX_LEN {
-            self.finish()?;
-            self.start();
-        }
-        self.buf[Self::HEADER_SIZE + self.len] = value;
-        self.len += 1;
-        Ok(())
-    }
-
-    pub(crate) fn push_u16(&mut self, value: u16) -> Result<(), IoError> {
-        self.push((value >> 8) as u8)?;
-        self.push(value as u8)
-    }
-
-    pub(crate) fn push_u24(&mut self, value: u32) -> Result<(), IoError> {
-        self.push((value >> 16) as u8)?;
-
-        self.push((value >> 8) as u8)?;
-        self.push(value as u8)
-    }
-
-    pub(crate) fn extend_from_slice(&mut self, slice: &[u8]) -> Result<(), IoError> {
-        let diff = Self::MAX_LEN - self.len();
-
-        if slice.len() <= diff {
-            self.buf[Self::HEADER_SIZE + self.len..][..slice.len()].copy_from_slice(slice);
-            self.len += slice.len();
-            return Ok(());
-        }
-
-        self.buf[Self::HEADER_SIZE + self.len..].copy_from_slice(&slice[..diff]);
-        self.len = Self::MAX_LEN;
-
-        for chunk in slice[diff..].chunks(Self::MAX_LEN) {
-            self.finish()?;
-            self.start();
-            self.buf[Self::HEADER_SIZE..][..chunk.len()].copy_from_slice(chunk);
-            self.len = chunk.len();
-        }
-        Ok(())
+    fn data_mut(&mut self) -> &mut [u8] {
+        &mut self.buf[Self::HEADER_SIZE..][..self.len]
     }
 
     /// Reads a single record into [`RecordLayer`]'s internal buffer, decrypting and processing if
@@ -257,40 +224,24 @@ impl RecordLayer {
     /// At least one byte is guaranteed to be read.
     ///
     /// WARNING: if there is unread data in the buffer, it will be overwritten.
-    pub(crate) fn peek(&mut self) -> Result<(), ReadError> {
+    pub(crate) fn peek(&mut self, aead: &mut TlsAead) -> Result<(), ReadError> {
         self.peek_raw()?;
 
-        if let Err(alert) = self.deprotect() {
-            return Err(ReadError::Alert(TlsError::Sent(alert)));
+        if let Err(alert) = self.deprotect(aead) {
+            return Err(ReadError::Alert(alert));
         }
 
         if self.len() == 0 {
             return Err(ReadError::Timeout);
         }
 
-        [self.buf[1], self.buf[2]] = LEGACY_PROTO_VERS.to_be_bytes();
-
-        if self.msg_type() == ContentType::Alert.to_byte() {
-            return Err(ReadError::Alert(TlsError::Received(Alert::from_byte(
-                self.buf[Self::HEADER_SIZE + size_of::<AlertLevel>()],
-            ))));
-        }
-        if self.msg_type() == ContentType::Handshake.to_byte() {
-            self.transcript
-                .update_with(&self.buf[Self::HEADER_SIZE..][..self.len]);
-        }
-        let len = std::cmp::min(crate::ShakeBuf::HEADER_SIZE, self.len());
-        println!("record type: {}", self.msg_type());
-        println!("record {:?}", &self.data()[..len]);
         Ok(())
     }
 
     /// Reads a single record into [`RecordLayer`]'s internal buffer without decrypting or
     /// processing it.
     fn peek_raw(&mut self) -> Result<(), ReadError> {
-
-        self.io
-            .fill(&mut self.buf[..Self::HEADER_SIZE])?;
+        self.io.fill(&mut self.buf[..Self::HEADER_SIZE])?;
 
         let record_len = u16::from_be_bytes([
             self.buf[Self::HEADER_SIZE - 2],
@@ -298,24 +249,20 @@ impl RecordLayer {
         ]) as usize;
 
         if record_len > Self::MAX_LEN + Self::SUFFIX_SIZE {
-            return Err(ReadError::Alert(TlsError::Sent(Alert::RecordOverflow)));
+            return Err(ReadError::Alert(Alert::RecordOverflow));
         }
         self.len = record_len;
 
-        self.io.fill(
-            &mut self.buf[Self::HEADER_SIZE..][..self.len],
-        )?;
+        self.io
+            .fill(&mut self.buf[Self::HEADER_SIZE..][..self.len])?;
         self.bytes_read = 0;
         Ok(())
     }
 
-    fn deprotect(&mut self) -> Result<(), Alert> {
+    fn deprotect(&mut self, aead: &mut TlsAead) -> Result<(), Alert> {
         if self.msg_type() != ContentType::ApplicationData.to_byte() {
             return Ok(());
         }
-        let Some(ref mut aead) = self.aead else {
-            return Ok(());
-        };
 
         if self.len < Self::MIN_PROT_LEN {
             return Err(Alert::DecodeError);
@@ -358,17 +305,21 @@ impl RecordLayer {
     ///
     /// If `buf` fills before the entire record is read, the data will be saved and read to `buf`
     /// next time it is called.
-    pub(crate) fn read(&mut self, buf: &mut [u8]) -> Result<usize, ReadError> {
+    pub(crate) fn read_raw(&mut self, buf: &mut [u8]) -> Result<usize, ReadError> {
         if self.bytes_read == self.len() {
-            self.peek()?;
+            self.peek_raw()?;
         }
         Ok(self.read_remaining(buf))
     }
 
-    fn encrypt(&mut self) {
-        let Some(ref mut aead) = self.aead else {
-            return;
-        };
+    pub(crate) fn read(&mut self, buf: &mut [u8], aead: &mut TlsAead) -> Result<usize, ReadError> {
+        if self.bytes_read == self.len() {
+            self.peek(aead)?;
+        }
+        Ok(self.read_remaining(buf))
+    }
+
+    fn protect(&mut self, aead: &mut TlsAead) {
         let (header, msg) =
             self.buf[..Self::HEADER_SIZE + self.len].split_at_mut(Self::HEADER_SIZE);
         let (msg, tag) = msg.split_at_mut(self.len - TAG_SIZE);
@@ -376,22 +327,18 @@ impl RecordLayer {
         *tag = aead.encrypt_inline(msg, header);
     }
 
-    pub(crate) fn close(&mut self, alert: Alert) {
-        self.buf[0] = ContentType::Alert.to_byte();
-
-        debug_assert_eq!(self.buf[1..3], LEGACY_PROTO_VERS.to_be_bytes());
-
-        self.len = AlertMsg::SIZE;
-        self.buf[Self::HEADER_SIZE..][..AlertMsg::SIZE]
-            .copy_from_slice(&AlertMsg::new(alert).to_be_bytes());
-
-        // the return value doesn't matter because we're closing anyways
-        let _ = self.finish();
+    pub(crate) fn close_raw(&mut self, alert: Alert) {
+        let _ = self.write_raw(&AlertMsg::new(alert).to_be_bytes(), ContentType::Alert);
         self.io.close();
     }
 
-    pub(crate) fn transcript(&self) -> [u8; Sha256::HASH_SIZE] {
-        self.transcript.clone().finish()
+    pub(crate) fn close(&mut self, alert: Alert, aead: &mut TlsAead) {
+        let _ = self.write(
+            &AlertMsg::new(alert).to_be_bytes(),
+            ContentType::Alert,
+            aead,
+        );
+        self.io.close();
     }
 
     pub(crate) fn clear(&mut self) {
@@ -402,7 +349,7 @@ impl RecordLayer {
 #[derive(Debug)]
 pub(crate) enum ReadError {
     IoError,
-    Alert(TlsError),
+    Alert(Alert),
     Timeout,
 }
 

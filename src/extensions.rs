@@ -3,14 +3,16 @@ use std::ptr::null;
 
 use crate::aead::TlsAead;
 use crate::alert::Alert;
+use crate::handshake::ShakeBuf;
 use crate::record::{IoError, RecordLayer};
-use crate::state::{ShakeCrypto, ShakeState, State};
+use crate::state::{GlobalState, ShakeState, UnprotShakeState};
 
 pub mod app_proto;
 pub mod key_share;
 pub mod server_name;
 pub mod sig_algs;
 pub mod versions;
+use crylib::aead::Aead;
 use key_share::{GroupKeys, SECP256R1};
 use sig_algs::ECDSA_SECP256R1;
 
@@ -137,17 +139,13 @@ impl ExtList {
     }
 
     /// Write the extensions to ClientHello.
-    pub(crate) fn write_client(
-        &self,
-        rl: &mut RecordLayer,
-        keys: &GroupKeys,
-    ) -> Result<(), IoError> {
-        self.write_server_name(rl)?;
-        self.write_sig_algs(rl)?;
-        self.write_sup_versions_client(rl)?;
-        self.write_sup_groups(rl)?;
-        self.write_key_share_client(rl, keys)?;
-        self.write_app_proto_client(rl)
+    pub(crate) fn write_client(&self, shake_buf: &mut ShakeBuf, keys: &GroupKeys) {
+        self.write_server_name(shake_buf);
+        self.write_sig_algs(shake_buf);
+        self.write_sup_versions_client(shake_buf);
+        self.write_sup_groups(shake_buf);
+        self.write_key_share_client(shake_buf, keys);
+        self.write_app_proto_client(shake_buf);
     }
 }
 
@@ -191,7 +189,12 @@ impl<'a> Iterator for ExtIter<'a> {
     }
 }
 
-pub(crate) fn parse_ser_hel_exts(exts: &[u8], shake_crypto: &mut ShakeCrypto, state: &mut State) -> Result<(), Alert> {
+pub(crate) fn parse_ser_hel_exts(
+    exts: &[u8],
+    shake_crypto: &mut UnprotShakeState,
+    state: &mut GlobalState,
+) -> Result<TlsAead, Alert> {
+    let mut aead = Err(Alert::MissingExtension);
     let len = u16::from_be_bytes(exts[..ExtList::LEN_SIZE].try_into().unwrap()) as usize;
     if len != exts.len() - ExtList::LEN_SIZE {
         return Err(Alert::DecodeError);
@@ -202,10 +205,10 @@ pub(crate) fn parse_ser_hel_exts(exts: &[u8], shake_crypto: &mut ShakeCrypto, st
                 versions::parse_ser(ext.data)?;
             },
             x if x == &ExtensionType::KeyShare.to_be_bytes() => {
-                key_share::parse_ser(ext.data, shake_crypto, state)?;
+                aead = key_share::parse_ser(ext.data, shake_crypto, state);
             },
             _ => return Err(Alert::UnsupportedExtension),
         }
     }
-    Ok(())
+    aead
 }

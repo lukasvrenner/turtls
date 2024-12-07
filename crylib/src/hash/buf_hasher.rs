@@ -36,6 +36,15 @@ where
     }
 }
 
+impl<const H_LEN: usize, const B_LEN: usize, H> BufHasher<H_LEN, B_LEN, H>
+where
+    H: BlockHasher<H_LEN, B_LEN> + Clone,
+{
+    pub fn get(&self) -> [u8; H_LEN] {
+        self.clone().finish()
+    }
+}
+
 impl<const H_LEN: usize, const B_LEN: usize, H> Hasher<H_LEN> for BufHasher<H_LEN, B_LEN, H>
 where
     H: BlockHasher<H_LEN, B_LEN>,

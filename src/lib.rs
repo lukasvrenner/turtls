@@ -73,16 +73,20 @@ pub unsafe extern "C" fn turtls_connect(connection: *mut Connection) -> ShakeRes
     let connection = unsafe { &mut *connection };
 
     loop {
-        match connection.status {
+        match connection.state {
             TlsStatus::None => match ShakeState::new(&connection.config) {
-                Ok(state) => connection.status = TlsStatus::Shake(state),
+                Ok(state) => connection.state = TlsStatus::Shake(state),
                 Err(err) => return err.into(),
             },
             TlsStatus::Shake(ref mut shake_state) => {
-                handshake_client(shake_state, &mut connection.state, &connection.config);
+                handshake_client(
+                    shake_state,
+                    &mut connection.gloabl_state,
+                    &connection.config,
+                );
                 todo!()
             },
-            TlsStatus::App => {
+            TlsStatus::App { ref mut aead } => {
                 todo!()
             },
         }
@@ -101,10 +105,10 @@ pub unsafe extern "C" fn turtls_close(connection: *mut Connection) {
     // SAFETY: the caller guarantees that the pointer is valid.
     let connection = unsafe { &mut *connection };
 
-    if let TlsStatus::None = connection.status {
+    if let TlsStatus::None = connection.state {
         return;
     }
 
-    connection.state.rl.close(Alert::CloseNotify);
-    connection.status = TlsStatus::None;
+    connection.gloabl_state.rl.close_raw(Alert::CloseNotify);
+    connection.state = TlsStatus::None;
 }

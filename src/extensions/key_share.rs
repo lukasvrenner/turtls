@@ -7,10 +7,10 @@ use crylib::finite_field::FieldElement;
 use getrandom::getrandom;
 
 use super::{ExtList, ExtensionType};
-use crate::aead::handshake_aead;
+use crate::aead::TlsAead;
 use crate::alert::Alert;
-use crate::record::{IoError, RecordLayer};
-use crate::state::{ShakeCrypto, State};
+use crate::handshake::ShakeBuf;
+use crate::state::{GlobalState, UnprotShakeState};
 
 const KEY_SHARE_LEGACY_FORM: u8 = 4;
 /// Key exchange via ECDH on the secp256r1 (NIST-P 256) curve.
@@ -99,60 +99,54 @@ impl ExtList {
             + Self::LEN_SIZE
     }
 
-    pub(super) fn write_key_share_client(
-        &self,
-        rl: &mut RecordLayer,
-        keys: &GroupKeys,
-    ) -> Result<(), IoError> {
+    pub(super) fn write_key_share_client(&self, shake_buf: &mut ShakeBuf, keys: &GroupKeys) {
         if self.sup_groups == 0 {
-            return Ok(());
+            return;
         }
-        rl.push_u16(ExtensionType::KeyShare.as_int())?;
+        shake_buf.extend_from_slice(&ExtensionType::KeyShare.to_be_bytes());
 
         let mut len = self.key_share_client_len() as u16;
-        rl.push_u16(len)?;
+        shake_buf.extend_from_slice(&len.to_be_bytes());
 
         len -= Self::LEN_SIZE as u16;
-        rl.push_u16(len)?;
+        shake_buf.extend_from_slice(&len.to_be_bytes());
 
         if self.sup_groups & SECP256R1 > 0 {
-            rl.extend_from_slice(&NamedGroup::Secp256r1.to_be_bytes())?;
+            shake_buf.extend_from_slice(&NamedGroup::Secp256r1.to_be_bytes());
 
             len -= (size_of::<NamedGroup>() + Self::LEN_SIZE) as u16;
-            rl.push_u16(len)?;
+            shake_buf.extend_from_slice(&len.to_be_bytes());
 
-            rl.push(KEY_SHARE_LEGACY_FORM)?;
+            shake_buf.push(KEY_SHARE_LEGACY_FORM);
 
             let point = Secp256r1::BASE_POINT
                 .mul_scalar(&keys.secp256r1)
                 .as_affine()
                 .expect("private key isn't 0");
 
-            rl.extend_from_slice(&point.x().into_inner().to_be_bytes())?;
-            rl.extend_from_slice(&point.y().into_inner().to_be_bytes())?;
+            shake_buf.extend_from_slice(&point.x().into_inner().to_be_bytes());
+            shake_buf.extend_from_slice(&point.y().into_inner().to_be_bytes());
         }
-        Ok(())
     }
 
     pub(super) const fn sup_groups_len(&self) -> usize {
         Self::LEN_SIZE + self.sup_groups.count_ones() as usize * size_of::<NamedGroup>()
     }
 
-    pub(super) fn write_sup_groups(&self, rl: &mut RecordLayer) -> Result<(), IoError> {
+    pub(super) fn write_sup_groups(&self, shake_buf: &mut ShakeBuf) {
         if self.sup_groups == 0 {
-            return Ok(());
+            return;
         }
-        rl.push_u16(ExtensionType::SupportedGroups.as_int())?;
+        shake_buf.extend_from_slice(&ExtensionType::SupportedGroups.to_be_bytes());
 
         let len = self.sup_groups_len();
-        rl.push_u16(len as u16)?;
+        shake_buf.extend_from_slice(&(len as u16).to_be_bytes());
 
-        rl.push_u16((len - Self::LEN_SIZE) as u16)?;
+        shake_buf.extend_from_slice(&((len - Self::LEN_SIZE) as u16).to_be_bytes());
 
         if self.sup_groups & SECP256R1 > 0 {
-            rl.push_u16(NamedGroup::Secp256r1.as_int())?;
+            shake_buf.extend_from_slice(&NamedGroup::Secp256r1.to_be_bytes());
         }
-        Ok(())
     }
 }
 
@@ -174,9 +168,9 @@ pub(crate) fn secp256r1_shared_secret(
 
 pub(super) fn parse_ser(
     key_share: &[u8],
-    shake_crypto: &mut ShakeCrypto,
-    state: &mut State,
-) -> Result<(), Alert> {
+    shake_crypto: &mut UnprotShakeState,
+    state: &mut GlobalState,
+) -> Result<TlsAead, Alert> {
     match &key_share[..size_of::<NamedGroup>()] {
         x if x == NamedGroup::Secp256r1.to_be_bytes() && shake_crypto.sup_groups != 0 => {
             let dh_secret = secp256r1_shared_secret(
@@ -185,7 +179,8 @@ pub(super) fn parse_ser(
             )
             .ok_or(Alert::IllegalParam)?;
 
-            handshake_aead(state, &dh_secret, shake_crypto.ciphers).ok_or(Alert::HandshakeFailure)
+            TlsAead::shake_aead(state, &dh_secret, shake_crypto.ciphers)
+                .ok_or(Alert::HandshakeFailure)
         },
         _ => return Err(Alert::HandshakeFailure),
     }

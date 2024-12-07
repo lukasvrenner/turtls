@@ -6,7 +6,7 @@ use crylib::hkdf;
 
 use crate::cipher_suites::CipherList;
 use crate::key_schedule;
-use crate::state::State;
+use crate::state::GlobalState;
 
 enum ManyAead {
     Aes128Gcm {
@@ -137,28 +137,25 @@ impl TlsAead {
 
         self.aead.encrypt_inline(msg, add_data, &init_vec)
     }
-}
 
-pub(crate) fn handshake_aead(
-    state: &mut State,
-    dh_secret: &[u8],
-    cipher: CipherList,
-) -> Option<()> {
-    let salt = key_schedule::derive_secret(&state.secret, b"derived", &Sha256::hash(b""));
+    pub(crate) fn shake_aead(
+        state: &mut GlobalState,
+        dh_secret: &[u8],
+        cipher: CipherList,
+    ) -> Option<Self> {
+        let salt = key_schedule::derive_secret(&state.secret, b"derived", &Sha256::hash(b""));
 
-    state.secret =
-        hkdf::extract::<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>(&dh_secret, &salt);
+        state.secret = hkdf::extract::<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>(
+            &dh_secret, &salt,
+        );
 
-    let transcript = state.rl.transcript();
+        let transcript = state.transcript.get();
 
-    let cli_shake_traf_secret =
-        key_schedule::derive_secret(&state.secret, b"c hs traffic", &transcript);
-    let ser_shake_traf_secret =
-        key_schedule::derive_secret(&state.secret, b"s hs traffic", &transcript);
+        let cli_shake_traf_secret =
+            key_schedule::derive_secret(&state.secret, b"c hs traffic", &transcript);
+        let ser_shake_traf_secret =
+            key_schedule::derive_secret(&state.secret, b"s hs traffic", &transcript);
 
-    state.rl.aead = TlsAead::new(&cli_shake_traf_secret, &ser_shake_traf_secret, cipher);
-    match state.rl.aead {
-        Some(_) => Some(()),
-        None => None,
+        Self::new(&cli_shake_traf_secret, &ser_shake_traf_secret, cipher)
     }
 }

@@ -3,7 +3,7 @@
 use std::ffi::CStr;
 
 use super::{ExtList, ExtensionType};
-use crate::record::{IoError, RecordLayer};
+use crate::handshake::ShakeBuf;
 const SERVER_NAME_TYPE: u8 = 0;
 
 impl ExtList {
@@ -15,25 +15,25 @@ impl ExtList {
         Self::LEN_SIZE + size_of_val(&SERVER_NAME_TYPE) + Self::LEN_SIZE + str_len
     }
 
-    pub(super) fn write_server_name(&self, rl: &mut RecordLayer) -> Result<(), IoError> {
+    pub(super) fn write_server_name(&self, shake_buf: &mut ShakeBuf) {
         if self.server_name.is_null() {
-            return Ok(());
+            return;
         }
-        rl.push_u16(ExtensionType::ServerName.as_int())?;
+        shake_buf.extend_from_slice(&ExtensionType::ServerName.to_be_bytes());
 
         let mut len = self.server_name_len();
-        rl.push_u16(len as u16)?;
+        shake_buf.extend_from_slice(&(len as u16).to_be_bytes());
 
         len -= Self::LEN_SIZE;
-        rl.push_u16(len as u16)?;
+        shake_buf.extend_from_slice(&(len as u16).to_be_bytes());
 
-        rl.push(SERVER_NAME_TYPE)?;
+        shake_buf.push(SERVER_NAME_TYPE);
         len -= 1;
         len -= Self::LEN_SIZE;
-        rl.push_u16(len as u16)?;
+        shake_buf.extend_from_slice(&(len as u16).to_be_bytes());
 
         // SAFETY: the creator of `ExtensionList` guarantees the length and pointer are valid.
         let server_name = unsafe { CStr::from_ptr(self.server_name) }.to_bytes();
-        rl.extend_from_slice(server_name)
+        shake_buf.extend_from_slice(server_name)
     }
 }

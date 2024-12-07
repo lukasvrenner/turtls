@@ -47,7 +47,7 @@ impl From<ReadError> for ShakeResult {
         match value {
             ReadError::IoError => Self::IoError,
             ReadError::Timeout => Self::Timeout,
-            ReadError::Alert(err) => err.into(),
+            ReadError::Alert(alert) => Self::SentAlert(alert),
         }
     }
 }

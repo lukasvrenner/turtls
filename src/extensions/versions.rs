@@ -1,5 +1,6 @@
 use super::{ExtList, ExtensionType};
 use crate::alert::Alert;
+use crate::handshake::ShakeBuf;
 use crate::record::{IoError, RecordLayer};
 #[repr(u16)]
 pub(crate) enum ProtocolVersion {
@@ -40,8 +41,8 @@ impl ExtList {
         SUP_VERSIONS.len() - Self::HEADER_SIZE
     }
 
-    pub(super) fn write_sup_versions_client(&self, rl: &mut RecordLayer) -> Result<(), IoError> {
-        rl.extend_from_slice(&SUP_VERSIONS)
+    pub(super) fn write_sup_versions_client(&self, shake_buf: &mut ShakeBuf) {
+        shake_buf.extend_from_slice(&SUP_VERSIONS);
     }
 }
 
