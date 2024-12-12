@@ -19,13 +19,12 @@ mod server_hello;
 mod state;
 
 use handshake::handshake_client;
-use handshake::ShakeBuf;
 
 pub use alert::turtls_stringify_alert;
 pub use alert::Alert;
 pub use cipher_suites::CipherList;
 pub use config::turtls_set_server_name;
-pub use error::ShakeResult;
+pub use error::Error;
 pub use extensions::app_proto::turtls_app_proto;
 pub use extensions::ExtList;
 pub use record::Io;
@@ -66,7 +65,7 @@ pub unsafe extern "C" fn turtls_free(connection: *mut Connection) {
 /// # Safety:
 /// `connection` must be valid.
 #[no_mangle]
-pub unsafe extern "C" fn turtls_connect(connection: *mut Connection) -> ShakeResult {
+pub unsafe extern "C" fn turtls_connect(connection: *mut Connection) -> Error {
     assert!(!connection.is_null() && connection.is_aligned());
 
     // SAFETY: the caller guarantees that the pointer is valid.
@@ -79,11 +78,14 @@ pub unsafe extern "C" fn turtls_connect(connection: *mut Connection) -> ShakeRes
                 Err(err) => return err.into(),
             },
             TlsStatus::Shake(ref mut shake_state) => {
-                handshake_client(
+                match handshake_client(
                     shake_state,
                     &mut connection.gloabl_state,
                     &connection.config,
-                );
+                ) {
+                    Error::None => (),
+                    err => return err,
+                }
                 todo!()
             },
             TlsStatus::App { ref mut aead } => {

@@ -201,37 +201,38 @@ struct turtls_ShakeResult {
  */
 struct turtls_Io {
     /**
-     * A *non-blocking* write function.
+     * A write function.
      *
-     * `write_fn` must return a negative value when a fatal error occurs and zero when a non-fatal
-     * error occurs. If no error occurs, it must return the number of bytes written.
+     * `write_fn` must return the number of bytes written. To indicate an error, it must return a
+     * value less than `1`.
      *
      * `buf`: the buffer to write.
      * `amt`: the number of bytes to write.
-     * `ctx`: contextual data (e.g. a file descriptor).
+     * `ctx`: contextual data.
      */
     ptrdiff_t (*write_fn)(const void *buf, size_t amt, const void *ctx);
     /**
-     * A *non-blocking* read function.
+     * A read function.
      *
-     * `read_fn` must return a negative value when a fatal error occurs and zero when a non-fatal
-     * error occurs. If no error occurs, it must return the number of bytes written.
+     * `read_fn` must return the number of bytes read. To indicate an error, it must return a
+     * value less than `1`.
      *
      * `buf`: the buffer to read to.
      * `amt`: the maximum number of bytes to read.
-     * `ctx`: contextual data (e.g. a file descriptor).
-     *
-     * This function must return a negative value on error, and `0` when no bytes are read.
+     * `ctx`: contextual data.
      */
     ptrdiff_t (*read_fn)(void *buf, size_t amt, const void *ctx);
     /**
      * A function to close the connection.
      *
-     * `ctx`: any contextual data (e.g. what socket to close).
+     * `ctx`: contextual data.
      */
     void (*close_fn)(const void *ctx);
     /**
-     * Contextual data (e.g. a file descriptor).
+     * Contextual data.
+     *
+     * This can simply be a file descriptor, or it can be something more complex. For example, it
+     * could store both a read and a write file descriptor, error values, and even mutable state.
      *
      * Lifetime: this pointer must be valid for the duration of the connection.
      */

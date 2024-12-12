@@ -1,9 +1,6 @@
 use super::{ExtList, ExtensionType};
-use crate::{
-    handshake::ShakeBuf,
-    record::{IoError, RecordLayer},
-    Connection,
-};
+use crate::handshake::ShakeBuf;
+use crate::state::Connection;
 
 use std::ffi::c_char;
 use std::ptr::null;

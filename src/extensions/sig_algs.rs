@@ -1,9 +1,6 @@
 //! The signature_algorithms and supported_groups extensions.
 use super::{ExtList, ExtensionType};
-use crate::{
-    handshake::ShakeBuf,
-    record::{IoError, RecordLayer},
-};
+use crate::handshake::ShakeBuf;
 
 #[repr(u16)]
 pub(crate) enum SignatureScheme {

@@ -44,12 +44,16 @@ pub(crate) struct ExtState {
 pub(crate) enum TlsStatus {
     None,
     Shake(ShakeState),
-    App { aead: TlsAead },
+    #[expect(unused, reason = "Application data is not yet supported")]
+    App {
+        aead: TlsAead,
+    },
 }
 
 pub(crate) struct UnprotShakeState {
     pub(crate) priv_keys: GroupKeys,
     pub(crate) sup_groups: u16,
+    #[expect(unused, reason = "Certificates are not yet supported")]
     pub(crate) sig_algs: u16,
     pub(crate) ciphers: CipherList,
 }
@@ -71,6 +75,7 @@ pub(crate) enum UnprotShakeMsg {
     ServerHello,
 }
 
+#[expect(unused, reason = "Not all protected messages are supported yet")]
 pub(crate) enum ProtShakeMsg {
     NewSessionTicket,
     EndOfEarlyData,
@@ -90,7 +95,18 @@ pub(crate) struct ShakeState {
 
 impl ShakeState {
     pub(crate) fn new(config: &Config) -> Result<Self, KeyGenError> {
-        todo!()
+        Ok(Self {
+            state: MaybeProt::Unprot {
+                next: UnprotShakeMsg::ClientHello,
+                state: UnprotShakeState {
+                    priv_keys: GroupKeys::generate(config.extensions.sup_groups)?,
+                    sup_groups: config.extensions.sup_groups,
+                    sig_algs: config.extensions.sig_algs,
+                    ciphers: config.cipher_suites,
+                },
+            },
+            buf: ShakeBuf::new(0x20000),
+        })
     }
 }
 

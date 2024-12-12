@@ -1,6 +1,4 @@
 use crate::handshake::ShakeBuf;
-use crate::record::IoError;
-use crate::record::RecordLayer;
 
 /// The supported ciphersuites.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]

@@ -4,7 +4,7 @@ use crate::extensions::versions::{ProtocolVersion, LEGACY_PROTO_VERS};
 use crate::extensions::ExtList;
 use crate::handshake::{ShakeBuf, ShakeType};
 use crate::state::UnprotShakeState;
-use crate::ShakeResult;
+use crate::Error;
 use getrandom::getrandom;
 
 pub(crate) const RANDOM_BYTES_LEN: usize = 32;
@@ -15,14 +15,14 @@ pub(crate) fn client_hello_client(
     unprot_state: &mut UnprotShakeState,
     shake_buf: &mut ShakeBuf,
     config: &Config,
-) -> ShakeResult {
+) -> Error {
     shake_buf.start(ShakeType::ClientHello);
 
     shake_buf.extend_from_slice(&LEGACY_PROTO_VERS.to_be_bytes());
 
     let mut random_bytes = [0; RANDOM_BYTES_LEN];
     if let Err(_) = getrandom(&mut random_bytes) {
-        return ShakeResult::RngError;
+        return Error::RngError;
     }
     shake_buf.extend_from_slice(&random_bytes);
 
@@ -40,7 +40,7 @@ pub(crate) fn client_hello_client(
     config
         .extensions
         .write_client(shake_buf, &unprot_state.priv_keys);
-    ShakeResult::Ok
+    Error::None
 }
 
 fn cli_hel_len(config: &Config) -> usize {

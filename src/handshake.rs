@@ -1,45 +1,61 @@
+use std::mem::MaybeUninit;
+use std::ops::ControlFlow;
+
 use crate::aead::TlsAead;
 use crate::state::ProtShakeMsg;
+use crate::Alert;
 use crate::{
     client_hello::client_hello_client,
     config::Config,
     record::{ContentType, IoError, ReadError, RecordLayer},
     server_hello::server_hello_client,
     state::{GlobalState, MaybeProt, ShakeState, TranscriptHasher, UnprotShakeMsg},
-    ShakeResult,
+    Error,
 };
 
 pub(crate) fn handshake_client(
     shake_state: &mut ShakeState,
     global_state: &mut GlobalState,
     config: &Config,
-) -> ShakeResult {
+) -> Error {
     loop {
         match shake_state.state {
             MaybeProt::Unprot {
                 ref mut next,
                 ref mut state,
             } if next == &mut UnprotShakeMsg::ClientHello => {
-                client_hello_client(state, &mut shake_state.buf, config);
-                shake_state
+                match client_hello_client(state, &mut shake_state.buf, config) {
+                    Error::None => (),
+                    err => return err,
+                }
+                match shake_state
                     .buf
-                    .write_raw(&mut global_state.rl, &mut global_state.transcript);
+                    .write_raw(&mut global_state.rl, &mut global_state.transcript)
+                {
+                    Ok(()) => (),
+                    Err(IoError) => return Error::WantWrite,
+                }
                 *next = UnprotShakeMsg::ServerHello;
             },
             MaybeProt::Unprot {
                 ref mut next,
                 ref mut state,
             } if next == &mut UnprotShakeMsg::ServerHello => {
-                shake_state.buf.read_raw(&mut global_state.rl);
+                match shake_state.buf.read_raw(&mut global_state.rl) {
+                    Ok(()) => (),
+                    Err(err) => return err.into(),
+                }
                 let aead = match server_hello_client(shake_state.buf.data(), state, global_state) {
                     Ok(aead) => aead,
-                    Err(err) => todo!(),
+                    Err(alert) => {
+                        global_state.rl.close_raw(alert);
+                        return Error::SentAlert(alert);
+                    },
                 };
                 shake_state.state = MaybeProt::Prot {
                     next: ProtShakeMsg::EncryptedExtensions,
                     state: aead,
                 };
-                todo!()
             },
             _ => todo!(),
         };
@@ -77,9 +93,22 @@ impl ShakeType {
 ///
 /// This struct is only used for reading messages, not writing.
 pub(crate) struct ShakeBuf {
-    buf: Vec<u8>,
+    buf: Box<[u8]>,
+    len: usize,
     /// The maximum size `buf` is allowed to be.
     max_size: usize,
+    status: ReadStatus,
+}
+
+enum ReadStatus {
+    NeedsHeader(usize),
+    NeedsData(usize),
+}
+
+impl ReadStatus {
+    const fn new() -> Self {
+        Self::NeedsHeader(0)
+    }
 }
 
 impl ShakeBuf {
@@ -90,27 +119,84 @@ impl ShakeBuf {
     /// Constructs a new [`MsgBug`] with
     pub(crate) fn new(max_len: usize) -> Self {
         // TODO: use new_zeroed_slice or similar once stabilized.
+        let mut buf = Box::new_uninit_slice(Self::INIT_SIZE);
+        buf.fill(MaybeUninit::zeroed());
         Self {
-            buf: Vec::with_capacity(Self::INIT_SIZE),
+            // SAFETY: a zeroed integer slice is valid.
+            buf: unsafe { buf.assume_init() },
+            len: 0,
             max_size: max_len,
+            status: ReadStatus::new(),
         }
     }
 
     pub(crate) fn start(&mut self, msg_type: ShakeType) {
-        self.buf.clear();
-        self.buf.push(msg_type.to_byte());
-        self.buf.extend_from_slice(&[0; Self::LEN_SIZE]);
+        self.len = Self::HEADER_SIZE;
+        self.buf[0] = msg_type.to_byte();
+        self.buf[1..][..Self::LEN_SIZE].copy_from_slice(&[0; Self::LEN_SIZE]);
+    }
+
+    pub(crate) fn push(&mut self, value: u8) {
+        if self.len + Self::HEADER_SIZE + 1 > self.buf.len() {
+            todo!()
+        }
+        self.buf[self.len + Self::HEADER_SIZE] = value;
+        self.len += 1;
+    }
+
+    pub(crate) fn extend_from_slice(&mut self, slice: &[u8]) {
+        if self.len + Self::HEADER_SIZE + slice.len() > self.buf.len() {
+            todo!()
+        }
+        self.buf[Self::HEADER_SIZE + self.len..][..slice.len()].copy_from_slice(slice);
     }
 
     /// Returns the data sent in the handshake message.
     ///
     /// This does NOT include the header.
     pub(crate) fn data(&self) -> &[u8] {
-        &self.buf[Self::HEADER_SIZE..]
+        &self.buf[Self::HEADER_SIZE..][..self.len]
     }
 
+    /// Reads an entire plaintext handshake message.
+    ///
+    /// Despite its name, this is the handshake equivalent of [`RecordLayer::peek_raw`].
     pub(crate) fn read_raw(&mut self, rl: &mut RecordLayer) -> Result<(), ReadError> {
-        todo!()
+        loop {
+            match self.status {
+                ReadStatus::NeedsHeader(ref mut amt) => {
+                    if *amt == 0 {
+                        rl.peek_raw()?;
+                        if rl.msg_type() == ContentType::ChangeCipherSpec.to_byte() {
+                            rl.discard();
+                            rl.peek_raw()?;
+                        }
+                        if rl.msg_type() == ContentType::Alert.to_byte() {
+                            todo!()
+                        }
+                        if rl.msg_type() != ContentType::Handshake.to_byte() {
+                            return Err(ReadError::Alert(Alert::UnexpectedMessage));
+                        }
+                    }
+                    while *amt < Self::HEADER_SIZE {
+                        *amt += rl.read_raw(&mut self.buf[*amt..Self::HEADER_SIZE])?
+                    }
+                    self.len =
+                        u32::from_be_bytes([0, self.buf[1], self.buf[2], self.buf[3]]) as usize;
+                    if self.len > self.buf.len() {
+                        todo!();
+                    }
+                    self.status = ReadStatus::NeedsData(0);
+                },
+                ReadStatus::NeedsData(ref mut amt) => {
+                    while *amt < self.len {
+                        *amt += rl.read_raw(&mut self.buf[Self::HEADER_SIZE..][..*amt])?
+                    }
+                    self.status = ReadStatus::new();
+                    return Ok(());
+                },
+            }
+        }
     }
 
     pub(crate) fn write_raw(
@@ -132,14 +218,6 @@ impl ShakeBuf {
         self.encode_len();
         transcipt.update_with(&self.buf);
         rl.write(&self.buf, ContentType::Handshake, aead)
-    }
-
-    pub(crate) fn push(&mut self, value: u8) {
-        self.buf.push(value);
-    }
-
-    pub(crate) fn extend_from_slice(&mut self, slice: &[u8]) {
-        self.buf.extend_from_slice(slice);
     }
 
     /// Returns the type of handshake message the message is.

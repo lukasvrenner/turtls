@@ -10,7 +10,7 @@ pub(super) struct WriteBuf {
     buf: [u8; RecordLayer::BUF_SIZE],
     /// The length of the current record.
     ///
-    /// This includes the header.
+    /// This does not include the header.
     len: usize,
     record_bytes_written: usize,
     /// The total number of bytes written to IO.
@@ -64,9 +64,8 @@ impl RecordLayer {
     }
 
     const fn encode_len(&mut self) {
-        let data_len = self.wbuf.len - Self::HEADER_SIZE;
-        self.wbuf.buf[Self::HEADER_SIZE - Self::LEN_SIZE] = (data_len >> 8) as u8;
-        self.wbuf.buf[Self::HEADER_SIZE - Self::LEN_SIZE + 1] = (data_len) as u8;
+        self.wbuf.buf[Self::HEADER_SIZE - Self::LEN_SIZE] = (self.wbuf.len >> 8) as u8;
+        self.wbuf.buf[Self::HEADER_SIZE - Self::LEN_SIZE + 1] = (self.wbuf.len) as u8;
     }
 
     fn finish_raw(&mut self) -> Result<(), IoError> {

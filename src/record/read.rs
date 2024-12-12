@@ -16,11 +16,17 @@ enum ReadStatus {
     Moving(usize),
 }
 
+impl ReadStatus {
+    pub const fn new() -> Self {
+        Self::NeedsHeader(0)
+    }
+}
+
 pub(super) struct ReadBuf {
     buf: [u8; RecordLayer::BUF_SIZE],
     /// The length of the current record.
     ///
-    /// This includes the header.
+    /// This does not include the header.
     len: usize,
     status: ReadStatus,
 }
@@ -30,7 +36,7 @@ impl ReadBuf {
         Self {
             buf: [0; RecordLayer::BUF_SIZE],
             len: 0,
-            status: ReadStatus::NeedsHeader(0),
+            status: ReadStatus::new(),
         }
     }
 }
@@ -43,7 +49,7 @@ impl RecordLayer {
     /// Reads a single record but does not process it.
     ///
     /// If an unused record is already in the buffer, a new record will not be read.
-    fn peek_raw(&mut self) -> Result<(), ReadError> {
+    pub(crate) fn peek_raw(&mut self) -> Result<(), ReadError> {
         loop {
             match self.rbuf.status {
                 ReadStatus::NeedsHeader(mut bytes_read) => {
@@ -159,6 +165,8 @@ impl RecordLayer {
     }
 
     /// Reads data into `buf` until either the entire record has been read or `buf` is full.
+    ///
+    /// Returns the number of bytes read.
     pub(crate) fn read_raw(&mut self, buf: &mut [u8]) -> Result<usize, ReadError> {
         self.peek_raw()?;
         assert!(matches!(self.rbuf.status, ReadStatus::Moving(_)));
@@ -169,5 +177,9 @@ impl RecordLayer {
         self.peek(aead)?;
         assert!(matches!(self.rbuf.status, ReadStatus::Moving(_)));
         Ok(self.read_remaining(buf))
+    }
+
+    pub(crate) fn discard(&mut self) {
+        self.rbuf.status = ReadStatus::new();
     }
 }

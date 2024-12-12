@@ -1,67 +1,45 @@
 use crate::alert::Alert;
 use crate::extensions::key_share::KeyGenError;
-use crate::record::{IoError, ReadError};
-
-#[derive(Debug)]
-pub(crate) enum TlsError {
-    /// The peer has sent an [`Alert`].
-    Received(Alert),
-    /// An error has occured that can be described as an [`Alert`].
-    Sent(Alert),
-}
+use crate::record::ReadError;
 
 /// The result of the handshake.
 ///
 /// If a value other than `Ok` is returned, the connection is closed.
 #[must_use]
 #[repr(C)]
-pub enum ShakeResult {
-    /// Indicates a successful handshake.
-    Ok,
-    /// Indicates that the peer sent an alert.
+pub enum Error {
+    /// There were no errors
+    None,
+    /// The peer sent an alert.
     ReceivedAlert(Alert),
-    /// Indicates that an alert was sent to the peer.
+    /// An alert was sent to the peer.
     SentAlert(Alert),
-    /// Indicates that there was an error generating a random number.
+    /// There was an error generating a random number.
     RngError,
-    /// Indicates that there was an error performing an IO operation.
-    IoError,
-    /// Indicates that the record read took too long.
-    Timeout,
-    /// Indicates that the randomly-generated private key was zero.
+    /// A read operation failed.
+    ///
+    /// This error IS resumable if the error is recoverable
+    WantRead,
+    /// A write operation failed.
+    ///
+    /// This error IS resumable if the error is recoverable
+    WantWrite,
+    /// The randomly-generated private key was zero.
     PrivKeyIsZero,
+    /// One or more required extensions are missing.
     MissingExtensions,
 }
 
-impl From<TlsError> for ShakeResult {
-    fn from(value: TlsError) -> Self {
-        match value {
-            TlsError::Sent(err) => Self::SentAlert(err),
-            TlsError::Received(err) => Self::ReceivedAlert(err),
-        }
-    }
-}
-
-impl From<ReadError> for ShakeResult {
+impl From<ReadError> for Error {
     fn from(value: ReadError) -> Self {
         match value {
-            ReadError::IoError => Self::IoError,
-            ReadError::Timeout => Self::Timeout,
+            ReadError::IoError => Self::WantRead,
             ReadError::Alert(alert) => Self::SentAlert(alert),
         }
     }
 }
 
-impl From<IoError> for ShakeResult {
-    fn from(value: IoError) -> Self {
-        match value {
-            IoError::IoError => Self::IoError,
-            IoError::WantMore => Self::Timeout,
-        }
-    }
-}
-
-impl From<KeyGenError> for ShakeResult {
+impl From<KeyGenError> for Error {
     fn from(value: KeyGenError) -> Self {
         match value {
             KeyGenError::RngError => Self::RngError,

@@ -1,7 +1,6 @@
 use crylib::aead::TAG_SIZE;
 
-use crate::alert::{Alert, AlertMsg};
-use crate::extensions::versions::LEGACY_PROTO_VERS;
+use crate::alert::Alert;
 
 use std::ffi::c_void;
 

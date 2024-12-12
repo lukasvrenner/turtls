@@ -1,7 +1,7 @@
 use super::{ExtList, ExtensionType};
 use crate::alert::Alert;
 use crate::handshake::ShakeBuf;
-use crate::record::{IoError, RecordLayer};
+
 #[repr(u16)]
 pub(crate) enum ProtocolVersion {
     #[expect(unused, reason = "SSL 3.0 is not supported")]

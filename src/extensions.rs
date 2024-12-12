@@ -4,15 +4,14 @@ use std::ptr::null;
 use crate::aead::TlsAead;
 use crate::alert::Alert;
 use crate::handshake::ShakeBuf;
-use crate::record::{IoError, RecordLayer};
-use crate::state::{GlobalState, ShakeState, UnprotShakeState};
+use crate::state::{GlobalState, UnprotShakeState};
 
 pub mod app_proto;
 pub mod key_share;
 pub mod server_name;
 pub mod sig_algs;
 pub mod versions;
-use crylib::aead::Aead;
+
 use key_share::{GroupKeys, SECP256R1};
 use sig_algs::ECDSA_SECP256R1;
 
