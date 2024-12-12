@@ -54,7 +54,10 @@ impl RecordLayer {
             match self.rbuf.status {
                 ReadStatus::NeedsHeader(mut bytes_read) => {
                     while bytes_read < Self::HEADER_SIZE {
-                        match self.io.read(&mut self.rbuf.buf[..Self::HEADER_SIZE]) {
+                        match self
+                            .io
+                            .read(&mut self.rbuf.buf[bytes_read..Self::HEADER_SIZE])
+                        {
                             ..1 => {
                                 self.rbuf.status = ReadStatus::NeedsHeader(bytes_read);
                                 return Err(ReadError::IoError);
@@ -67,6 +70,7 @@ impl RecordLayer {
                             .try_into()
                             .unwrap(),
                     ) as usize;
+                    println!("{:?}", &self.rbuf.buf[..Self::HEADER_SIZE]);
                     match self.rbuf.len {
                         0 => return Err(ReadError::Alert(Alert::IllegalParam)),
                         1..Self::MAX_LEN => (),
@@ -152,10 +156,11 @@ impl RecordLayer {
 
     /// Reads stored data into `buf` without performing any IO.
     ///
-    /// If a record is currently being read, `0` will be returned and no bytes will be moved.
+    /// # Panics
+    /// If a record is currently being retrieved, this function will panic.
     pub(crate) fn read_remaining(&mut self, buf: &mut [u8]) -> usize {
         let ReadStatus::Moving(ref mut bytes_read) = self.rbuf.status else {
-            return 0;
+            panic!("The record cannot be read because it is currently being retrieved");
         };
         let new_bytes = std::cmp::min(self.rbuf.len - *bytes_read, buf.len());
         buf[..new_bytes]
@@ -169,16 +174,15 @@ impl RecordLayer {
     /// Returns the number of bytes read.
     pub(crate) fn read_raw(&mut self, buf: &mut [u8]) -> Result<usize, ReadError> {
         self.peek_raw()?;
-        assert!(matches!(self.rbuf.status, ReadStatus::Moving(_)));
         Ok(self.read_remaining(buf))
     }
 
     pub(crate) fn read(&mut self, buf: &mut [u8], aead: &mut TlsAead) -> Result<usize, ReadError> {
         self.peek(aead)?;
-        assert!(matches!(self.rbuf.status, ReadStatus::Moving(_)));
         Ok(self.read_remaining(buf))
     }
 
+    /// Discards the current record.
     pub(crate) fn discard(&mut self) {
         self.rbuf.status = ReadStatus::new();
     }

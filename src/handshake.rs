@@ -24,41 +24,49 @@ pub(crate) fn handshake_client(
             MaybeProt::Unprot {
                 ref mut next,
                 ref mut state,
-            } if next == &mut UnprotShakeMsg::ClientHello => {
-                match client_hello_client(state, &mut shake_state.buf, config) {
-                    Error::None => (),
-                    err => return err,
-                }
-                match shake_state
-                    .buf
-                    .write_raw(&mut global_state.rl, &mut global_state.transcript)
-                {
-                    Ok(()) => (),
-                    Err(IoError) => return Error::WantWrite,
-                }
-                *next = UnprotShakeMsg::ServerHello;
+            } => match next {
+                UnprotShakeMsg::ClientHello => {
+                    match client_hello_client(state, &mut shake_state.buf, config) {
+                        Error::None => (),
+                        err => return err,
+                    }
+                    match shake_state
+                        .buf
+                        .write_raw(&mut global_state.rl, &mut global_state.transcript)
+                    {
+                        Ok(()) => (),
+                        Err(IoError) => return Error::WantWrite,
+                    }
+                    *next = UnprotShakeMsg::ServerHello;
+                },
+                UnprotShakeMsg::ServerHello => {
+                    match shake_state.buf.read_raw(&mut global_state.rl) {
+                        Ok(()) => (),
+                        Err(err) => return err.into(),
+                    }
+                    let aead =
+                        match server_hello_client(shake_state.buf.data(), state, global_state) {
+                            Ok(aead) => aead,
+                            Err(alert) => {
+                                global_state.rl.close_raw(alert);
+                                return Error::SentAlert(alert);
+                            },
+                        };
+                    shake_state.state = MaybeProt::Prot {
+                        next: ProtShakeMsg::EncryptedExtensions,
+                        state: aead,
+                    };
+                },
             },
-            MaybeProt::Unprot {
+            MaybeProt::Prot {
                 ref mut next,
                 ref mut state,
-            } if next == &mut UnprotShakeMsg::ServerHello => {
-                match shake_state.buf.read_raw(&mut global_state.rl) {
-                    Ok(()) => (),
-                    Err(err) => return err.into(),
-                }
-                let aead = match server_hello_client(shake_state.buf.data(), state, global_state) {
-                    Ok(aead) => aead,
-                    Err(alert) => {
-                        global_state.rl.close_raw(alert);
-                        return Error::SentAlert(alert);
-                    },
-                };
-                shake_state.state = MaybeProt::Prot {
-                    next: ProtShakeMsg::EncryptedExtensions,
-                    state: aead,
-                };
+            } => match next {
+                ProtShakeMsg::EncryptedExtensions => {
+                    global_state.rl.peek(state).unwrap();
+                },
+                _ => todo!(),
             },
-            _ => todo!(),
         };
     }
 }
