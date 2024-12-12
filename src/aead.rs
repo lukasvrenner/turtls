@@ -139,22 +139,23 @@ impl TlsAead {
     }
 
     pub(crate) fn shake_aead(
-        state: &mut GlobalState,
+        global_state: &mut GlobalState,
         dh_secret: &[u8],
         cipher: CipherList,
     ) -> Option<Self> {
-        let salt = key_schedule::derive_secret(&state.secret, b"derived", &Sha256::hash(b""));
+        let salt =
+            key_schedule::derive_secret(&global_state.secret, b"derived", &Sha256::hash(b""));
 
-        state.secret = hkdf::extract::<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>(
+        global_state.secret = hkdf::extract::<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>(
             &dh_secret, &salt,
         );
 
-        let transcript = state.transcript.get();
+        let transcript = global_state.transcript.get();
 
         let cli_shake_traf_secret =
-            key_schedule::derive_secret(&state.secret, b"c hs traffic", &transcript);
+            key_schedule::derive_secret(&global_state.secret, b"c hs traffic", &transcript);
         let ser_shake_traf_secret =
-            key_schedule::derive_secret(&state.secret, b"s hs traffic", &transcript);
+            key_schedule::derive_secret(&global_state.secret, b"s hs traffic", &transcript);
 
         Self::new(&cli_shake_traf_secret, &ser_shake_traf_secret, cipher)
     }

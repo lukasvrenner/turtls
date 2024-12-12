@@ -18,12 +18,14 @@ mod record;
 mod server_hello;
 mod state;
 
+use crylib::hash::Sha256;
+use crylib::hkdf;
 use handshake::handshake_client;
 
 pub use alert::turtls_stringify_alert;
 pub use alert::Alert;
 pub use cipher_suites::CipherList;
-pub use config::turtls_set_server_name;
+pub use config::{turtls_set_app_protos, turtls_set_server_name};
 pub use error::Error;
 pub use extensions::app_proto::turtls_app_proto;
 pub use extensions::ExtList;
@@ -73,9 +75,16 @@ pub unsafe extern "C" fn turtls_connect(connection: *mut Connection) -> Error {
 
     loop {
         match connection.state {
-            TlsStatus::None => match ShakeState::new(&connection.config) {
-                Ok(state) => connection.state = TlsStatus::Shake(state),
-                Err(err) => return err.into(),
+            TlsStatus::None => {
+                match ShakeState::new(&connection.config) {
+                    Ok(state) => connection.state = TlsStatus::Shake(state),
+                    Err(err) => return err.into(),
+                }
+                connection.gloabl_state.secret =
+                    hkdf::extract::<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>(
+                        &[0; Sha256::HASH_SIZE],
+                        &[0; Sha256::HASH_SIZE],
+                    );
             },
             TlsStatus::Shake(ref mut shake_state) => {
                 match handshake_client(

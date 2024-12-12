@@ -61,11 +61,11 @@ pub(crate) struct UnprotShakeState {
 pub(crate) enum MaybeProt {
     Unprot {
         next: UnprotShakeMsg,
-        state: UnprotShakeState,
+        unprot_state: UnprotShakeState,
     },
     Prot {
         next: ProtShakeMsg,
-        state: TlsAead,
+        aead: TlsAead,
     },
 }
 
@@ -98,7 +98,7 @@ impl ShakeState {
         Ok(Self {
             state: MaybeProt::Unprot {
                 next: UnprotShakeMsg::ClientHello,
-                state: UnprotShakeState {
+                unprot_state: UnprotShakeState {
                     priv_keys: GroupKeys::generate(config.extensions.sup_groups)?,
                     sup_groups: config.extensions.sup_groups,
                     sig_algs: config.extensions.sig_algs,

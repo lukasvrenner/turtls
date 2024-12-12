@@ -307,8 +307,6 @@ void turtls_set_app_protos(struct turtls_Connection *connection, const char *ap,
 
 void turtls_set_server_name(struct turtls_Connection *connection, const char *sn);
 
-void turtls_set_server_name(struct turtls_Connection *connection, const char *hn);
-
 /**
  * Returns a string representation of the alert.
  *

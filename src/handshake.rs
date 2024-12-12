@@ -23,10 +23,10 @@ pub(crate) fn handshake_client(
         match shake_state.state {
             MaybeProt::Unprot {
                 ref mut next,
-                ref mut state,
+                ref mut unprot_state,
             } => match next {
                 UnprotShakeMsg::ClientHello => {
-                    match client_hello_client(state, &mut shake_state.buf, config) {
+                    match client_hello_client(unprot_state, &mut shake_state.buf, config) {
                         Error::None => (),
                         err => return err,
                     }
@@ -40,30 +40,41 @@ pub(crate) fn handshake_client(
                     *next = UnprotShakeMsg::ServerHello;
                 },
                 UnprotShakeMsg::ServerHello => {
-                    match shake_state.buf.read_raw(&mut global_state.rl) {
+                    match shake_state
+                        .buf
+                        .read_raw(&mut global_state.rl, &mut global_state.transcript)
+                    {
                         Ok(()) => (),
                         Err(err) => return err.into(),
                     }
-                    let aead =
-                        match server_hello_client(shake_state.buf.data(), state, global_state) {
-                            Ok(aead) => aead,
-                            Err(alert) => {
-                                global_state.rl.close_raw(alert);
-                                return Error::SentAlert(alert);
-                            },
-                        };
+                    let aead = match server_hello_client(
+                        shake_state.buf.data(),
+                        unprot_state,
+                        global_state,
+                    ) {
+                        Ok(aead) => aead,
+                        Err(alert) => {
+                            global_state.rl.close_raw(alert);
+                            return Error::SentAlert(alert);
+                        },
+                    };
                     shake_state.state = MaybeProt::Prot {
                         next: ProtShakeMsg::EncryptedExtensions,
-                        state: aead,
+                        aead,
                     };
                 },
             },
             MaybeProt::Prot {
                 ref mut next,
-                ref mut state,
+                ref mut aead,
             } => match next {
                 ProtShakeMsg::EncryptedExtensions => {
-                    global_state.rl.peek(state).unwrap();
+                    global_state.rl.peek(aead).unwrap();
+                    if global_state.rl.msg_type() == ContentType::ChangeCipherSpec.to_byte() {
+                        global_state.rl.discard();
+                        global_state.rl.peek(aead).unwrap();
+                    }
+                    println!("{}", global_state.rl.msg_type());
                     todo!("parse EncryptedExtensions");
                 },
                 _ => todo!("Finish handshake"),
@@ -172,7 +183,11 @@ impl ShakeBuf {
     /// Reads an entire plaintext handshake message.
     ///
     /// Despite its name, this is the handshake equivalent of [`RecordLayer::peek_raw`].
-    pub(crate) fn read_raw(&mut self, rl: &mut RecordLayer) -> Result<(), ReadError> {
+    pub(crate) fn read_raw(
+        &mut self,
+        rl: &mut RecordLayer,
+        transcipt: &mut TranscriptHasher,
+    ) -> Result<(), ReadError> {
         loop {
             match self.status {
                 ReadStatus::NeedsHeader(ref mut amt) => {
@@ -208,6 +223,7 @@ impl ShakeBuf {
                         )?
                     }
                     self.status = ReadStatus::new();
+                    transcipt.update_with(&self.buf[..Self::HEADER_SIZE + self.len]);
                     return Ok(());
                 },
             }
@@ -220,7 +236,7 @@ impl ShakeBuf {
         transcipt: &mut TranscriptHasher,
     ) -> Result<(), IoError> {
         self.encode_len();
-        transcipt.update_with(&self.buf);
+        transcipt.update_with(&self.buf[..Self::HEADER_SIZE + self.len]);
         rl.write_raw(
             &self.buf[..Self::HEADER_SIZE + self.len],
             ContentType::Handshake,
