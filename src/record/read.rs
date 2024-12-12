@@ -52,17 +52,16 @@ impl RecordLayer {
     pub(crate) fn peek_raw(&mut self) -> Result<(), ReadError> {
         loop {
             match self.rbuf.status {
-                ReadStatus::NeedsHeader(mut bytes_read) => {
-                    while bytes_read < Self::HEADER_SIZE {
+                ReadStatus::NeedsHeader(ref mut bytes_read) => {
+                    while *bytes_read < Self::HEADER_SIZE {
                         match self
                             .io
-                            .read(&mut self.rbuf.buf[bytes_read..Self::HEADER_SIZE])
+                            .read(&mut self.rbuf.buf[*bytes_read..Self::HEADER_SIZE])
                         {
                             ..1 => {
-                                self.rbuf.status = ReadStatus::NeedsHeader(bytes_read);
                                 return Err(ReadError::IoError);
                             },
-                            new_bytes => bytes_read += new_bytes as usize,
+                            new_bytes => *bytes_read += new_bytes as usize,
                         }
                     }
                     self.rbuf.len = u16::from_be_bytes(
@@ -70,29 +69,26 @@ impl RecordLayer {
                             .try_into()
                             .unwrap(),
                     ) as usize;
-                    println!("{:?}", &self.rbuf.buf[..Self::HEADER_SIZE]);
                     match self.rbuf.len {
                         0 => return Err(ReadError::Alert(Alert::IllegalParam)),
                         1..Self::MAX_LEN => (),
                         Self::MAX_LEN.. => return Err(ReadError::Alert(Alert::RecordOverflow)),
                     }
-
                     self.rbuf.status = ReadStatus::NeedsData(0);
                 },
-                ReadStatus::NeedsData(mut bytes_read) => {
-                    while bytes_read < self.rbuf.len {
-                        match self
-                            .io
-                            .read(&mut self.rbuf.buf[Self::HEADER_SIZE + bytes_read..])
-                        {
+                ReadStatus::NeedsData(ref mut bytes_read) => {
+                    while *bytes_read < self.rbuf.len {
+                        match self.io.read(
+                            &mut self.rbuf.buf[Self::HEADER_SIZE + *bytes_read
+                                ..Self::HEADER_SIZE + self.rbuf.len],
+                        ) {
                             ..1 => {
-                                self.rbuf.status = ReadStatus::NeedsData(bytes_read);
                                 return Err(ReadError::IoError);
                             },
-                            new_bytes => bytes_read += new_bytes as usize,
+                            new_bytes => *bytes_read += new_bytes as usize,
                         }
-                        self.rbuf.status = ReadStatus::Moving(0);
                     }
+                    self.rbuf.status = ReadStatus::Moving(0);
                 },
                 ReadStatus::Moving(bytes_moved) => {
                     if bytes_moved == self.rbuf.len {

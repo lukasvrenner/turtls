@@ -64,8 +64,9 @@ pub(crate) fn handshake_client(
             } => match next {
                 ProtShakeMsg::EncryptedExtensions => {
                     global_state.rl.peek(state).unwrap();
+                    todo!("parse EncryptedExtensions");
                 },
-                _ => todo!(),
+                _ => todo!("Finish handshake"),
             },
         };
     }
@@ -182,7 +183,7 @@ impl ShakeBuf {
                             rl.peek_raw()?;
                         }
                         if rl.msg_type() == ContentType::Alert.to_byte() {
-                            rl.read_raw(&mut self.buf[Self::HEADER_SIZE..][..AlertMsg::SIZE]);
+                            rl.read_remaining(&mut self.buf[Self::HEADER_SIZE..][..AlertMsg::SIZE]);
                             println!("{}", self.data()[1]);
                             todo!("handle alerts");
                         }
