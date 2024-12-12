@@ -175,7 +175,7 @@ impl ShakeBuf {
                         }
                         if rl.msg_type() == ContentType::Alert.to_byte() {
                             rl.read_raw(&mut self.buf[Self::HEADER_SIZE..][..AlertMsg::SIZE]);
-                            println!("{}", self.buf[Self::HEADER_SIZE + 1]);
+                            println!("{}", self.data()[1]);
                             todo!("handle alerts");
                         }
                         if rl.msg_type() != ContentType::Handshake.to_byte() {
@@ -194,7 +194,9 @@ impl ShakeBuf {
                 },
                 ReadStatus::NeedsData(ref mut amt) => {
                     while *amt < self.len {
-                        *amt += rl.read_raw(&mut self.buf[Self::HEADER_SIZE..][..*amt])?
+                        *amt += rl.read_raw(
+                            &mut self.buf[Self::HEADER_SIZE + *amt..Self::HEADER_SIZE + self.len],
+                        )?
                     }
                     self.status = ReadStatus::new();
                     return Ok(());
@@ -210,7 +212,10 @@ impl ShakeBuf {
     ) -> Result<(), IoError> {
         self.encode_len();
         transcipt.update_with(&self.buf);
-        rl.write_raw(&self.buf, ContentType::Handshake)
+        rl.write_raw(
+            &self.buf[..Self::HEADER_SIZE + self.len],
+            ContentType::Handshake,
+        )
     }
 
     pub(crate) fn write(
@@ -221,7 +226,11 @@ impl ShakeBuf {
     ) -> Result<(), IoError> {
         self.encode_len();
         transcipt.update_with(&self.buf);
-        rl.write(&self.buf, ContentType::Handshake, aead)
+        rl.write(
+            &self.buf[..Self::HEADER_SIZE + self.len],
+            ContentType::Handshake,
+            aead,
+        )
     }
 
     /// Returns the type of handshake message the message is.
@@ -233,7 +242,7 @@ impl ShakeBuf {
     }
 
     pub(crate) fn encode_len(&mut self) {
-        let len = ((self.buf.len() - Self::HEADER_SIZE) as u32).to_be_bytes();
-        self.buf[1..][..Self::LEN_SIZE].copy_from_slice(&len[..Self::LEN_SIZE]);
+        let len = (self.len as u32).to_be_bytes();
+        self.buf[1..][..Self::LEN_SIZE].copy_from_slice(&len[1..]);
     }
 }

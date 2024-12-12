@@ -12,9 +12,9 @@ pub(super) struct WriteBuf {
     ///
     /// This does not include the header.
     len: usize,
-    record_bytes_written: usize,
+    record_bytes: usize,
     /// The total number of bytes written to IO.
-    total_bytes_written: usize,
+    total_bytes: usize,
 }
 
 impl WriteBuf {
@@ -22,8 +22,8 @@ impl WriteBuf {
         let mut buf = Self {
             buf: [0; RecordLayer::BUF_SIZE],
             len: 0,
-            record_bytes_written: 0,
-            total_bytes_written: 0,
+            record_bytes: 0,
+            total_bytes: 0,
         };
         [buf.buf[1], buf.buf[2]] = LEGACY_PROTO_VERS.to_be_bytes();
         buf
@@ -37,14 +37,14 @@ impl RecordLayer {
 
     pub(crate) fn write_raw(&mut self, buf: &[u8], msg_type: ContentType) -> Result<(), IoError> {
         self.set_msg_type(msg_type);
-        while self.wbuf.total_bytes_written < buf.len() {
-            let record_size =
-                std::cmp::min(buf.len() - self.wbuf.total_bytes_written, Self::MAX_LEN);
-            self.wbuf.buf[..record_size]
-                .copy_from_slice(&buf[self.wbuf.total_bytes_written..][..record_size]);
-            self.write_record()?;
+        while self.wbuf.total_bytes < buf.len() {
+            let record_size = std::cmp::min(buf.len() - self.wbuf.total_bytes, Self::MAX_LEN);
+            self.wbuf.buf[Self::HEADER_SIZE..][..record_size]
+                .copy_from_slice(&buf[self.wbuf.total_bytes..][..record_size]);
+            self.wbuf.len = record_size;
+            self.finish_raw()?;
         }
-        self.wbuf.total_bytes_written = 0;
+        self.wbuf.total_bytes = 0;
         Ok(())
     }
 
@@ -55,7 +55,7 @@ impl RecordLayer {
         aead: &mut TlsAead,
     ) -> Result<(), IoError> {
         self.set_msg_type(ContentType::ApplicationData);
-        for record in buf[self.wbuf.total_bytes_written..].chunks(Self::MAX_LEN) {
+        for record in buf[self.wbuf.total_bytes..].chunks(Self::MAX_LEN) {
             self.wbuf.buf[Self::HEADER_SIZE..][..record.len()].copy_from_slice(record);
             self.wbuf.len = record.len();
             self.finish(msg_type, aead)?;
@@ -63,9 +63,9 @@ impl RecordLayer {
         Ok(())
     }
 
-    const fn encode_len(&mut self) {
-        self.wbuf.buf[Self::HEADER_SIZE - Self::LEN_SIZE] = (self.wbuf.len >> 8) as u8;
-        self.wbuf.buf[Self::HEADER_SIZE - Self::LEN_SIZE + 1] = (self.wbuf.len) as u8;
+    fn encode_len(&mut self) {
+        let len = (self.wbuf.len as u16).to_be_bytes();
+        self.wbuf.buf[Self::HEADER_SIZE - Self::LEN_SIZE..Self::HEADER_SIZE].copy_from_slice(&len);
     }
 
     fn finish_raw(&mut self) -> Result<(), IoError> {
@@ -83,16 +83,17 @@ impl RecordLayer {
     }
 
     fn write_record(&mut self) -> Result<(), IoError> {
-        while self.wbuf.record_bytes_written < self.wbuf.len + Self::HEADER_SIZE {
-            match self.io.write(
-                &self.wbuf.buf[self.wbuf.record_bytes_written..Self::HEADER_SIZE + self.wbuf.len],
-            ) {
+        while self.wbuf.record_bytes < self.wbuf.len + Self::HEADER_SIZE {
+            match self
+                .io
+                .write(&self.wbuf.buf[self.wbuf.record_bytes..Self::HEADER_SIZE + self.wbuf.len])
+            {
                 ..1 => return Err(IoError),
-                bytes_written => self.wbuf.record_bytes_written += bytes_written as usize,
+                bytes_written => self.wbuf.record_bytes += bytes_written as usize,
             }
         }
-        self.wbuf.total_bytes_written += self.wbuf.record_bytes_written;
-        self.wbuf.record_bytes_written = 0;
+        self.wbuf.total_bytes += self.wbuf.record_bytes;
+        self.wbuf.record_bytes = 0;
         Ok(())
     }
 

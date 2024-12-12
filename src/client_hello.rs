@@ -40,6 +40,5 @@ pub(crate) fn client_hello_client(
     config
         .extensions
         .write_client(shake_buf, &unprot_state.priv_keys);
-    println!("{:?}", shake_buf.data());
     Error::None
 }
