@@ -2,6 +2,7 @@ use std::mem::MaybeUninit;
 use std::ops::ControlFlow;
 
 use crate::aead::TlsAead;
+use crate::alert::AlertMsg;
 use crate::state::ProtShakeMsg;
 use crate::Alert;
 use crate::{
@@ -131,7 +132,7 @@ impl ShakeBuf {
     }
 
     pub(crate) fn start(&mut self, msg_type: ShakeType) {
-        self.len = Self::HEADER_SIZE;
+        self.len = 0;
         self.buf[0] = msg_type.to_byte();
         self.buf[1..][..Self::LEN_SIZE].copy_from_slice(&[0; Self::LEN_SIZE]);
     }
@@ -149,6 +150,7 @@ impl ShakeBuf {
             todo!()
         }
         self.buf[Self::HEADER_SIZE + self.len..][..slice.len()].copy_from_slice(slice);
+        self.len += slice.len();
     }
 
     /// Returns the data sent in the handshake message.
@@ -172,7 +174,9 @@ impl ShakeBuf {
                             rl.peek_raw()?;
                         }
                         if rl.msg_type() == ContentType::Alert.to_byte() {
-                            todo!()
+                            rl.read_raw(&mut self.buf[Self::HEADER_SIZE..][..AlertMsg::SIZE]);
+                            println!("{}", self.buf[Self::HEADER_SIZE + 1]);
+                            todo!("handle alerts");
                         }
                         if rl.msg_type() != ContentType::Handshake.to_byte() {
                             return Err(ReadError::Alert(Alert::UnexpectedMessage));

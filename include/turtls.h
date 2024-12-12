@@ -150,40 +150,47 @@ struct turtls_Connection;
  *
  * If a value other than `Ok` is returned, the connection is closed.
  */
-enum turtls_ShakeResult_Tag {
+enum turtls_Error_Tag {
     /**
-     * Indicates a successful handshake.
+     * There were no errors
      */
-    TURTLS_SHAKE_RESULT_OK,
+    TURTLS_ERROR_NONE,
     /**
-     * Indicates that the peer sent an alert.
+     * The peer sent an alert.
      */
-    TURTLS_SHAKE_RESULT_RECEIVED_ALERT,
+    TURTLS_ERROR_RECEIVED_ALERT,
     /**
-     * Indicates that an alert was sent to the peer.
+     * An alert was sent to the peer.
      */
-    TURTLS_SHAKE_RESULT_SENT_ALERT,
+    TURTLS_ERROR_SENT_ALERT,
     /**
-     * Indicates that there was an error generating a random number.
+     * There was an error generating a random number.
      */
-    TURTLS_SHAKE_RESULT_RNG_ERROR,
+    TURTLS_ERROR_RNG_ERROR,
     /**
-     * Indicates that there was an error performing an IO operation.
+     * A read operation failed.
+     *
+     * This error IS resumable if the error is recoverable
      */
-    TURTLS_SHAKE_RESULT_IO_ERROR,
+    TURTLS_ERROR_WANT_READ,
     /**
-     * Indicates that the record read took too long.
+     * A write operation failed.
+     *
+     * This error IS resumable if the error is recoverable
      */
-    TURTLS_SHAKE_RESULT_TIMEOUT,
+    TURTLS_ERROR_WANT_WRITE,
     /**
-     * Indicates that the randomly-generated private key was zero.
+     * The randomly-generated private key was zero.
      */
-    TURTLS_SHAKE_RESULT_PRIV_KEY_IS_ZERO,
-    TURTLS_SHAKE_RESULT_MISSING_EXTENSIONS,
+    TURTLS_ERROR_PRIV_KEY_IS_ZERO,
+    /**
+     * One or more required extensions are missing.
+     */
+    TURTLS_ERROR_MISSING_EXTENSIONS,
 };
 
-struct turtls_ShakeResult {
-    enum turtls_ShakeResult_Tag tag;
+struct turtls_Error {
+    enum turtls_Error_Tag tag;
     union {
         struct {
             turtls_Alert received_alert;
@@ -274,7 +281,7 @@ void turtls_close(struct turtls_Connection *connection);
  * # Safety:
  * `connection` must be valid.
  */
-struct turtls_ShakeResult turtls_connect(struct turtls_Connection *connection);
+struct turtls_Error turtls_connect(struct turtls_Connection *connection);
 
 /**
  * Frees a connection buffer.
@@ -299,6 +306,8 @@ struct turtls_Connection *turtls_new(struct turtls_Io io);
 void turtls_set_app_protos(struct turtls_Connection *connection, const char *ap, size_t ap_len);
 
 void turtls_set_server_name(struct turtls_Connection *connection, const char *sn);
+
+void turtls_set_server_name(struct turtls_Connection *connection, const char *hn);
 
 /**
  * Returns a string representation of the alert.
