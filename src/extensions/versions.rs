@@ -1,5 +1,5 @@
-use super::{ExtList, ExtensionType};
-use crate::alert::Alert;
+use super::{ExtensionType, TurtlsExts};
+use crate::alert::TurtlsAlert;
 use crate::handshake::ShakeBuf;
 
 #[repr(u16)]
@@ -36,7 +36,7 @@ impl ProtocolVersion {
     }
 }
 
-impl ExtList {
+impl TurtlsExts {
     pub(super) const fn sup_versions_len(&self) -> usize {
         SUP_VERSIONS.len() - Self::HEADER_SIZE
     }
@@ -46,12 +46,12 @@ impl ExtList {
     }
 }
 
-pub(super) fn parse_ser(version: &[u8]) -> Result<(), Alert> {
+pub(super) fn parse_ser(version: &[u8]) -> Result<(), TurtlsAlert> {
     if version.len() != size_of::<ProtocolVersion>() {
-        return Err(Alert::DecodeError);
+        return Err(TurtlsAlert::DecodeError);
     }
     if version[..size_of::<ProtocolVersion>()] != ProtocolVersion::TlsOneThree.to_be_bytes() {
-        return Err(Alert::ProtocolVersion);
+        return Err(TurtlsAlert::ProtocolVersion);
     }
     Ok(())
 }

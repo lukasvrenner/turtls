@@ -3,22 +3,22 @@ use crate::handshake::ShakeBuf;
 /// The supported ciphersuites.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(transparent)]
-pub struct CipherList {
+pub struct TurtlsCipherList {
     pub(crate) suites: u8,
 }
 
-impl CipherList {
+impl TurtlsCipherList {
     /// ChaCha20 Poly1305 with SHA-256.
     ///
     /// This is a good option. You should probably leave it enabled.
-    pub const CHA_CHA_POLY1305_SHA256: u8 = 0b00000001;
+    pub const TURTLS_CHA_CHA_POLY1305_SHA256: u8 = 0b00000001;
 
     /// AES-128 GCM with SHA-256.
     ///
     /// Hardware instructions are *not* yet supported.
     ///
     /// This is a good option. You should probably leave it enabled.
-    pub const AES_128_GCM_SHA256: u8 = 0b00000010;
+    pub const TURTLS_AES_128_GCM_SHA256: u8 = 0b00000010;
 
     pub(crate) const LEN_SIZE: usize = 2;
 
@@ -27,10 +27,10 @@ impl CipherList {
     }
 
     pub(crate) fn write_to(&self, buf: &mut ShakeBuf) {
-        if self.suites & Self::CHA_CHA_POLY1305_SHA256 > 0 {
+        if self.suites & Self::TURTLS_CHA_CHA_POLY1305_SHA256 > 0 {
             buf.extend_from_slice(&CipherSuite::ChaCha20Poly1305Sha256.to_be_bytes());
         }
-        if self.suites & Self::AES_128_GCM_SHA256 > 0 {
+        if self.suites & Self::TURTLS_AES_128_GCM_SHA256 > 0 {
             buf.extend_from_slice(&CipherSuite::Aes128GcmSha256.to_be_bytes());
         }
     }
@@ -39,20 +39,20 @@ impl CipherList {
         // fill in more values once more ciphersuites are supported
         match suite {
             x if x == CipherSuite::Aes128GcmSha256.as_int().to_be_bytes() => Self {
-                suites: Self::AES_128_GCM_SHA256,
+                suites: Self::TURTLS_AES_128_GCM_SHA256,
             },
             x if x == CipherSuite::ChaCha20Poly1305Sha256.as_int().to_be_bytes() => Self {
-                suites: Self::CHA_CHA_POLY1305_SHA256,
+                suites: Self::TURTLS_CHA_CHA_POLY1305_SHA256,
             },
             _ => Self { suites: 0 },
         }
     }
 }
 
-impl Default for CipherList {
+impl Default for TurtlsCipherList {
     fn default() -> Self {
         Self {
-            suites: Self::CHA_CHA_POLY1305_SHA256 | Self::AES_128_GCM_SHA256,
+            suites: Self::TURTLS_CHA_CHA_POLY1305_SHA256 | Self::TURTLS_AES_128_GCM_SHA256,
         }
     }
 }

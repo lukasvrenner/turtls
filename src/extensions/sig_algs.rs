@@ -1,5 +1,5 @@
 //! The signature_algorithms and supported_groups extensions.
-use super::{ExtList, ExtensionType};
+use super::{ExtensionType, TurtlsExts};
 use crate::handshake::ShakeBuf;
 
 #[repr(u16)]
@@ -53,9 +53,9 @@ impl SignatureScheme {
 }
 
 /// The ECDSA signature algoritm over the secp256r1 (NIST-P 256) curve.
-pub const ECDSA_SECP256R1: u16 = 0b0000000000000001;
+pub const TURTLS_ECDSA_SECP256R1: u16 = 0b0000000000000001;
 
-impl ExtList {
+impl TurtlsExts {
     pub(super) const fn sig_algs_len(&self) -> usize {
         self.sig_algs.count_ones() as usize * size_of::<SignatureScheme>() + Self::LEN_SIZE
     }
@@ -71,7 +71,7 @@ impl ExtList {
 
         len -= Self::LEN_SIZE as u16;
         shake_buf.extend_from_slice(&len.to_be_bytes());
-        if self.sig_algs & ECDSA_SECP256R1 > 0 {
+        if self.sig_algs & TURTLS_ECDSA_SECP256R1 > 0 {
             shake_buf.extend_from_slice(&SignatureScheme::EcdsaSecp256r1Sha256.to_be_bytes());
         }
     }

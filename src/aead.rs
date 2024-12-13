@@ -4,7 +4,7 @@ use crylib::aead::{Aead, BadData, IV_SIZE, TAG_SIZE};
 use crylib::hash::{Hasher, Sha256};
 use crylib::hkdf;
 
-use crate::cipher_suites::CipherList;
+use crate::cipher_suites::TurtlsCipherList;
 use crate::key_schedule;
 use crate::state::GlobalState;
 
@@ -60,7 +60,7 @@ impl TlsAead {
     pub(crate) fn new(
         write_secret: &[u8; Sha256::HASH_SIZE],
         read_secret: &[u8; Sha256::HASH_SIZE],
-        cipher: CipherList,
+        cipher: TurtlsCipherList,
     ) -> Option<Self> {
         let mut write_iv = [0; IV_SIZE];
         key_schedule::hkdf_expand_label(&mut write_iv, write_secret, b"iv", b"");
@@ -69,7 +69,7 @@ impl TlsAead {
         key_schedule::hkdf_expand_label(&mut read_iv, read_secret, b"iv", b"");
 
         match cipher.suites {
-            CipherList::AES_128_GCM_SHA256 => {
+            TurtlsCipherList::TURTLS_AES_128_GCM_SHA256 => {
                 let mut write_key = [0; Aes128::KEY_SIZE];
                 key_schedule::hkdf_expand_label(&mut write_key, write_secret, b"key", b"");
 
@@ -87,7 +87,7 @@ impl TlsAead {
                     read_nonce: Self::NONCE_INIT,
                 })
             },
-            CipherList::CHA_CHA_POLY1305_SHA256 => {
+            TurtlsCipherList::TURTLS_CHA_CHA_POLY1305_SHA256 => {
                 let mut write_key = [0; ChaCha20Poly1305::KEY_SIZE];
                 key_schedule::hkdf_expand_label(&mut write_key, write_secret, b"key", b"");
 
@@ -141,7 +141,7 @@ impl TlsAead {
     pub(crate) fn shake_aead(
         global_state: &mut GlobalState,
         dh_secret: &[u8],
-        cipher: CipherList,
+        cipher: TurtlsCipherList,
     ) -> Option<Self> {
         let salt =
             key_schedule::derive_secret(&global_state.secret, b"derived", &Sha256::hash(b""));

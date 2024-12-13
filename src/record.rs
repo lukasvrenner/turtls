@@ -1,6 +1,6 @@
 use crylib::aead::TAG_SIZE;
 
-use crate::alert::Alert;
+use crate::{alert::TurtlsAlert, TurtlsError};
 
 use std::ffi::c_void;
 
@@ -29,7 +29,7 @@ impl ContentType {
 ///
 /// This includes reading, writing, and closing the connection.
 #[repr(C)]
-pub struct Io {
+pub struct TurtlsIo {
     /// A write function.
     ///
     /// `write_fn` must return the number of bytes written. To indicate an error, it must return a
@@ -63,7 +63,7 @@ pub struct Io {
     pub ctx: *mut c_void,
 }
 
-impl Io {
+impl TurtlsIo {
     #[must_use]
     fn read(&self, buf: &mut [u8]) -> isize {
         (self.read_fn)(buf as *mut _ as *mut c_void, buf.len(), self.ctx)
@@ -85,7 +85,7 @@ pub(crate) struct IoError;
 pub(crate) struct RecordLayer {
     rbuf: ReadBuf,
     wbuf: WriteBuf,
-    io: Io,
+    io: TurtlsIo,
 }
 
 impl RecordLayer {
@@ -97,7 +97,7 @@ impl RecordLayer {
 
     pub(crate) const MIN_PROT_LEN: usize = TAG_SIZE + size_of::<ContentType>();
 
-    pub(crate) const fn new(io: Io) -> Self {
+    pub(crate) const fn new(io: TurtlsIo) -> Self {
         Self {
             rbuf: ReadBuf::new(),
             wbuf: WriteBuf::new(),
@@ -109,11 +109,23 @@ impl RecordLayer {
 #[derive(Debug)]
 pub(crate) enum ReadError {
     IoError,
-    Alert(Alert),
+    Alert(TurtlsAlert),
 }
 
 impl From<IoError> for ReadError {
     fn from(_: IoError) -> Self {
         Self::IoError
+    }
+}
+
+impl ReadError {
+    pub(crate) fn to_error(self, tls_error: &mut TurtlsAlert) -> TurtlsError {
+        match self {
+            Self::IoError => TurtlsError::WantRead,
+            Self::Alert(alert) => {
+                *tls_error = alert;
+                TurtlsError::Tls
+            },
+        }
     }
 }

@@ -1,25 +1,25 @@
 use crate::aead::TlsAead;
-use crate::cipher_suites::{CipherList, CipherSuite};
+use crate::cipher_suites::{CipherSuite, TurtlsCipherList};
 use crate::client_hello::RANDOM_BYTES_LEN;
 use crate::extensions::versions::ProtocolVersion;
-use crate::extensions::{self, ExtList};
+use crate::extensions::{self, TurtlsExts};
 use crate::state::{GlobalState, UnprotShakeState};
-use crate::Alert;
+use crate::TurtlsAlert;
 
 pub(crate) const MIN_LEN: usize = size_of::<ProtocolVersion>()
     + RANDOM_BYTES_LEN
     + 3
     + size_of::<CipherSuite>()
     + 1
-    + ExtList::LEN_SIZE;
+    + TurtlsExts::LEN_SIZE;
 
 pub(crate) fn server_hello_client(
     ser_hel: &[u8],
     unprot_state: &mut UnprotShakeState,
     global_state: &mut GlobalState,
-) -> Result<TlsAead, Alert> {
+) -> Result<TlsAead, TurtlsAlert> {
     if ser_hel.len() < MIN_LEN {
-        return Err(Alert::DecodeError);
+        return Err(TurtlsAlert::DecodeError);
     }
 
     let mut pos = size_of::<ProtocolVersion>() + RANDOM_BYTES_LEN;
@@ -27,11 +27,11 @@ pub(crate) fn server_hello_client(
     let leg_session_id_len = ser_hel[pos];
 
     if leg_session_id_len > 32 {
-        return Err(Alert::DecodeError);
+        return Err(TurtlsAlert::DecodeError);
     }
     pos += size_of_val(&leg_session_id_len) + leg_session_id_len as usize;
 
-    unprot_state.ciphers.suites &= CipherList::parse_singular(
+    unprot_state.ciphers.suites &= TurtlsCipherList::parse_singular(
         ser_hel[pos..][..size_of::<CipherSuite>()]
             .try_into()
             .unwrap(),

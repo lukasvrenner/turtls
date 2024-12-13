@@ -1,25 +1,25 @@
-use std::ffi::c_char;
-
-use crate::{cipher_suites::CipherList, extensions::ExtList, Connection};
+use crate::cipher_suites::TurtlsCipherList;
+use crate::extensions::TurtlsExts;
+use crate::state::TurtlsConn;
 
 #[repr(C)]
-pub struct Config {
+pub struct TurtlsConfig {
     /// The extensions to use.
-    pub extensions: ExtList,
+    pub extensions: TurtlsExts,
     /// The cipher suites to use.
-    pub cipher_suites: CipherList,
+    pub cipher_suites: TurtlsCipherList,
 }
 
-impl Default for Config {
+impl Default for TurtlsConfig {
     fn default() -> Self {
         Self {
-            extensions: ExtList::default(),
-            cipher_suites: CipherList::default(),
+            extensions: TurtlsExts::default(),
+            cipher_suites: TurtlsCipherList::default(),
         }
     }
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn turtls_get_config(tls_conn: *mut Connection) -> *mut Config {
+pub unsafe extern "C" fn turtls_get_config(tls_conn: *mut TurtlsConn) -> *mut TurtlsConfig {
     unsafe { &raw mut (*tls_conn).config }
 }

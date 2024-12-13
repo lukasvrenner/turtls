@@ -10,17 +10,17 @@
 /**
  * The ECDSA signature algoritm over the secp256r1 (NIST-P 256) curve.
  */
-#define turtls_ECDSA_SECP256R1 1
+#define TURTLS_ECDSA_SECP256R1 1
 
 /**
  * Key exchange via ECDH on the secp256r1 (NIST-P 256) curve.
  */
-#define turtls_SECP256R1 1
+#define TURTLS_SECP256R1 1
 
 /**
  * TLS error reporting.
  */
-enum turtls_Alert
+enum TurtlsAlert
 #ifdef __cplusplus
   : uint8_t
 #endif // __cplusplus
@@ -135,7 +135,7 @@ enum turtls_Alert
     TURTLS_ALERT_NO_APP_PROTOCOL = 120,
 };
 #ifndef __cplusplus
-typedef uint8_t turtls_Alert;
+typedef uint8_t TurtlsAlert;
 #endif // __cplusplus
 
 /**
@@ -143,7 +143,7 @@ typedef uint8_t turtls_Alert;
  *
  * All values other than `None` represent an error.
  */
-enum turtls_Error {
+enum TurtlsError {
     /**
      * There were no errors.
      */
@@ -187,18 +187,18 @@ enum turtls_Error {
 };
 
 /**
- * A TLS connection buffer.
+ * A TLS connection object.
  *
- * This connection buffer may be reused between multiple consecutive connections.
+ * This object may be reused between multiple consecutive connections.
  */
-struct turtls_Connection;
+struct TurtlsConn;
 
 /**
  * The extensions to use in the handshake.
  *
  * Refer to each extension's individual documentation for specific usage information.
  */
-struct turtls_ExtList {
+struct TurtlsExts {
     /**
      * The server name to send to the server or to expect from the client.
      *
@@ -239,13 +239,13 @@ struct turtls_ExtList {
 /**
  * The supported ciphersuites.
  */
-typedef uint8_t turtls_CipherList;
+typedef uint8_t TurtlsCipherList;
 /**
  * ChaCha20 Poly1305 with SHA-256.
  *
  * This is a good option. You should probably leave it enabled.
  */
-#define turtls_CipherList_CHA_CHA_POLY1305_SHA256 1
+#define TurtlsCipherList_TURTLS_CHA_CHA_POLY1305_SHA256 1
 /**
  * AES-128 GCM with SHA-256.
  *
@@ -253,17 +253,17 @@ typedef uint8_t turtls_CipherList;
  *
  * This is a good option. You should probably leave it enabled.
  */
-#define turtls_CipherList_AES_128_GCM_SHA256 2
+#define TurtlsCipherList_TURTLS_AES_128_GCM_SHA256 2
 
-struct turtls_Config {
+struct TurtlsConfig {
     /**
      * The extensions to use.
      */
-    struct turtls_ExtList extensions;
+    struct TurtlsExts extensions;
     /**
      * The cipher suites to use.
      */
-    turtls_CipherList cipher_suites;
+    TurtlsCipherList cipher_suites;
 };
 
 /**
@@ -271,7 +271,7 @@ struct turtls_Config {
  *
  * This includes reading, writing, and closing the connection.
  */
-struct turtls_Io {
+struct TurtlsIo {
     /**
      * A write function.
      *
@@ -327,7 +327,7 @@ extern "C" {
  * connection is created with the same allocation, pointer is still valid and will point to the
  * new application protocol.
  */
-const char *turtls_app_proto(const struct turtls_Connection *tls_conn);
+const char *turtls_app_proto(const struct TurtlsConn *tls_conn);
 
 /**
  * Alerts the peer and closes the connection.
@@ -335,7 +335,7 @@ const char *turtls_app_proto(const struct turtls_Connection *tls_conn);
  * # Safety:
  * `tls_conn` must be valid.
  */
-void turtls_close(struct turtls_Connection *tls_conn);
+void turtls_close(struct TurtlsConn *tls_conn);
 
 /**
  * Performs a TLS handshake with a server, returning the connection status.
@@ -345,19 +345,19 @@ void turtls_close(struct turtls_Connection *tls_conn);
  * # Safety:
  * `tls_conn` must be valid.
  */
-enum turtls_Error turtls_connect(struct turtls_Connection *tls_conn);
+enum TurtlsError turtls_connect(struct TurtlsConn *tls_conn);
 
 /**
- * Frees a connection buffer.
+ * Frees a connection object.
  *
  * After this function is called, `connection` is no longer a valid pointer. Do NOT use it again.
  *
  * # Safety:
  * `tls_conn` must be allocated by `turtls_new`.
  */
-void turtls_free(struct turtls_Connection *tls_conn);
+void turtls_free(struct TurtlsConn *tls_conn);
 
-struct turtls_Config *turtls_get_config(struct turtls_Connection *tls_conn);
+struct TurtlsConfig *turtls_get_config(struct TurtlsConn *tls_conn);
 
 /**
  * Returns last TLS error to occur.
@@ -365,7 +365,7 @@ struct turtls_Config *turtls_get_config(struct turtls_Connection *tls_conn);
  * # Safety
  * `tls_conn` must be valid
  */
-turtls_Alert turtls_get_tls_error(const struct turtls_Connection *tls_conn);
+TurtlsAlert turtls_get_tls_error(const struct TurtlsConn *tls_conn);
 
 /**
  * Creates a new connection object.
@@ -375,7 +375,7 @@ turtls_Alert turtls_get_tls_error(const struct turtls_Connection *tls_conn);
  * Lifetime: All pointers contained in `io` must be valid for the lifespan of the connection
  * object.
  */
-struct turtls_Connection *turtls_new(struct turtls_Io io);
+struct TurtlsConn *turtls_new(struct TurtlsIo io);
 
 /**
  * Returns a string representation of the alert.
@@ -383,7 +383,7 @@ struct turtls_Connection *turtls_new(struct turtls_Io io);
  * Lifetime: the returned string has a static lifetime and as such can be used for the duration of
  * the program.
  */
-const char *turtls_stringify_alert(turtls_Alert alert);
+const char *turtls_stringify_alert(TurtlsAlert alert);
 
 #ifdef __cplusplus
 }  // extern "C"

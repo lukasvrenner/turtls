@@ -6,15 +6,15 @@ use crylib::ec::{AffinePoint, EllipticCurve, Secp256r1};
 use crylib::finite_field::FieldElement;
 use getrandom::getrandom;
 
-use super::{ExtList, ExtensionType};
+use super::{ExtensionType, TurtlsExts};
 use crate::aead::TlsAead;
-use crate::alert::Alert;
+use crate::alert::TurtlsAlert;
 use crate::handshake::ShakeBuf;
 use crate::state::{GlobalState, UnprotShakeState};
 
 const KEY_SHARE_LEGACY_FORM: u8 = 4;
 /// Key exchange via ECDH on the secp256r1 (NIST-P 256) curve.
-pub const SECP256R1: u16 = 0b0000000000000001;
+pub const TURTLS_SECP256R1: u16 = 0b0000000000000001;
 
 #[repr(u16)]
 pub(crate) enum NamedGroup {
@@ -86,9 +86,9 @@ impl From<getrandom::Error> for KeyGenError {
         Self::RngError
     }
 }
-impl ExtList {
+impl TurtlsExts {
     pub(super) fn key_share_client_len(&self) -> usize {
-        if self.sup_groups & SECP256R1 == 0 {
+        if self.sup_groups & TURTLS_SECP256R1 == 0 {
             return 0;
         }
         // TODO: use size_of_val(&Self::LEGACY_FORM) once const-stabilized
@@ -111,7 +111,7 @@ impl ExtList {
         len -= Self::LEN_SIZE as u16;
         shake_buf.extend_from_slice(&len.to_be_bytes());
 
-        if self.sup_groups & SECP256R1 > 0 {
+        if self.sup_groups & TURTLS_SECP256R1 > 0 {
             shake_buf.extend_from_slice(&NamedGroup::Secp256r1.to_be_bytes());
 
             len -= (size_of::<NamedGroup>() + Self::LEN_SIZE) as u16;
@@ -144,7 +144,7 @@ impl ExtList {
 
         shake_buf.extend_from_slice(&((len - Self::LEN_SIZE) as u16).to_be_bytes());
 
-        if self.sup_groups & SECP256R1 > 0 {
+        if self.sup_groups & TURTLS_SECP256R1 > 0 {
             shake_buf.extend_from_slice(&NamedGroup::Secp256r1.to_be_bytes());
         }
     }
@@ -170,18 +170,18 @@ pub(super) fn parse_ser(
     key_share: &[u8],
     shake_crypto: &mut UnprotShakeState,
     state: &mut GlobalState,
-) -> Result<TlsAead, Alert> {
+) -> Result<TlsAead, TurtlsAlert> {
     match &key_share[..size_of::<NamedGroup>()] {
         x if x == NamedGroup::Secp256r1.to_be_bytes() && shake_crypto.sup_groups != 0 => {
             let dh_secret = secp256r1_shared_secret(
-                &key_share[size_of::<NamedGroup>() + ExtList::LEN_SIZE..],
+                &key_share[size_of::<NamedGroup>() + TurtlsExts::LEN_SIZE..],
                 &shake_crypto.priv_keys,
             )
-            .ok_or(Alert::IllegalParam)?;
+            .ok_or(TurtlsAlert::IllegalParam)?;
 
             TlsAead::shake_aead(state, &dh_secret, shake_crypto.ciphers)
-                .ok_or(Alert::HandshakeFailure)
+                .ok_or(TurtlsAlert::HandshakeFailure)
         },
-        _ => return Err(Alert::HandshakeFailure),
+        _ => return Err(TurtlsAlert::HandshakeFailure),
     }
 }

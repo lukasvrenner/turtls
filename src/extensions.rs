@@ -2,7 +2,7 @@ use std::ffi::c_char;
 use std::ptr::null;
 
 use crate::aead::TlsAead;
-use crate::alert::Alert;
+use crate::alert::TurtlsAlert;
 use crate::handshake::ShakeBuf;
 use crate::state::{GlobalState, UnprotShakeState};
 
@@ -12,8 +12,8 @@ pub mod server_name;
 pub mod sig_algs;
 pub mod versions;
 
-use key_share::{GroupKeys, SECP256R1};
-use sig_algs::ECDSA_SECP256R1;
+use key_share::{GroupKeys, TURTLS_SECP256R1};
+use sig_algs::TURTLS_ECDSA_SECP256R1;
 
 #[repr(u16)]
 pub(crate) enum ExtensionType {
@@ -72,7 +72,7 @@ impl ExtensionType {
 /// Refer to each extension's individual documentation for specific usage information.
 #[derive(PartialEq, Eq, Clone, Copy)]
 #[repr(C)]
-pub struct ExtList {
+pub struct TurtlsExts {
     /// The server name to send to the server or to expect from the client.
     ///
     /// If `server_name` is `null`, the extension won't be sent.
@@ -104,26 +104,26 @@ pub struct ExtList {
     pub app_protos_len: usize,
 }
 
-impl Default for ExtList {
+impl Default for TurtlsExts {
     fn default() -> Self {
         Self {
             server_name: null(),
-            sig_algs: ECDSA_SECP256R1,
-            sup_groups: SECP256R1,
+            sig_algs: TURTLS_ECDSA_SECP256R1,
+            sup_groups: TURTLS_SECP256R1,
             app_protos: null(),
             app_protos_len: 0,
         }
     }
 }
 
-impl ExtList {
+impl TurtlsExts {
     pub(crate) const LEN_SIZE: usize = 2;
     const HEADER_SIZE: usize = size_of::<ExtensionType>() + Self::LEN_SIZE;
 
     /// The length of the extensions in ClientHello
     pub(crate) fn len_client(&self) -> usize {
         const fn ext_len(new_len: usize) -> usize {
-            new_len + (((new_len > 0) as usize) * ExtList::HEADER_SIZE)
+            new_len + (((new_len > 0) as usize) * TurtlsExts::HEADER_SIZE)
         }
 
         let mut len = 0;
@@ -167,11 +167,11 @@ impl<'a> ExtIter<'a> {
 impl<'a> Iterator for ExtIter<'a> {
     type Item = ExtRef<'a>;
     fn next(&mut self) -> Option<Self::Item> {
-        if self.exts.len() < ExtList::HEADER_SIZE {
+        if self.exts.len() < TurtlsExts::HEADER_SIZE {
             return None;
         }
         let len = u16::from_be_bytes(
-            self.exts[ExtList::HEADER_SIZE - ExtList::LEN_SIZE..ExtList::HEADER_SIZE]
+            self.exts[TurtlsExts::HEADER_SIZE - TurtlsExts::LEN_SIZE..TurtlsExts::HEADER_SIZE]
                 .try_into()
                 .unwrap(),
         ) as usize;
@@ -179,11 +179,11 @@ impl<'a> Iterator for ExtIter<'a> {
             return None;
         }
         let ext;
-        (ext, self.exts) = self.exts.split_at(len + ExtList::HEADER_SIZE);
+        (ext, self.exts) = self.exts.split_at(len + TurtlsExts::HEADER_SIZE);
         let ext_type = ext[..size_of::<ExtensionType>()].try_into().unwrap();
         Some(ExtRef {
             ext_type,
-            data: &ext[ExtList::HEADER_SIZE..],
+            data: &ext[TurtlsExts::HEADER_SIZE..],
         })
     }
 }
@@ -192,13 +192,13 @@ pub(crate) fn parse_ser_hel_exts(
     exts: &[u8],
     shake_crypto: &mut UnprotShakeState,
     state: &mut GlobalState,
-) -> Result<TlsAead, Alert> {
-    let mut maybe_aead = Err(Alert::MissingExtension);
-    let len = u16::from_be_bytes(exts[..ExtList::LEN_SIZE].try_into().unwrap()) as usize;
-    if len != exts.len() - ExtList::LEN_SIZE {
-        return Err(Alert::DecodeError);
+) -> Result<TlsAead, TurtlsAlert> {
+    let mut maybe_aead = Err(TurtlsAlert::MissingExtension);
+    let len = u16::from_be_bytes(exts[..TurtlsExts::LEN_SIZE].try_into().unwrap()) as usize;
+    if len != exts.len() - TurtlsExts::LEN_SIZE {
+        return Err(TurtlsAlert::DecodeError);
     }
-    for ext in ExtIter::new(&exts[ExtList::LEN_SIZE..]) {
+    for ext in ExtIter::new(&exts[TurtlsExts::LEN_SIZE..]) {
         match ext.ext_type {
             x if x == &ExtensionType::SupportedVersions.to_be_bytes() => {
                 versions::parse_ser(ext.data)?;
@@ -206,7 +206,7 @@ pub(crate) fn parse_ser_hel_exts(
             x if x == &ExtensionType::KeyShare.to_be_bytes() => {
                 maybe_aead = key_share::parse_ser(ext.data, shake_crypto, state);
             },
-            _ => return Err(Alert::UnsupportedExtension),
+            _ => return Err(TurtlsAlert::UnsupportedExtension),
         }
     }
     maybe_aead

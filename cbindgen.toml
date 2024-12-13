@@ -43,7 +43,6 @@ usize_is_size_t = true
 [export]
 include = []
 exclude = []
-prefix = "turtls_"
 item_types = []
 renaming_overrides_prefixing = false
 

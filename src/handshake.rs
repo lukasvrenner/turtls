@@ -1,24 +1,23 @@
 use std::mem::MaybeUninit;
-use std::ops::ControlFlow;
 
 use crate::aead::TlsAead;
 use crate::alert::AlertMsg;
 use crate::state::ProtShakeMsg;
-use crate::Alert;
+use crate::TurtlsAlert;
 use crate::{
     client_hello::client_hello_client,
-    config::Config,
+    config::TurtlsConfig,
     record::{ContentType, IoError, ReadError, RecordLayer},
     server_hello::server_hello_client,
     state::{GlobalState, MaybeProt, ShakeState, TranscriptHasher, UnprotShakeMsg},
-    Error,
+    TurtlsError,
 };
 
 pub(crate) fn handshake_client(
     shake_state: &mut ShakeState,
     global_state: &mut GlobalState,
-    config: &Config,
-) -> Error {
+    config: &TurtlsConfig,
+) -> TurtlsError {
     loop {
         match shake_state.state {
             MaybeProt::Unprot {
@@ -27,7 +26,7 @@ pub(crate) fn handshake_client(
             } => match next {
                 UnprotShakeMsg::ClientHello => {
                     match client_hello_client(unprot_state, &mut shake_state.buf, config) {
-                        Error::None => (),
+                        TurtlsError::None => (),
                         err => return err,
                     }
                     match shake_state
@@ -35,23 +34,18 @@ pub(crate) fn handshake_client(
                         .write_raw(&mut global_state.rl, &mut global_state.transcript)
                     {
                         Ok(()) => (),
-                        Err(IoError) => return Error::WantWrite,
+                        Err(IoError) => return TurtlsError::WantWrite,
                     }
                     *next = UnprotShakeMsg::ServerHello;
                 },
                 UnprotShakeMsg::ServerHello => {
-                    match shake_state
-                        .buf
-                        .read_raw(&mut global_state.rl, &mut global_state.transcript)
-                    {
-                        Ok(()) => (),
-                        Err(err) => match err {
-                            ReadError::IoError => return Error::WantRead,
-                            ReadError::Alert(alert) => {
-                                global_state.alert = alert;
-                                return Error::Tls;
-                            },
+                    match shake_state.buf.read_raw(global_state) {
+                        TurtlsError::None => (),
+                        TurtlsError::Tls => {
+                            global_state.rl.close_raw(global_state.tls_error);
+                            return TurtlsError::Tls;
                         },
+                        err => return err,
                     }
                     let aead = match server_hello_client(
                         shake_state.buf.data(),
@@ -61,8 +55,8 @@ pub(crate) fn handshake_client(
                         Ok(aead) => aead,
                         Err(alert) => {
                             global_state.rl.close_raw(alert);
-                            global_state.alert = alert;
-                            return Error::Tls;
+                            global_state.tls_error = alert;
+                            return TurtlsError::Tls;
                         },
                     };
                     shake_state.state = MaybeProt::Prot {
@@ -189,31 +183,43 @@ impl ShakeBuf {
     /// Reads an entire plaintext handshake message.
     ///
     /// Despite its name, this is the handshake equivalent of [`RecordLayer::peek_raw`].
-    pub(crate) fn read_raw(
-        &mut self,
-        rl: &mut RecordLayer,
-        transcipt: &mut TranscriptHasher,
-    ) -> Result<(), ReadError> {
+    pub(crate) fn read_raw(&mut self, global_state: &mut GlobalState) -> TurtlsError {
         loop {
             match self.status {
                 ReadStatus::NeedsHeader(ref mut amt) => {
                     if *amt == 0 {
-                        rl.get_raw()?;
-                        if rl.msg_type() == ContentType::ChangeCipherSpec.to_byte() {
-                            rl.discard();
-                            rl.get_raw()?;
+                        if let Err(err) = global_state.rl.get_raw() {
+                            return err.to_error(&mut global_state.tls_error);
                         }
-                        if rl.msg_type() == ContentType::Alert.to_byte() {
-                            rl.read_remaining(&mut self.buf[Self::HEADER_SIZE..][..AlertMsg::SIZE]);
-                            println!("{}", self.data()[1]);
-                            todo!("handle alerts");
+                        if global_state.rl.msg_type() == ContentType::ChangeCipherSpec.to_byte() {
+                            global_state.rl.discard();
+                            if let Err(err) = global_state.rl.get_raw() {
+                                match err {
+                                    ReadError::IoError => return TurtlsError::WantRead,
+                                    ReadError::Alert(alert) => {
+                                        global_state.tls_error = alert;
+                                        return TurtlsError::Tls;
+                                    },
+                                }
+                            }
                         }
-                        if rl.msg_type() != ContentType::Handshake.to_byte() {
-                            return Err(ReadError::Alert(Alert::UnexpectedMessage));
+                        if let Some(alert) = global_state.rl.check_alert() {
+                            global_state.tls_error = alert;
+                            return TurtlsError::TlsPeer;
+                        }
+                        if global_state.rl.msg_type() != ContentType::Handshake.to_byte() {
+                            global_state.tls_error = TurtlsAlert::UnexpectedMessage;
+                            return TurtlsError::Tls;
                         }
                     }
                     while *amt < Self::HEADER_SIZE {
-                        *amt += rl.read_raw(&mut self.buf[*amt..Self::HEADER_SIZE])?
+                        match global_state
+                            .rl
+                            .read_raw(&mut self.buf[*amt..Self::HEADER_SIZE])
+                        {
+                            Ok(bytes_read) => *amt += bytes_read,
+                            Err(err) => return err.to_error(&mut global_state.tls_error),
+                        }
                     }
                     self.len =
                         u32::from_be_bytes([0, self.buf[1], self.buf[2], self.buf[3]]) as usize;
@@ -224,13 +230,18 @@ impl ShakeBuf {
                 },
                 ReadStatus::NeedsData(ref mut amt) => {
                     while *amt < self.len {
-                        *amt += rl.read_raw(
+                        match global_state.rl.read_raw(
                             &mut self.buf[Self::HEADER_SIZE + *amt..Self::HEADER_SIZE + self.len],
-                        )?
+                        ) {
+                            Ok(bytes_read) => *amt += bytes_read,
+                            Err(err) => return err.to_error(&mut global_state.tls_error),
+                        }
                     }
                     self.status = ReadStatus::new();
-                    transcipt.update_with(&self.buf[..Self::HEADER_SIZE + self.len]);
-                    return Ok(());
+                    global_state
+                        .transcript
+                        .update_with(&self.buf[..Self::HEADER_SIZE + self.len]);
+                    return TurtlsError::None;
                 },
             }
         }

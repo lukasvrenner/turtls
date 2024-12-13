@@ -1,6 +1,6 @@
 use super::{ContentType, ReadError, RecordLayer};
 use crate::aead::TlsAead;
-use crate::alert::Alert;
+use crate::alert::TurtlsAlert;
 
 use crylib::aead::TAG_SIZE;
 
@@ -70,9 +70,11 @@ impl RecordLayer {
                             .unwrap(),
                     ) as usize;
                     match self.rbuf.len {
-                        0 => return Err(ReadError::Alert(Alert::IllegalParam)),
+                        0 => return Err(ReadError::Alert(TurtlsAlert::IllegalParam)),
                         1..Self::MAX_LEN => (),
-                        Self::MAX_LEN.. => return Err(ReadError::Alert(Alert::RecordOverflow)),
+                        Self::MAX_LEN.. => {
+                            return Err(ReadError::Alert(TurtlsAlert::RecordOverflow))
+                        },
                     }
                     self.rbuf.status = ReadStatus::NeedsData(0);
                 },
@@ -115,14 +117,14 @@ impl RecordLayer {
     }
 
     /// Decrypts the current record and remove any padding.
-    fn deprotect(&mut self, aead: &mut TlsAead) -> Result<(), Alert> {
+    fn deprotect(&mut self, aead: &mut TlsAead) -> Result<(), TurtlsAlert> {
         // Only deprotect the record if it's already protected.
         if self.msg_type() != ContentType::ApplicationData.to_byte() {
             return Ok(());
         }
 
         if self.rbuf.len < Self::MIN_PROT_LEN {
-            return Err(Alert::DecodeError);
+            return Err(TurtlsAlert::DecodeError);
         }
 
         let (header, msg) = self.rbuf.buf[..Self::HEADER_SIZE + self.rbuf.len]
@@ -131,7 +133,7 @@ impl RecordLayer {
         let tag = (tag as &[u8]).try_into().unwrap();
 
         if aead.decrypt_inline(msg, header, tag).is_err() {
-            return Err(Alert::BadRecordMac);
+            return Err(TurtlsAlert::BadRecordMac);
         }
 
         self.rbuf.len -= TAG_SIZE;
@@ -141,7 +143,7 @@ impl RecordLayer {
             .rev()
             .position(|&x| x != 0)
         else {
-            return Err(Alert::UnexpectedMessage);
+            return Err(TurtlsAlert::UnexpectedMessage);
         };
 
         self.rbuf.len -= padding;
@@ -181,5 +183,13 @@ impl RecordLayer {
     /// Discards the current record.
     pub(crate) fn discard(&mut self) {
         self.rbuf.status = ReadStatus::new();
+    }
+
+    pub(crate) fn check_alert(&self) -> Option<TurtlsAlert> {
+        if self.msg_type() == ContentType::Alert.to_byte() {
+            Some(TurtlsAlert::from_byte(self.rbuf.buf[Self::HEADER_SIZE + 1]))
+        } else {
+            None
+        }
     }
 }

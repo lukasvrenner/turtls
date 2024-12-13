@@ -23,16 +23,16 @@ use crylib::hkdf;
 use handshake::handshake_client;
 
 pub use alert::turtls_stringify_alert;
-pub use alert::Alert;
-pub use cipher_suites::CipherList;
-pub use config::{turtls_get_config, Config};
-pub use error::Error;
+pub use alert::TurtlsAlert;
+pub use cipher_suites::TurtlsCipherList;
+pub use config::{turtls_get_config, TurtlsConfig};
+pub use error::TurtlsError;
 pub use extensions::app_proto::turtls_app_proto;
-pub use extensions::ExtList;
-pub use record::Io;
-pub use state::Connection;
+pub use extensions::TurtlsExts;
+pub use record::TurtlsIo;
 use state::ShakeState;
 use state::TlsStatus;
+pub use state::TurtlsConn;
 
 /// Creates a new connection object.
 ///
@@ -41,18 +41,18 @@ use state::TlsStatus;
 /// Lifetime: All pointers contained in `io` must be valid for the lifespan of the connection
 /// object.
 #[no_mangle]
-pub extern "C" fn turtls_new(io: Io) -> *mut Connection {
-    Box::leak(Connection::new(io))
+pub extern "C" fn turtls_new(io: TurtlsIo) -> *mut TurtlsConn {
+    Box::leak(TurtlsConn::new(io))
 }
 
-/// Frees a connection buffer.
+/// Frees a connection object.
 ///
 /// After this function is called, `connection` is no longer a valid pointer. Do NOT use it again.
 ///
 /// # Safety:
 /// `tls_conn` must be allocated by `turtls_new`.
 #[no_mangle]
-pub unsafe extern "C" fn turtls_free(tls_conn: *mut Connection) {
+pub unsafe extern "C" fn turtls_free(tls_conn: *mut TurtlsConn) {
     if tls_conn.is_null() || !tls_conn.is_aligned() {
         return;
     }
@@ -67,7 +67,7 @@ pub unsafe extern "C" fn turtls_free(tls_conn: *mut Connection) {
 /// # Safety:
 /// `tls_conn` must be valid.
 #[no_mangle]
-pub unsafe extern "C" fn turtls_connect(tls_conn: *mut Connection) -> Error {
+pub unsafe extern "C" fn turtls_connect(tls_conn: *mut TurtlsConn) -> TurtlsError {
     assert!(!tls_conn.is_null() && tls_conn.is_aligned());
 
     // SAFETY: the caller guarantees that the pointer is valid.
@@ -88,7 +88,7 @@ pub unsafe extern "C" fn turtls_connect(tls_conn: *mut Connection) -> Error {
             },
             TlsStatus::Shake(ref mut shake_state) => {
                 match handshake_client(shake_state, &mut tls_conn.gloabl_state, &tls_conn.config) {
-                    Error::None => (),
+                    TurtlsError::None => (),
                     err => return err,
                 }
                 todo!()
@@ -105,7 +105,7 @@ pub unsafe extern "C" fn turtls_connect(tls_conn: *mut Connection) -> Error {
 /// # Safety:
 /// `tls_conn` must be valid.
 #[no_mangle]
-pub unsafe extern "C" fn turtls_close(tls_conn: *mut Connection) {
+pub unsafe extern "C" fn turtls_close(tls_conn: *mut TurtlsConn) {
     if tls_conn.is_null() || !tls_conn.is_aligned() {
         return;
     }
@@ -116,6 +116,6 @@ pub unsafe extern "C" fn turtls_close(tls_conn: *mut Connection) {
         return;
     }
 
-    tls_conn.gloabl_state.rl.close_raw(Alert::CloseNotify);
+    tls_conn.gloabl_state.rl.close_raw(TurtlsAlert::CloseNotify);
     tls_conn.state = TlsStatus::None;
 }

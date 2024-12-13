@@ -1,7 +1,7 @@
 use super::{ContentType, IoError, RecordLayer};
 
 use crate::aead::TlsAead;
-use crate::alert::{Alert, AlertMsg};
+use crate::alert::{AlertMsg, TurtlsAlert};
 use crate::extensions::versions::LEGACY_PROTO_VERS;
 
 use crylib::aead::TAG_SIZE;
@@ -105,12 +105,12 @@ impl RecordLayer {
         *tag = aead.encrypt_inline(msg, header);
     }
 
-    pub(crate) fn close_raw(&mut self, alert: Alert) {
+    pub(crate) fn close_raw(&mut self, alert: TurtlsAlert) {
         let _ = self.write_raw(&AlertMsg::new(alert).to_be_bytes(), ContentType::Alert);
         self.io.close();
     }
 
-    pub(crate) fn close(&mut self, alert: Alert, aead: &mut TlsAead) {
+    pub(crate) fn close(&mut self, alert: TurtlsAlert, aead: &mut TlsAead) {
         let _ = self.write(
             &AlertMsg::new(alert).to_be_bytes(),
             ContentType::Alert,

@@ -2,11 +2,11 @@
 
 use std::ffi::CStr;
 
-use super::{ExtList, ExtensionType};
+use super::{ExtensionType, TurtlsExts};
 use crate::handshake::ShakeBuf;
 const SERVER_NAME_TYPE: u8 = 0;
 
-impl ExtList {
+impl TurtlsExts {
     pub(super) fn server_name_len(&self) -> usize {
         if self.server_name.is_null() {
             return 0;

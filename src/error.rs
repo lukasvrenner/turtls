@@ -1,11 +1,11 @@
-use crate::{extensions::key_share::KeyGenError, Alert, Connection};
+use crate::{extensions::key_share::KeyGenError, TurtlsAlert, TurtlsConn};
 
 /// The result of a TLS operation.
 ///
 /// All values other than `None` represent an error.
 #[must_use]
 #[repr(C)]
-pub enum Error {
+pub enum TurtlsError {
     /// There were no errors.
     None,
     /// There was an error in the TLS protocol.
@@ -37,12 +37,12 @@ pub enum Error {
 /// # Safety
 /// `tls_conn` must be valid
 #[no_mangle]
-pub unsafe extern "C" fn turtls_get_tls_error(tls_conn: *const Connection) -> Alert {
+pub unsafe extern "C" fn turtls_get_tls_error(tls_conn: *const TurtlsConn) -> TurtlsAlert {
     // SAFETY: the caller guarantees that the pointer is valid.
-    unsafe { (*tls_conn).gloabl_state.alert }
+    unsafe { (*tls_conn).gloabl_state.tls_error }
 }
 
-impl From<KeyGenError> for Error {
+impl From<KeyGenError> for TurtlsError {
     fn from(value: KeyGenError) -> Self {
         match value {
             KeyGenError::RngError => Self::Rng,

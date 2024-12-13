@@ -1,11 +1,11 @@
-use super::{ExtList, ExtensionType};
+use super::{ExtensionType, TurtlsExts};
 use crate::handshake::ShakeBuf;
-use crate::state::Connection;
+use crate::state::TurtlsConn;
 
 use std::ffi::c_char;
 use std::ptr::null;
 
-impl ExtList {
+impl TurtlsExts {
     pub(super) fn app_proto_len(&self) -> usize {
         if self.app_protos.is_null() || self.app_protos_len == 0 {
             return 0;
@@ -44,7 +44,7 @@ impl ExtList {
 /// connection is created with the same allocation, pointer is still valid and will point to the
 /// new application protocol.
 #[no_mangle]
-pub unsafe extern "C" fn turtls_app_proto(tls_conn: *const Connection) -> *const c_char {
+pub unsafe extern "C" fn turtls_app_proto(tls_conn: *const TurtlsConn) -> *const c_char {
     if tls_conn.is_null() {
         return null();
     }

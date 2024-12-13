@@ -8,7 +8,7 @@ pub enum AlertLevel {
 /// TLS error reporting.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
-pub enum Alert {
+pub enum TurtlsAlert {
     /// The connection is being closed
     CloseNotify = 0,
     /// An unexpected message was received.
@@ -65,9 +65,9 @@ pub enum Alert {
     NoAppProtocol = 120,
 }
 
-impl Alert {
+impl TurtlsAlert {
     pub(crate) fn from_byte(byte: u8) -> Self {
-        use Alert::*;
+        use TurtlsAlert::*;
         // TODO: use inline const once stabilized
         match byte {
             x if x == CloseNotify as u8 => CloseNotify,
@@ -104,13 +104,13 @@ impl Alert {
 
 pub(crate) struct AlertMsg {
     level: AlertLevel,
-    pub description: Alert,
+    pub description: TurtlsAlert,
 }
 
 impl AlertMsg {
     pub(crate) const SIZE: usize = 2;
 
-    pub(crate) fn new(description: Alert) -> Self {
+    pub(crate) fn new(description: TurtlsAlert) -> Self {
         Self {
             level: AlertLevel::Fatal,
             description,
@@ -128,36 +128,36 @@ use std::ffi::{c_char, CStr};
 /// Lifetime: the returned string has a static lifetime and as such can be used for the duration of
 /// the program.
 #[no_mangle]
-pub extern "C" fn turtls_stringify_alert(alert: Alert) -> *const c_char {
+pub extern "C" fn turtls_stringify_alert(alert: TurtlsAlert) -> *const c_char {
     // use explicit type to guarantee static lifetime
     let msg: &'static CStr = match alert {
-        Alert::CloseNotify => c"closing connection",
-        Alert::UnexpectedMessage => c"unexpected message",
-        Alert::BadRecordMac => c"bad record MAC",
-        Alert::HandshakeFailure => c"handshake failed",
-        Alert::RecordOverflow => c"record overflow",
-        Alert::BadCert => c"bad certificate",
-        Alert::UnsupportedCert => c"unsupported certificate",
-        Alert::CertRevoked => c"certificate revoked",
-        Alert::CertExpired => c"certificate expired",
-        Alert::CertUnknown => c"unknown certificate",
-        Alert::IllegalParam => c"illegal parameter",
-        Alert::UnknownCa => c"unknown certificate authority",
-        Alert::AccessDenied => c"access denied",
-        Alert::DecodeError => c"decode error",
-        Alert::DecryptErorr => c"decrypt error",
-        Alert::ProtocolVersion => c"unsupported protocol version",
-        Alert::InsufficientSecurity => c"insufficient security",
-        Alert::InternalError => c"internal error",
-        Alert::InappropriateFallback => c"inappropriate fallback",
-        Alert::UserCancelled => c"user canceled",
-        Alert::MissingExtension => c"missing extension",
-        Alert::UnsupportedExtension => c"unsupported extension",
-        Alert::UnrecognizedName => c"unrecognized server name",
-        Alert::BadCertStatusResponse => c"bad certificate status response",
-        Alert::UnknownPskIdentity => c"unknown PSK identity",
-        Alert::CertRequired => c"certificate required",
-        Alert::NoAppProtocol => c"no application protocol",
+        TurtlsAlert::CloseNotify => c"closing connection",
+        TurtlsAlert::UnexpectedMessage => c"unexpected message",
+        TurtlsAlert::BadRecordMac => c"bad record MAC",
+        TurtlsAlert::HandshakeFailure => c"handshake failed",
+        TurtlsAlert::RecordOverflow => c"record overflow",
+        TurtlsAlert::BadCert => c"bad certificate",
+        TurtlsAlert::UnsupportedCert => c"unsupported certificate",
+        TurtlsAlert::CertRevoked => c"certificate revoked",
+        TurtlsAlert::CertExpired => c"certificate expired",
+        TurtlsAlert::CertUnknown => c"unknown certificate",
+        TurtlsAlert::IllegalParam => c"illegal parameter",
+        TurtlsAlert::UnknownCa => c"unknown certificate authority",
+        TurtlsAlert::AccessDenied => c"access denied",
+        TurtlsAlert::DecodeError => c"decode error",
+        TurtlsAlert::DecryptErorr => c"decrypt error",
+        TurtlsAlert::ProtocolVersion => c"unsupported protocol version",
+        TurtlsAlert::InsufficientSecurity => c"insufficient security",
+        TurtlsAlert::InternalError => c"internal error",
+        TurtlsAlert::InappropriateFallback => c"inappropriate fallback",
+        TurtlsAlert::UserCancelled => c"user canceled",
+        TurtlsAlert::MissingExtension => c"missing extension",
+        TurtlsAlert::UnsupportedExtension => c"unsupported extension",
+        TurtlsAlert::UnrecognizedName => c"unrecognized server name",
+        TurtlsAlert::BadCertStatusResponse => c"bad certificate status response",
+        TurtlsAlert::UnknownPskIdentity => c"unknown PSK identity",
+        TurtlsAlert::CertRequired => c"certificate required",
+        TurtlsAlert::NoAppProtocol => c"no application protocol",
     };
     msg.as_ptr()
 }

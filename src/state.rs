@@ -1,38 +1,38 @@
 use crylib::hash::{BufHasher, Hasher, Sha256};
 
 use crate::aead::TlsAead;
-use crate::config::Config;
+use crate::config::TurtlsConfig;
 use crate::extensions::key_share::{GroupKeys, KeyGenError};
 use crate::handshake::ShakeBuf;
-use crate::record::{Io, RecordLayer};
-use crate::{Alert, CipherList};
-/// A TLS connection buffer.
+use crate::record::{TurtlsIo, RecordLayer};
+use crate::{TurtlsAlert, TurtlsCipherList};
+/// A TLS connection object.
 ///
-/// This connection buffer may be reused between multiple consecutive connections.
-pub struct Connection {
+/// This object may be reused between multiple consecutive connections.
+pub struct TurtlsConn {
     pub(crate) state: TlsStatus,
     pub(crate) gloabl_state: GlobalState,
-    pub(crate) config: Config,
+    pub(crate) config: TurtlsConfig,
 }
 
-impl Connection {
-    pub(crate) fn new(io: Io) -> Box<Self> {
+impl TurtlsConn {
+    pub(crate) fn new(io: TurtlsIo) -> Box<Self> {
         Box::new(Self {
             state: TlsStatus::None,
             gloabl_state: GlobalState {
-                tls_error: Alert::CloseNotify,
+                tls_error: TurtlsAlert::CloseNotify,
                 rl: RecordLayer::new(io),
                 secret: [0; Sha256::HASH_SIZE],
                 transcript: TranscriptHasher::new(),
                 app_proto: [0; 256],
             },
-            config: Config::default(),
+            config: TurtlsConfig::default(),
         })
     }
 }
 
 pub(crate) struct GlobalState {
-    pub(crate) tls_error: Alert,
+    pub(crate) tls_error: TurtlsAlert,
     pub(crate) rl: RecordLayer,
     pub(crate) secret: [u8; Sha256::HASH_SIZE],
     pub(crate) transcript: TranscriptHasher,
@@ -57,7 +57,7 @@ pub(crate) struct UnprotShakeState {
     pub(crate) sup_groups: u16,
     #[expect(unused, reason = "Certificates are not yet supported")]
     pub(crate) sig_algs: u16,
-    pub(crate) ciphers: CipherList,
+    pub(crate) ciphers: TurtlsCipherList,
 }
 
 pub(crate) enum MaybeProt {
@@ -96,7 +96,7 @@ pub(crate) struct ShakeState {
 }
 
 impl ShakeState {
-    pub(crate) fn new(config: &Config) -> Result<Self, KeyGenError> {
+    pub(crate) fn new(config: &TurtlsConfig) -> Result<Self, KeyGenError> {
         Ok(Self {
             state: MaybeProt::Unprot {
                 next: UnprotShakeMsg::ClientHello,
