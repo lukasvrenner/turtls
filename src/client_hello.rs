@@ -13,14 +13,14 @@ pub(crate) fn client_hello_client(
     unprot_state: &mut UnprotShakeState,
     shake_buf: &mut ShakeBuf,
     config: &TurtlsConfig,
-) -> TurtlsError {
+) -> Result<(), TurtlsError> {
     shake_buf.start(ShakeType::ClientHello);
 
     shake_buf.extend_from_slice(&LEGACY_PROTO_VERS.to_be_bytes());
 
     let mut random_bytes = [0; RANDOM_BYTES_LEN];
     if let Err(_) = getrandom(&mut random_bytes) {
-        return TurtlsError::Rng;
+        return Err(TurtlsError::Rng);
     }
     shake_buf.extend_from_slice(&random_bytes);
 
@@ -38,5 +38,5 @@ pub(crate) fn client_hello_client(
     config
         .extensions
         .write_client(shake_buf, &unprot_state.priv_keys);
-    TurtlsError::None
+    Ok(())
 }

@@ -143,21 +143,21 @@ typedef uint8_t TurtlsAlert;
  *
  * All values other than `None` represent an error.
  */
-enum TurtlsError {
-    /**
-     * There were no errors.
-     */
-    TURTLS_ERROR_NONE,
+enum TurtlsError
+#ifdef __cplusplus
+  : uint8_t
+#endif // __cplusplus
+ {
     /**
      * There was an error in the TLS protocol.
      *
-     * The specific error can be accessed via `turtls_get_tls_error`
+     * The specific error can be accessed via `turtls_get_tls_error`.
      */
     TURTLS_ERROR_TLS,
     /**
      * The peer indicated an error in the TLS protocol.
      *
-     * The specific error can be accessed via `turtls_get_tls_error`
+     * The specific error can be accessed via `turtls_get_tls_error`.
      */
     TURTLS_ERROR_TLS_PEER,
     /**
@@ -185,6 +185,9 @@ enum TurtlsError {
      */
     TURTLS_ERROR_MISSING_EXTENSIONS,
 };
+#ifndef __cplusplus
+typedef uint8_t TurtlsError;
+#endif // __cplusplus
 
 /**
  * A TLS connection object.
@@ -255,6 +258,13 @@ typedef uint8_t TurtlsCipherList;
  */
 #define TurtlsCipherList_TURTLS_AES_128_GCM_SHA256 2
 
+/**
+ * Configure `TurtlsConn` connections.
+ *
+ * This struct can be accessed via `turtls_get_config`.
+ *
+ * Most configuration is done via bitflags. Constants are provided for each flag.
+ */
 struct TurtlsConfig {
     /**
      * The extensions to use.
@@ -345,7 +355,7 @@ void turtls_close(struct TurtlsConn *tls_conn);
  * # Safety:
  * `tls_conn` must be valid.
  */
-enum TurtlsError turtls_connect(struct TurtlsConn *tls_conn);
+int turtls_connect(struct TurtlsConn *tls_conn);
 
 /**
  * Frees a connection object.
@@ -357,7 +367,18 @@ enum TurtlsError turtls_connect(struct TurtlsConn *tls_conn);
  */
 void turtls_free(struct TurtlsConn *tls_conn);
 
+/**
+ * Returns a pointer to the configuration struct `tls_conn`.
+ */
 struct TurtlsConfig *turtls_get_config(struct TurtlsConn *tls_conn);
+
+/**
+ * Returns the last error to occur.
+ *
+ * # Safety
+ * `tls_conn` must be valid
+ */
+TurtlsError turtls_get_error(const struct TurtlsConn *tls_conn);
 
 /**
  * Returns last TLS error to occur.

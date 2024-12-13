@@ -11,6 +11,7 @@ use crate::aead::TlsAead;
 use crate::alert::TurtlsAlert;
 use crate::handshake::ShakeBuf;
 use crate::state::{GlobalState, UnprotShakeState};
+use crate::TurtlsError;
 
 const KEY_SHARE_LEGACY_FORM: u8 = 4;
 /// Key exchange via ECDH on the secp256r1 (NIST-P 256) curve.
@@ -56,15 +57,15 @@ pub(crate) struct GroupKeys {
 }
 
 impl GroupKeys {
-    pub(crate) fn generate(groups: u16) -> Result<Self, KeyGenError> {
+    pub(crate) fn generate(groups: u16) -> Result<Self, TurtlsError> {
         if groups == 0 {
-            return Err(KeyGenError::NoGroups);
+            return Err(TurtlsError::MissingExtensions);
         }
         let mut buf = [0; 32];
-        getrandom(&mut buf)?;
+        getrandom(&mut buf).map_err(|_| TurtlsError::Rng)?;
 
         if buf == [0; 32] {
-            return Err(KeyGenError::PrivKeyIsZero);
+            return Err(TurtlsError::PrivKeyIsZero);
         }
 
         // SAFETY: `[u64; 4]` and `[u8; 32]` have the same memory layout.

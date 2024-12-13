@@ -1,7 +1,5 @@
 use crylib::aead::TAG_SIZE;
 
-use crate::{alert::TurtlsAlert, TurtlsError};
-
 use std::ffi::c_void;
 
 mod read;
@@ -20,7 +18,7 @@ pub(crate) enum ContentType {
 }
 
 impl ContentType {
-    pub(crate) fn to_byte(self) -> u8 {
+    pub(crate) const fn to_byte(self) -> u8 {
         self as u8
     }
 }
@@ -65,13 +63,21 @@ pub struct TurtlsIo {
 
 impl TurtlsIo {
     #[must_use]
-    fn read(&self, buf: &mut [u8]) -> isize {
-        (self.read_fn)(buf as *mut _ as *mut c_void, buf.len(), self.ctx)
+    fn read(&self, buf: &mut [u8]) -> Option<usize> {
+        let result = (self.read_fn)(buf as *mut _ as *mut c_void, buf.len(), self.ctx);
+        if result <= 0 {
+            return None;
+        }
+        return Some(result as usize);
     }
 
     #[must_use]
-    fn write(&self, buf: &[u8]) -> isize {
-        (self.write_fn)(buf as *const _ as *const c_void, buf.len(), self.ctx)
+    fn write(&self, buf: &[u8]) -> Option<usize> {
+        let result = (self.write_fn)(buf as *const _ as *const c_void, buf.len(), self.ctx);
+        if result <= 0 {
+            return None;
+        }
+        return Some(result as usize);
     }
 
     /// Closes the connection
@@ -102,30 +108,6 @@ impl RecordLayer {
             rbuf: ReadBuf::new(),
             wbuf: WriteBuf::new(),
             io,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub(crate) enum ReadError {
-    IoError,
-    Alert(TurtlsAlert),
-}
-
-impl From<IoError> for ReadError {
-    fn from(_: IoError) -> Self {
-        Self::IoError
-    }
-}
-
-impl ReadError {
-    pub(crate) fn to_error(self, tls_error: &mut TurtlsAlert) -> TurtlsError {
-        match self {
-            Self::IoError => TurtlsError::WantRead,
-            Self::Alert(alert) => {
-                *tls_error = alert;
-                TurtlsError::Tls
-            },
         }
     }
 }

@@ -1,8 +1,9 @@
-use super::{ContentType, IoError, RecordLayer};
+use super::{ContentType, RecordLayer};
 
 use crate::aead::TlsAead;
 use crate::alert::{AlertMsg, TurtlsAlert};
 use crate::extensions::versions::LEGACY_PROTO_VERS;
+use crate::TurtlsError;
 
 use crylib::aead::TAG_SIZE;
 
@@ -35,7 +36,11 @@ impl RecordLayer {
         self.wbuf.buf[0] = msg_type.to_byte();
     }
 
-    pub(crate) fn write_raw(&mut self, buf: &[u8], msg_type: ContentType) -> Result<(), IoError> {
+    pub(crate) fn write_raw(
+        &mut self,
+        buf: &[u8],
+        msg_type: ContentType,
+    ) -> Result<(), TurtlsError> {
         self.set_msg_type(msg_type);
         while self.wbuf.total_bytes < buf.len() {
             let record_size = std::cmp::min(buf.len() - self.wbuf.total_bytes, Self::MAX_LEN);
@@ -53,7 +58,7 @@ impl RecordLayer {
         buf: &[u8],
         msg_type: ContentType,
         aead: &mut TlsAead,
-    ) -> Result<(), IoError> {
+    ) -> Result<(), TurtlsError> {
         self.set_msg_type(ContentType::ApplicationData);
         for record in buf[self.wbuf.total_bytes..].chunks(Self::MAX_LEN) {
             self.wbuf.buf[Self::HEADER_SIZE..][..record.len()].copy_from_slice(record);
@@ -68,12 +73,12 @@ impl RecordLayer {
         self.wbuf.buf[Self::HEADER_SIZE - Self::LEN_SIZE..Self::HEADER_SIZE].copy_from_slice(&len);
     }
 
-    fn finish_raw(&mut self) -> Result<(), IoError> {
+    fn finish_raw(&mut self) -> Result<(), TurtlsError> {
         self.encode_len();
         self.write_record()
     }
 
-    fn finish(&mut self, msg_type: ContentType, aead: &mut TlsAead) -> Result<(), IoError> {
+    fn finish(&mut self, msg_type: ContentType, aead: &mut TlsAead) -> Result<(), TurtlsError> {
         self.wbuf.buf[Self::HEADER_SIZE + self.wbuf.len] = msg_type.to_byte();
         self.wbuf.len += size_of::<ContentType>();
         self.wbuf.len += TAG_SIZE;
@@ -82,15 +87,13 @@ impl RecordLayer {
         self.write_record()
     }
 
-    fn write_record(&mut self) -> Result<(), IoError> {
+    fn write_record(&mut self) -> Result<(), TurtlsError> {
         while self.wbuf.record_bytes < self.wbuf.len + Self::HEADER_SIZE {
-            match self
+            let bytes_written = self
                 .io
                 .write(&self.wbuf.buf[self.wbuf.record_bytes..Self::HEADER_SIZE + self.wbuf.len])
-            {
-                ..1 => return Err(IoError),
-                bytes_written => self.wbuf.record_bytes += bytes_written as usize,
-            }
+                .ok_or(TurtlsError::WantWrite)?;
+            self.wbuf.record_bytes += bytes_written as usize;
         }
         self.wbuf.total_bytes += self.wbuf.record_bytes;
         self.wbuf.record_bytes = 0;

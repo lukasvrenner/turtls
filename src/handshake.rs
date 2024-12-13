@@ -1,23 +1,26 @@
 use std::mem::MaybeUninit;
 
 use crate::aead::TlsAead;
-use crate::alert::AlertMsg;
+use crate::error::FullError;
 use crate::state::ProtShakeMsg;
 use crate::TurtlsAlert;
 use crate::{
     client_hello::client_hello_client,
     config::TurtlsConfig,
-    record::{ContentType, IoError, ReadError, RecordLayer},
+    record::{ContentType, RecordLayer},
     server_hello::server_hello_client,
     state::{GlobalState, MaybeProt, ShakeState, TranscriptHasher, UnprotShakeMsg},
     TurtlsError,
 };
 
+/// Performs the TLS 1.3 handshake as the client.
+///
+/// Alerts are handled and sent in this function. Do not send alerts on higher levels.
 pub(crate) fn handshake_client(
     shake_state: &mut ShakeState,
     global_state: &mut GlobalState,
     config: &TurtlsConfig,
-) -> TurtlsError {
+) -> Result<(), ()> {
     loop {
         match shake_state.state {
             MaybeProt::Unprot {
@@ -25,28 +28,27 @@ pub(crate) fn handshake_client(
                 ref mut unprot_state,
             } => match next {
                 UnprotShakeMsg::ClientHello => {
-                    match client_hello_client(unprot_state, &mut shake_state.buf, config) {
-                        TurtlsError::None => (),
-                        err => return err,
-                    }
-                    match shake_state
+                    // Don't send alert because handshake hasn't started.
+                    client_hello_client(unprot_state, &mut shake_state.buf, config)
+                        .map_err(|err| global_state.error.turtls_error = err)?;
+
+                    shake_state
                         .buf
                         .write_raw(&mut global_state.rl, &mut global_state.transcript)
-                    {
-                        Ok(()) => (),
-                        Err(IoError) => return TurtlsError::WantWrite,
-                    }
+                        .map_err(|err| global_state.error.turtls_error = err)?;
+
                     *next = UnprotShakeMsg::ServerHello;
                 },
                 UnprotShakeMsg::ServerHello => {
-                    match shake_state.buf.read_raw(global_state) {
-                        TurtlsError::None => (),
-                        TurtlsError::Tls => {
-                            global_state.rl.close_raw(global_state.tls_error);
-                            return TurtlsError::Tls;
-                        },
-                        err => return err,
-                    }
+                    shake_state
+                        .buf
+                        .read_raw(&mut global_state.rl, &mut global_state.transcript)
+                        .map_err(|err| {
+                            if let TurtlsError::Tls = err.turtls_error {
+                                global_state.rl.close_raw(err.alert);
+                            }
+                            global_state.error = err
+                        })?;
                     let aead = match server_hello_client(
                         shake_state.buf.data(),
                         unprot_state,
@@ -55,8 +57,8 @@ pub(crate) fn handshake_client(
                         Ok(aead) => aead,
                         Err(alert) => {
                             global_state.rl.close_raw(alert);
-                            global_state.tls_error = alert;
-                            return TurtlsError::Tls;
+                            global_state.error = FullError::sending_alert(alert);
+                            return Err(());
                         },
                     };
                     shake_state.state = MaybeProt::Prot {
@@ -183,43 +185,28 @@ impl ShakeBuf {
     /// Reads an entire plaintext handshake message.
     ///
     /// Despite its name, this is the handshake equivalent of [`RecordLayer::peek_raw`].
-    pub(crate) fn read_raw(&mut self, global_state: &mut GlobalState) -> TurtlsError {
+    pub(crate) fn read_raw(
+        &mut self,
+        rl: &mut RecordLayer,
+        transcript: &mut TranscriptHasher,
+    ) -> Result<(), FullError> {
         loop {
             match self.status {
                 ReadStatus::NeedsHeader(ref mut amt) => {
                     if *amt == 0 {
-                        if let Err(err) = global_state.rl.get_raw() {
-                            return err.to_error(&mut global_state.tls_error);
+                        rl.get_raw()?;
+                        if rl.msg_type() == ContentType::ChangeCipherSpec.to_byte() {
+                            rl.discard();
+                            rl.get_raw()?;
                         }
-                        if global_state.rl.msg_type() == ContentType::ChangeCipherSpec.to_byte() {
-                            global_state.rl.discard();
-                            if let Err(err) = global_state.rl.get_raw() {
-                                match err {
-                                    ReadError::IoError => return TurtlsError::WantRead,
-                                    ReadError::Alert(alert) => {
-                                        global_state.tls_error = alert;
-                                        return TurtlsError::Tls;
-                                    },
-                                }
-                            }
-                        }
-                        if let Some(alert) = global_state.rl.check_alert() {
-                            global_state.tls_error = alert;
-                            return TurtlsError::TlsPeer;
-                        }
-                        if global_state.rl.msg_type() != ContentType::Handshake.to_byte() {
-                            global_state.tls_error = TurtlsAlert::UnexpectedMessage;
-                            return TurtlsError::Tls;
+                        rl.check_alert()
+                            .map_err(|alert| FullError::recving_alert(alert))?;
+                        if rl.msg_type() != ContentType::Handshake.to_byte() {
+                            return Err(FullError::sending_alert(TurtlsAlert::UnexpectedMessage));
                         }
                     }
                     while *amt < Self::HEADER_SIZE {
-                        match global_state
-                            .rl
-                            .read_raw(&mut self.buf[*amt..Self::HEADER_SIZE])
-                        {
-                            Ok(bytes_read) => *amt += bytes_read,
-                            Err(err) => return err.to_error(&mut global_state.tls_error),
-                        }
+                        *amt += rl.read_raw(&mut self.buf[*amt..Self::HEADER_SIZE])?;
                     }
                     self.len =
                         u32::from_be_bytes([0, self.buf[1], self.buf[2], self.buf[3]]) as usize;
@@ -230,18 +217,13 @@ impl ShakeBuf {
                 },
                 ReadStatus::NeedsData(ref mut amt) => {
                     while *amt < self.len {
-                        match global_state.rl.read_raw(
+                        *amt += rl.read_raw(
                             &mut self.buf[Self::HEADER_SIZE + *amt..Self::HEADER_SIZE + self.len],
-                        ) {
-                            Ok(bytes_read) => *amt += bytes_read,
-                            Err(err) => return err.to_error(&mut global_state.tls_error),
-                        }
+                        )?;
                     }
                     self.status = ReadStatus::new();
-                    global_state
-                        .transcript
-                        .update_with(&self.buf[..Self::HEADER_SIZE + self.len]);
-                    return TurtlsError::None;
+                    transcript.update_with(&self.buf[..Self::HEADER_SIZE + self.len]);
+                    return Ok(());
                 },
             }
         }
@@ -250,10 +232,11 @@ impl ShakeBuf {
     pub(crate) fn write_raw(
         &mut self,
         rl: &mut RecordLayer,
-        transcipt: &mut TranscriptHasher,
-    ) -> Result<(), IoError> {
+        transcript: &mut TranscriptHasher,
+    ) -> Result<(), TurtlsError> {
         self.encode_len();
-        transcipt.update_with(&self.buf[..Self::HEADER_SIZE + self.len]);
+
+        transcript.update_with(&self.buf[..Self::HEADER_SIZE + self.len]);
         rl.write_raw(
             &self.buf[..Self::HEADER_SIZE + self.len],
             ContentType::Handshake,
@@ -263,11 +246,11 @@ impl ShakeBuf {
     pub(crate) fn write(
         &mut self,
         rl: &mut RecordLayer,
-        transcipt: &mut TranscriptHasher,
+        transcript: &mut TranscriptHasher,
         aead: &mut TlsAead,
-    ) -> Result<(), IoError> {
+    ) -> Result<(), TurtlsError> {
         self.encode_len();
-        transcipt.update_with(&self.buf);
+        transcript.update_with(&self.buf);
         rl.write(
             &self.buf[..Self::HEADER_SIZE + self.len],
             ContentType::Handshake,

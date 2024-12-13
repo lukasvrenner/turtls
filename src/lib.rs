@@ -18,6 +18,8 @@ mod record;
 mod server_hello;
 mod state;
 
+use std::ffi::c_int;
+
 use crylib::hash::Sha256;
 use crylib::hkdf;
 use handshake::handshake_client;
@@ -26,7 +28,7 @@ pub use alert::turtls_stringify_alert;
 pub use alert::TurtlsAlert;
 pub use cipher_suites::TurtlsCipherList;
 pub use config::{turtls_get_config, TurtlsConfig};
-pub use error::TurtlsError;
+pub use error::{turtls_get_error, turtls_get_tls_error, TurtlsError};
 pub use extensions::app_proto::turtls_app_proto;
 pub use extensions::TurtlsExts;
 pub use record::TurtlsIo;
@@ -67,7 +69,7 @@ pub unsafe extern "C" fn turtls_free(tls_conn: *mut TurtlsConn) {
 /// # Safety:
 /// `tls_conn` must be valid.
 #[no_mangle]
-pub unsafe extern "C" fn turtls_connect(tls_conn: *mut TurtlsConn) -> TurtlsError {
+pub unsafe extern "C" fn turtls_connect(tls_conn: *mut TurtlsConn) -> c_int {
     assert!(!tls_conn.is_null() && tls_conn.is_aligned());
 
     // SAFETY: the caller guarantees that the pointer is valid.
@@ -78,7 +80,10 @@ pub unsafe extern "C" fn turtls_connect(tls_conn: *mut TurtlsConn) -> TurtlsErro
             TlsStatus::None => {
                 match ShakeState::new(&tls_conn.config) {
                     Ok(state) => tls_conn.state = TlsStatus::Shake(state),
-                    Err(err) => return err.into(),
+                    Err(err) => {
+                        tls_conn.gloabl_state.error.turtls_error = err;
+                        return -1;
+                    },
                 }
                 tls_conn.gloabl_state.secret =
                     hkdf::extract::<{ Sha256::HASH_SIZE }, { Sha256::BLOCK_SIZE }, Sha256>(
@@ -87,14 +92,15 @@ pub unsafe extern "C" fn turtls_connect(tls_conn: *mut TurtlsConn) -> TurtlsErro
                     );
             },
             TlsStatus::Shake(ref mut shake_state) => {
-                match handshake_client(shake_state, &mut tls_conn.gloabl_state, &tls_conn.config) {
-                    TurtlsError::None => (),
-                    err => return err,
+                if let Err(()) =
+                    handshake_client(shake_state, &mut tls_conn.gloabl_state, &tls_conn.config)
+                {
+                    return -1;
                 }
                 todo!()
             },
-            TlsStatus::App { ref mut aead } => {
-                todo!()
+            TlsStatus::App { .. } => {
+                return 1;
             },
         }
     }

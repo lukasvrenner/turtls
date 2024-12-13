@@ -97,8 +97,14 @@ impl TurtlsAlert {
             x if x == UnknownPskIdentity as u8 => UnknownPskIdentity,
             x if x == CertRequired as u8 => CertRequired,
             x if x == NoAppProtocol as u8 => NoAppProtocol,
-            _ => CloseNotify,
+            _ => InternalError,
         }
+    }
+}
+
+impl Default for TurtlsAlert {
+    fn default() -> Self {
+        Self::CloseNotify
     }
 }
 

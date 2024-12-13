@@ -1,11 +1,13 @@
 use crylib::hash::{BufHasher, Hasher, Sha256};
 
 use crate::aead::TlsAead;
+use crate::cipher_suites::TurtlsCipherList;
 use crate::config::TurtlsConfig;
+use crate::error::FullError;
 use crate::extensions::key_share::{GroupKeys, KeyGenError};
 use crate::handshake::ShakeBuf;
-use crate::record::{TurtlsIo, RecordLayer};
-use crate::{TurtlsAlert, TurtlsCipherList};
+use crate::record::{RecordLayer, TurtlsIo};
+use crate::TurtlsError;
 /// A TLS connection object.
 ///
 /// This object may be reused between multiple consecutive connections.
@@ -20,7 +22,7 @@ impl TurtlsConn {
         Box::new(Self {
             state: TlsStatus::None,
             gloabl_state: GlobalState {
-                tls_error: TurtlsAlert::CloseNotify,
+                error: FullError::default(),
                 rl: RecordLayer::new(io),
                 secret: [0; Sha256::HASH_SIZE],
                 transcript: TranscriptHasher::new(),
@@ -32,7 +34,7 @@ impl TurtlsConn {
 }
 
 pub(crate) struct GlobalState {
-    pub(crate) tls_error: TurtlsAlert,
+    pub(crate) error: FullError,
     pub(crate) rl: RecordLayer,
     pub(crate) secret: [u8; Sha256::HASH_SIZE],
     pub(crate) transcript: TranscriptHasher,
@@ -96,7 +98,7 @@ pub(crate) struct ShakeState {
 }
 
 impl ShakeState {
-    pub(crate) fn new(config: &TurtlsConfig) -> Result<Self, KeyGenError> {
+    pub(crate) fn new(config: &TurtlsConfig) -> Result<Self, TurtlsError> {
         Ok(Self {
             state: MaybeProt::Unprot {
                 next: UnprotShakeMsg::ClientHello,

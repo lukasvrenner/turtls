@@ -1,6 +1,8 @@
-use super::{ContentType, ReadError, RecordLayer};
+use super::{ContentType, RecordLayer};
 use crate::aead::TlsAead;
 use crate::alert::TurtlsAlert;
+use crate::error::FullError;
+use crate::TurtlsError;
 
 use crylib::aead::TAG_SIZE;
 
@@ -49,20 +51,18 @@ impl RecordLayer {
     /// Reads a single record but does not process it.
     ///
     /// If an unused record is already in the buffer, a new record will not be read.
-    pub(crate) fn get_raw(&mut self) -> Result<(), ReadError> {
+    pub(crate) fn get_raw(&mut self) -> Result<(), FullError> {
         loop {
             match self.rbuf.status {
                 ReadStatus::NeedsHeader(ref mut bytes_read) => {
                     while *bytes_read < Self::HEADER_SIZE {
-                        match self
+                        let Some(new_bytes) = self
                             .io
                             .read(&mut self.rbuf.buf[*bytes_read..Self::HEADER_SIZE])
-                        {
-                            ..1 => {
-                                return Err(ReadError::IoError);
-                            },
-                            new_bytes => *bytes_read += new_bytes as usize,
-                        }
+                        else {
+                            return Err(FullError::error(TurtlsError::WantRead));
+                        };
+                        *bytes_read += new_bytes;
                     }
                     self.rbuf.len = u16::from_be_bytes(
                         self.rbuf.buf[Self::HEADER_SIZE - Self::LEN_SIZE..Self::HEADER_SIZE]
@@ -70,25 +70,25 @@ impl RecordLayer {
                             .unwrap(),
                     ) as usize;
                     match self.rbuf.len {
-                        0 => return Err(ReadError::Alert(TurtlsAlert::IllegalParam)),
+                        0 => {
+                            return Err(FullError::sending_alert(TurtlsAlert::IllegalParam));
+                        },
                         1..Self::MAX_LEN => (),
                         Self::MAX_LEN.. => {
-                            return Err(ReadError::Alert(TurtlsAlert::RecordOverflow))
+                            return Err(FullError::sending_alert(TurtlsAlert::RecordOverflow));
                         },
                     }
                     self.rbuf.status = ReadStatus::NeedsData(0);
                 },
                 ReadStatus::NeedsData(ref mut bytes_read) => {
                     while *bytes_read < self.rbuf.len {
-                        match self.io.read(
+                        let Some(new_bytes) = self.io.read(
                             &mut self.rbuf.buf[Self::HEADER_SIZE + *bytes_read
                                 ..Self::HEADER_SIZE + self.rbuf.len],
-                        ) {
-                            ..1 => {
-                                return Err(ReadError::IoError);
-                            },
-                            new_bytes => *bytes_read += new_bytes as usize,
-                        }
+                        ) else {
+                            return Err(FullError::error(TurtlsError::WantRead));
+                        };
+                        *bytes_read += new_bytes;
                     }
                     self.rbuf.status = ReadStatus::Moving(0);
                 },
@@ -106,14 +106,11 @@ impl RecordLayer {
     /// Reads and decrypts a single record.
     ///
     /// If an unused record is already in the buffer, a new record will not be read.
-    pub(crate) fn get(&mut self, aead: &mut TlsAead) -> Result<(), ReadError> {
+    pub(crate) fn get(&mut self, aead: &mut TlsAead) -> Result<(), FullError> {
         self.get_raw()?;
 
-        if let Err(alert) = self.deprotect(aead) {
-            return Err(ReadError::Alert(alert));
-        }
-
-        Ok(())
+        self.deprotect(aead)
+            .map_err(|alert| FullError::sending_alert(alert))
     }
 
     /// Decrypts the current record and remove any padding.
@@ -170,12 +167,12 @@ impl RecordLayer {
     /// Reads data into `buf` until either the entire record has been read or `buf` is full.
     ///
     /// Returns the number of bytes read.
-    pub(crate) fn read_raw(&mut self, buf: &mut [u8]) -> Result<usize, ReadError> {
+    pub(crate) fn read_raw(&mut self, buf: &mut [u8]) -> Result<usize, FullError> {
         self.get_raw()?;
         Ok(self.read_remaining(buf))
     }
 
-    pub(crate) fn read(&mut self, buf: &mut [u8], aead: &mut TlsAead) -> Result<usize, ReadError> {
+    pub(crate) fn read(&mut self, buf: &mut [u8], aead: &mut TlsAead) -> Result<usize, FullError> {
         self.get(aead)?;
         Ok(self.read_remaining(buf))
     }
@@ -185,11 +182,11 @@ impl RecordLayer {
         self.rbuf.status = ReadStatus::new();
     }
 
-    pub(crate) fn check_alert(&self) -> Option<TurtlsAlert> {
+    pub(crate) fn check_alert(&self) -> Result<(), TurtlsAlert> {
         if self.msg_type() == ContentType::Alert.to_byte() {
-            Some(TurtlsAlert::from_byte(self.rbuf.buf[Self::HEADER_SIZE + 1]))
+            Err(TurtlsAlert::from_byte(self.rbuf.buf[Self::HEADER_SIZE + 1]))
         } else {
-            None
+            Ok(())
         }
     }
 }

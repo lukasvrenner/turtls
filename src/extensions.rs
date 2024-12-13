@@ -191,7 +191,7 @@ impl<'a> Iterator for ExtIter<'a> {
 pub(crate) fn parse_ser_hel_exts(
     exts: &[u8],
     shake_crypto: &mut UnprotShakeState,
-    state: &mut GlobalState,
+    global_state: &mut GlobalState,
 ) -> Result<TlsAead, TurtlsAlert> {
     let mut maybe_aead = Err(TurtlsAlert::MissingExtension);
     let len = u16::from_be_bytes(exts[..TurtlsExts::LEN_SIZE].try_into().unwrap()) as usize;
@@ -204,7 +204,7 @@ pub(crate) fn parse_ser_hel_exts(
                 versions::parse_ser(ext.data)?;
             },
             x if x == &ExtensionType::KeyShare.to_be_bytes() => {
-                maybe_aead = key_share::parse_ser(ext.data, shake_crypto, state);
+                maybe_aead = key_share::parse_ser(ext.data, shake_crypto, global_state);
             },
             _ => return Err(TurtlsAlert::UnsupportedExtension),
         }
