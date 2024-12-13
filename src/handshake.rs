@@ -45,7 +45,13 @@ pub(crate) fn handshake_client(
                         .read_raw(&mut global_state.rl, &mut global_state.transcript)
                     {
                         Ok(()) => (),
-                        Err(err) => return err.into(),
+                        Err(err) => match err {
+                            ReadError::IoError => return Error::WantRead,
+                            ReadError::Alert(alert) => {
+                                global_state.alert = alert;
+                                return Error::Tls;
+                            },
+                        },
                     }
                     let aead = match server_hello_client(
                         shake_state.buf.data(),
@@ -55,7 +61,8 @@ pub(crate) fn handshake_client(
                         Ok(aead) => aead,
                         Err(alert) => {
                             global_state.rl.close_raw(alert);
-                            return Error::SentAlert(alert);
+                            global_state.alert = alert;
+                            return Error::Tls;
                         },
                     };
                     shake_state.state = MaybeProt::Prot {
@@ -69,12 +76,11 @@ pub(crate) fn handshake_client(
                 ref mut aead,
             } => match next {
                 ProtShakeMsg::EncryptedExtensions => {
-                    global_state.rl.peek(aead).unwrap();
+                    global_state.rl.get(aead).unwrap();
                     if global_state.rl.msg_type() == ContentType::ChangeCipherSpec.to_byte() {
                         global_state.rl.discard();
-                        global_state.rl.peek(aead).unwrap();
+                        global_state.rl.get(aead).unwrap();
                     }
-                    println!("{}", global_state.rl.msg_type());
                     todo!("parse EncryptedExtensions");
                 },
                 _ => todo!("Finish handshake"),
@@ -192,10 +198,10 @@ impl ShakeBuf {
             match self.status {
                 ReadStatus::NeedsHeader(ref mut amt) => {
                     if *amt == 0 {
-                        rl.peek_raw()?;
+                        rl.get_raw()?;
                         if rl.msg_type() == ContentType::ChangeCipherSpec.to_byte() {
                             rl.discard();
-                            rl.peek_raw()?;
+                            rl.get_raw()?;
                         }
                         if rl.msg_type() == ContentType::Alert.to_byte() {
                             rl.read_remaining(&mut self.buf[Self::HEADER_SIZE..][..AlertMsg::SIZE]);

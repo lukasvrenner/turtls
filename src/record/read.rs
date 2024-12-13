@@ -49,7 +49,7 @@ impl RecordLayer {
     /// Reads a single record but does not process it.
     ///
     /// If an unused record is already in the buffer, a new record will not be read.
-    pub(crate) fn peek_raw(&mut self) -> Result<(), ReadError> {
+    pub(crate) fn get_raw(&mut self) -> Result<(), ReadError> {
         loop {
             match self.rbuf.status {
                 ReadStatus::NeedsHeader(ref mut bytes_read) => {
@@ -104,8 +104,8 @@ impl RecordLayer {
     /// Reads and decrypts a single record.
     ///
     /// If an unused record is already in the buffer, a new record will not be read.
-    pub(crate) fn peek(&mut self, aead: &mut TlsAead) -> Result<(), ReadError> {
-        self.peek_raw()?;
+    pub(crate) fn get(&mut self, aead: &mut TlsAead) -> Result<(), ReadError> {
+        self.get_raw()?;
 
         if let Err(alert) = self.deprotect(aead) {
             return Err(ReadError::Alert(alert));
@@ -169,12 +169,12 @@ impl RecordLayer {
     ///
     /// Returns the number of bytes read.
     pub(crate) fn read_raw(&mut self, buf: &mut [u8]) -> Result<usize, ReadError> {
-        self.peek_raw()?;
+        self.get_raw()?;
         Ok(self.read_remaining(buf))
     }
 
     pub(crate) fn read(&mut self, buf: &mut [u8], aead: &mut TlsAead) -> Result<usize, ReadError> {
-        self.peek(aead)?;
+        self.get(aead)?;
         Ok(self.read_remaining(buf))
     }
 

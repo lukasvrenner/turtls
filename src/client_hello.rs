@@ -1,7 +1,5 @@
-use crate::cipher_suites::CipherList;
 use crate::config::Config;
-use crate::extensions::versions::{ProtocolVersion, LEGACY_PROTO_VERS};
-use crate::extensions::ExtList;
+use crate::extensions::versions::LEGACY_PROTO_VERS;
 use crate::handshake::{ShakeBuf, ShakeType};
 use crate::state::UnprotShakeState;
 use crate::Error;
@@ -22,7 +20,7 @@ pub(crate) fn client_hello_client(
 
     let mut random_bytes = [0; RANDOM_BYTES_LEN];
     if let Err(_) = getrandom(&mut random_bytes) {
-        return Error::RngError;
+        return Error::Rng;
     }
     shake_buf.extend_from_slice(&random_bytes);
 

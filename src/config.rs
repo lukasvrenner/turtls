@@ -2,7 +2,8 @@ use std::ffi::c_char;
 
 use crate::{cipher_suites::CipherList, extensions::ExtList, Connection};
 
-pub(crate) struct Config {
+#[repr(C)]
+pub struct Config {
     /// The extensions to use.
     pub extensions: ExtList,
     /// The cipher suites to use.
@@ -19,28 +20,6 @@ impl Default for Config {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn turtls_set_server_name(connection: *mut Connection, sn: *const c_char) {
-    if connection.is_null() {
-        return;
-    }
-    // SAFETY: the caller guarantees that `connection` is valid.
-    unsafe {
-        (*connection).config.extensions.server_name = sn;
-    }
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn turtls_set_app_protos(
-    connection: *mut Connection,
-    ap: *const c_char,
-    ap_len: usize,
-) {
-    if connection.is_null() {
-        return;
-    }
-    // SAFETY: the caller guarantees that `connection` is valid.
-    unsafe {
-        (*connection).config.extensions.app_protos = ap;
-        (*connection).config.extensions.app_protos_len = ap_len;
-    }
+pub unsafe extern "C" fn turtls_get_config(tls_conn: *mut Connection) -> *mut Config {
+    unsafe { &raw mut (*tls_conn).config }
 }

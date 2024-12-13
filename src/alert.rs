@@ -122,13 +122,13 @@ impl AlertMsg {
     }
 }
 
-use std::ffi::CStr;
+use std::ffi::{c_char, CStr};
 /// Returns a string representation of the alert.
 ///
 /// Lifetime: the returned string has a static lifetime and as such can be used for the duration of
 /// the program.
 #[no_mangle]
-pub extern "C" fn turtls_stringify_alert(alert: Alert) -> *const i8 {
+pub extern "C" fn turtls_stringify_alert(alert: Alert) -> *const c_char {
     // use explicit type to guarantee static lifetime
     let msg: &'static CStr = match alert {
         Alert::CloseNotify => c"closing connection",

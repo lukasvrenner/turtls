@@ -1,28 +1,30 @@
-use crate::alert::Alert;
-use crate::extensions::key_share::KeyGenError;
-use crate::record::ReadError;
+use crate::{extensions::key_share::KeyGenError, Alert, Connection};
 
-/// The result of the handshake.
+/// The result of a TLS operation.
 ///
-/// If a value other than `Ok` is returned, the connection is closed.
+/// All values other than `None` represent an error.
 #[must_use]
 #[repr(C)]
 pub enum Error {
-    /// There were no errors
+    /// There were no errors.
     None,
-    /// The peer sent an alert.
-    ReceivedAlert(Alert),
-    /// An alert was sent to the peer.
-    SentAlert(Alert),
+    /// There was an error in the TLS protocol.
+    ///
+    /// The specific error can be accessed via `turtls_get_tls_error`
+    Tls,
+    /// The peer indicated an error in the TLS protocol.
+    ///
+    /// The specific error can be accessed via `turtls_get_tls_error`
+    TlsPeer,
     /// There was an error generating a random number.
-    RngError,
+    Rng,
     /// A read operation failed.
     ///
-    /// This error IS resumable if the error is recoverable
+    /// This error IS resumable if the failure is recoverable.
     WantRead,
     /// A write operation failed.
     ///
-    /// This error IS resumable if the error is recoverable
+    /// This error IS resumable if the failure is recoverable.
     WantWrite,
     /// The randomly-generated private key was zero.
     PrivKeyIsZero,
@@ -30,19 +32,20 @@ pub enum Error {
     MissingExtensions,
 }
 
-impl From<ReadError> for Error {
-    fn from(value: ReadError) -> Self {
-        match value {
-            ReadError::IoError => Self::WantRead,
-            ReadError::Alert(alert) => Self::SentAlert(alert),
-        }
-    }
+/// Returns last TLS error to occur.
+///
+/// # Safety
+/// `tls_conn` must be valid
+#[no_mangle]
+pub unsafe extern "C" fn turtls_get_tls_error(tls_conn: *const Connection) -> Alert {
+    // SAFETY: the caller guarantees that the pointer is valid.
+    unsafe { (*tls_conn).gloabl_state.alert }
 }
 
 impl From<KeyGenError> for Error {
     fn from(value: KeyGenError) -> Self {
         match value {
-            KeyGenError::RngError => Self::RngError,
+            KeyGenError::RngError => Self::Rng,
             KeyGenError::PrivKeyIsZero => Self::PrivKeyIsZero,
             KeyGenError::NoGroups => Self::MissingExtensions,
         }

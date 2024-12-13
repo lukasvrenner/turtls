@@ -5,7 +5,7 @@ use crate::config::Config;
 use crate::extensions::key_share::{GroupKeys, KeyGenError};
 use crate::handshake::ShakeBuf;
 use crate::record::{Io, RecordLayer};
-use crate::CipherList;
+use crate::{Alert, CipherList};
 /// A TLS connection buffer.
 ///
 /// This connection buffer may be reused between multiple consecutive connections.
@@ -20,6 +20,7 @@ impl Connection {
         Box::new(Self {
             state: TlsStatus::None,
             gloabl_state: GlobalState {
+                tls_error: Alert::CloseNotify,
                 rl: RecordLayer::new(io),
                 secret: [0; Sha256::HASH_SIZE],
                 transcript: TranscriptHasher::new(),
@@ -31,6 +32,7 @@ impl Connection {
 }
 
 pub(crate) struct GlobalState {
+    pub(crate) tls_error: Alert,
     pub(crate) rl: RecordLayer,
     pub(crate) secret: [u8; Sha256::HASH_SIZE],
     pub(crate) transcript: TranscriptHasher,

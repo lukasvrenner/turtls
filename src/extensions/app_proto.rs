@@ -38,17 +38,16 @@ impl ExtList {
 /// The string is nul-terminated.
 ///
 /// # Safety
-/// `connection` must be valid. If `connection` is null, a null pointer will be returned.
-/// If `connection` isn't null, a null pointer will never be returned.
+/// `tls_conn` must be valid.
 ///
 /// Lifetime: the returned pointer is valid for the entire lifetime of `connection`. If a new
 /// connection is created with the same allocation, pointer is still valid and will point to the
 /// new application protocol.
 #[no_mangle]
-pub unsafe extern "C" fn turtls_app_proto(connection: *const Connection) -> *const c_char {
-    if connection.is_null() {
+pub unsafe extern "C" fn turtls_app_proto(tls_conn: *const Connection) -> *const c_char {
+    if tls_conn.is_null() {
         return null();
     }
     // SAFETY: the caller guarantees that the pointer is valid.
-    unsafe { &raw const (*connection).gloabl_state.app_proto as *const c_char }
+    unsafe { &raw const (*tls_conn).gloabl_state.app_proto as *const c_char }
 }

@@ -139,44 +139,41 @@ typedef uint8_t turtls_Alert;
 #endif // __cplusplus
 
 /**
- * A TLS connection buffer.
+ * The result of a TLS operation.
  *
- * This connection buffer may be reused between multiple consecutive connections.
+ * All values other than `None` represent an error.
  */
-struct turtls_Connection;
-
-/**
- * The result of the handshake.
- *
- * If a value other than `Ok` is returned, the connection is closed.
- */
-enum turtls_Error_Tag {
+enum turtls_Error {
     /**
-     * There were no errors
+     * There were no errors.
      */
     TURTLS_ERROR_NONE,
     /**
-     * The peer sent an alert.
+     * There was an error in the TLS protocol.
+     *
+     * The specific error can be accessed via `turtls_get_tls_error`
      */
-    TURTLS_ERROR_RECEIVED_ALERT,
+    TURTLS_ERROR_TLS,
     /**
-     * An alert was sent to the peer.
+     * The peer indicated an error in the TLS protocol.
+     *
+     * The specific error can be accessed via `turtls_get_tls_error`
      */
-    TURTLS_ERROR_SENT_ALERT,
+    TURTLS_ERROR_TLS_PEER,
     /**
      * There was an error generating a random number.
      */
-    TURTLS_ERROR_RNG_ERROR,
+    TURTLS_ERROR_RNG,
     /**
      * A read operation failed.
      *
-     * This error IS resumable if the error is recoverable
+     * This error IS resumable if the failure is recoverable.
      */
     TURTLS_ERROR_WANT_READ,
     /**
      * A write operation failed.
      *
-     * This error IS resumable if the error is recoverable
+     * This error IS resumable if the failure is recoverable.
      */
     TURTLS_ERROR_WANT_WRITE,
     /**
@@ -189,16 +186,84 @@ enum turtls_Error_Tag {
     TURTLS_ERROR_MISSING_EXTENSIONS,
 };
 
-struct turtls_Error {
-    enum turtls_Error_Tag tag;
-    union {
-        struct {
-            turtls_Alert received_alert;
-        };
-        struct {
-            turtls_Alert sent_alert;
-        };
-    };
+/**
+ * A TLS connection buffer.
+ *
+ * This connection buffer may be reused between multiple consecutive connections.
+ */
+struct turtls_Connection;
+
+/**
+ * The extensions to use in the handshake.
+ *
+ * Refer to each extension's individual documentation for specific usage information.
+ */
+struct turtls_ExtList {
+    /**
+     * The server name to send to the server or to expect from the client.
+     *
+     * If `server_name` is `null`, the extension won't be sent.
+     *
+     * `server_name` MUST be nul-terminated
+     */
+    const char *server_name;
+    /**
+     * The signature algorithms to support.
+     */
+    uint16_t sig_algs;
+    /**
+     * The methods to use for key exchange.
+     */
+    uint16_t sup_groups;
+    /**
+     * A list of supported nul-terminated application protocols.
+     *
+     * Each name is encoded as a one-byte length and then the name.
+     *
+     * If `app_protos` is null, the extension isn't sent.
+     *
+     * A URL containing a list of protocol names is provided below.
+     * For example, HTTP/2 over TLS is "h2".
+     *
+     * <https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids>
+     */
+    const char *app_protos;
+    /**
+     * The number of supported application protocols.
+     *
+     * If `app_proto_count` is null, the extension isn't sent.
+     */
+    size_t app_protos_len;
+};
+
+/**
+ * The supported ciphersuites.
+ */
+typedef uint8_t turtls_CipherList;
+/**
+ * ChaCha20 Poly1305 with SHA-256.
+ *
+ * This is a good option. You should probably leave it enabled.
+ */
+#define turtls_CipherList_CHA_CHA_POLY1305_SHA256 1
+/**
+ * AES-128 GCM with SHA-256.
+ *
+ * Hardware instructions are *not* yet supported.
+ *
+ * This is a good option. You should probably leave it enabled.
+ */
+#define turtls_CipherList_AES_128_GCM_SHA256 2
+
+struct turtls_Config {
+    /**
+     * The extensions to use.
+     */
+    struct turtls_ExtList extensions;
+    /**
+     * The cipher suites to use.
+     */
+    turtls_CipherList cipher_suites;
 };
 
 /**
@@ -256,22 +321,21 @@ extern "C" {
  * The string is nul-terminated.
  *
  * # Safety
- * `connection` must be valid. If `connection` is null, a null pointer will be returned.
- * If `connection` isn't null, a null pointer will never be returned.
+ * `tls_conn` must be valid.
  *
  * Lifetime: the returned pointer is valid for the entire lifetime of `connection`. If a new
  * connection is created with the same allocation, pointer is still valid and will point to the
  * new application protocol.
  */
-const char *turtls_app_proto(const struct turtls_Connection *connection);
+const char *turtls_app_proto(const struct turtls_Connection *tls_conn);
 
 /**
  * Alerts the peer and closes the connection.
  *
  * # Safety:
- * `connection` must be valid.
+ * `tls_conn` must be valid.
  */
-void turtls_close(struct turtls_Connection *connection);
+void turtls_close(struct turtls_Connection *tls_conn);
 
 /**
  * Performs a TLS handshake with a server, returning the connection status.
@@ -279,9 +343,9 @@ void turtls_close(struct turtls_Connection *connection);
  * If any error is returned, the connection is automatically closed.
  *
  * # Safety:
- * `connection` must be valid.
+ * `tls_conn` must be valid.
  */
-struct turtls_Error turtls_connect(struct turtls_Connection *connection);
+enum turtls_Error turtls_connect(struct turtls_Connection *tls_conn);
 
 /**
  * Frees a connection buffer.
@@ -289,9 +353,19 @@ struct turtls_Error turtls_connect(struct turtls_Connection *connection);
  * After this function is called, `connection` is no longer a valid pointer. Do NOT use it again.
  *
  * # Safety:
- * `connection` must be allocated by `turtls_new`.
+ * `tls_conn` must be allocated by `turtls_new`.
  */
-void turtls_free(struct turtls_Connection *connection);
+void turtls_free(struct turtls_Connection *tls_conn);
+
+struct turtls_Config *turtls_get_config(struct turtls_Connection *tls_conn);
+
+/**
+ * Returns last TLS error to occur.
+ *
+ * # Safety
+ * `tls_conn` must be valid
+ */
+turtls_Alert turtls_get_tls_error(const struct turtls_Connection *tls_conn);
 
 /**
  * Creates a new connection object.
@@ -303,17 +377,13 @@ void turtls_free(struct turtls_Connection *connection);
  */
 struct turtls_Connection *turtls_new(struct turtls_Io io);
 
-void turtls_set_app_protos(struct turtls_Connection *connection, const char *ap, size_t ap_len);
-
-void turtls_set_server_name(struct turtls_Connection *connection, const char *sn);
-
 /**
  * Returns a string representation of the alert.
  *
  * Lifetime: the returned string has a static lifetime and as such can be used for the duration of
  * the program.
  */
-const int8_t *turtls_stringify_alert(turtls_Alert alert);
+const char *turtls_stringify_alert(turtls_Alert alert);
 
 #ifdef __cplusplus
 }  // extern "C"
