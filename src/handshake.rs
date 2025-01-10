@@ -72,11 +72,6 @@ pub(crate) fn handshake_client(
                 ref mut aead,
             } => match next {
                 ProtShakeMsg::EncryptedExtensions => {
-                    global_state.rl.get(aead).unwrap();
-                    if global_state.rl.msg_type() == ContentType::ChangeCipherSpec.to_byte() {
-                        global_state.rl.discard();
-                        global_state.rl.get(aead).unwrap();
-                    }
                     todo!("parse EncryptedExtensions");
                 },
                 _ => todo!("Finish handshake"),
@@ -124,7 +119,13 @@ pub(crate) struct ShakeBuf {
 }
 
 enum ReadStatus {
+    /// The message header has not been completely read yet.
+    ///
+    /// The internal value represents the number of header bytes already read.
     NeedsHeader(usize),
+    /// The message data has not be completely read yet.
+    ///
+    /// The internal value represents the number of data bytes already read.
     NeedsData(usize),
 }
 
@@ -206,20 +207,28 @@ impl ShakeBuf {
                         }
                     }
                     while *amt < Self::HEADER_SIZE {
-                        *amt += rl.read_raw(&mut self.buf[*amt..Self::HEADER_SIZE])?;
+                        let new_bytes = rl.read_raw(&mut self.buf[*amt..Self::HEADER_SIZE])?;
+                        if new_bytes == 0 {
+                            return Err(FullError::sending_alert(TurtlsAlert::IllegalParam));
+                        }
+                        *amt += new_bytes;
                     }
                     self.len =
                         u32::from_be_bytes([0, self.buf[1], self.buf[2], self.buf[3]]) as usize;
                     if self.len > self.buf.len() {
-                        todo!();
+                        todo!("resize handshake buffer");
                     }
                     self.status = ReadStatus::NeedsData(0);
                 },
                 ReadStatus::NeedsData(ref mut amt) => {
                     while *amt < self.len {
-                        *amt += rl.read_raw(
+                        let new_bytes = rl.read_raw(
                             &mut self.buf[Self::HEADER_SIZE + *amt..Self::HEADER_SIZE + self.len],
                         )?;
+                        if new_bytes == 0 {
+                            return Err(FullError::sending_alert(TurtlsAlert::IllegalParam));
+                        }
+                        *amt += new_bytes;
                     }
                     self.status = ReadStatus::new();
                     transcript.update_with(&self.buf[..Self::HEADER_SIZE + self.len]);
@@ -260,8 +269,8 @@ impl ShakeBuf {
 
     /// Returns the type of handshake message the message is.
     ///
-    /// A `u8` is returned instead of a [`ShakeType`] to avoid having to validate the type. As
-    /// such, the returned value may not be a valid [`ShakeType`].
+    /// A `u8` is returned instead of a [`ShakeType`] to avoid having to validate the type. The
+    /// returned type may not be a valid [`ShakeType`].
     pub(crate) fn msg_type(&self) -> u8 {
         self.buf[0]
     }

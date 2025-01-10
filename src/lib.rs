@@ -1,5 +1,3 @@
-//! A WIP TLS 1.3 library with a C ABI.
-//!
 //! <div class="warning">
 //! WARNING: This code has not been audited. Use at your own risk.
 //! </div>
@@ -22,7 +20,10 @@ use std::ffi::c_int;
 
 use crylib::hash::Sha256;
 use crylib::hkdf;
+
 use handshake::handshake_client;
+use state::ShakeState;
+use state::TlsStatus;
 
 pub use alert::turtls_stringify_alert;
 pub use alert::TurtlsAlert;
@@ -32,8 +33,6 @@ pub use error::{turtls_get_error, turtls_get_tls_error, TurtlsError};
 pub use extensions::app_proto::turtls_app_proto;
 pub use extensions::TurtlsExts;
 pub use record::TurtlsIo;
-use state::ShakeState;
-use state::TlsStatus;
 pub use state::TurtlsConn;
 
 /// Creates a new connection object.
@@ -49,7 +48,7 @@ pub extern "C" fn turtls_new(io: TurtlsIo) -> *mut TurtlsConn {
 
 /// Frees a connection object.
 ///
-/// After this function is called, `connection` is no longer a valid pointer. Do NOT use it again.
+/// Once this function is called, `tls_conn` is no longer valid.
 ///
 /// # Safety:
 /// `tls_conn` must be allocated by `turtls_new`.

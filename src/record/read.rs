@@ -69,15 +69,9 @@ impl RecordLayer {
                             .try_into()
                             .unwrap(),
                     ) as usize;
-                    match self.rbuf.len {
-                        0 => {
-                            return Err(FullError::sending_alert(TurtlsAlert::IllegalParam));
-                        },
-                        1..Self::MAX_LEN => (),
-                        Self::MAX_LEN.. => {
+                        if self.rbuf.len > Self::MAX_LEN {
                             return Err(FullError::sending_alert(TurtlsAlert::RecordOverflow));
-                        },
-                    }
+                        }
                     self.rbuf.status = ReadStatus::NeedsData(0);
                 },
                 ReadStatus::NeedsData(ref mut bytes_read) => {

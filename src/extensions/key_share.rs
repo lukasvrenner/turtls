@@ -76,17 +76,6 @@ impl GroupKeys {
     }
 }
 
-pub(crate) enum KeyGenError {
-    RngError,
-    PrivKeyIsZero,
-    NoGroups,
-}
-
-impl From<getrandom::Error> for KeyGenError {
-    fn from(_: getrandom::Error) -> Self {
-        Self::RngError
-    }
-}
 impl TurtlsExts {
     pub(super) fn key_share_client_len(&self) -> usize {
         if self.sup_groups & TURTLS_SECP256R1 == 0 {

@@ -192,7 +192,7 @@ typedef uint8_t TurtlsError;
 /**
  * A TLS connection object.
  *
- * This object may be reused between multiple consecutive connections.
+ * An instance may be reused between multiple consecutive connections.
  */
 struct TurtlsConn;
 
@@ -360,7 +360,7 @@ int turtls_connect(struct TurtlsConn *tls_conn);
 /**
  * Frees a connection object.
  *
- * After this function is called, `connection` is no longer a valid pointer. Do NOT use it again.
+ * Once this function is called, `tls_conn` is no longer valid.
  *
  * # Safety:
  * `tls_conn` must be allocated by `turtls_new`.

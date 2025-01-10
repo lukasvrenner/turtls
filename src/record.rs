@@ -86,8 +86,6 @@ impl TurtlsIo {
     }
 }
 
-pub(crate) struct IoError;
-
 pub(crate) struct RecordLayer {
     rbuf: ReadBuf,
     wbuf: WriteBuf,

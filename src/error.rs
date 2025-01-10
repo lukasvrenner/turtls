@@ -1,4 +1,5 @@
-use crate::{extensions::key_share::KeyGenError, TurtlsAlert, TurtlsConn};
+use crate::alert::TurtlsAlert;
+use crate::state::TurtlsConn;
 
 /// The result of a TLS operation.
 ///

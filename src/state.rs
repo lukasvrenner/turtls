@@ -4,13 +4,13 @@ use crate::aead::TlsAead;
 use crate::cipher_suites::TurtlsCipherList;
 use crate::config::TurtlsConfig;
 use crate::error::FullError;
-use crate::extensions::key_share::{GroupKeys, KeyGenError};
+use crate::extensions::key_share::GroupKeys;
 use crate::handshake::ShakeBuf;
 use crate::record::{RecordLayer, TurtlsIo};
 use crate::TurtlsError;
 /// A TLS connection object.
 ///
-/// This object may be reused between multiple consecutive connections.
+/// An instance may be reused between multiple consecutive connections.
 pub struct TurtlsConn {
     pub(crate) state: TlsStatus,
     pub(crate) gloabl_state: GlobalState,
@@ -38,10 +38,6 @@ pub(crate) struct GlobalState {
     pub(crate) rl: RecordLayer,
     pub(crate) secret: [u8; Sha256::HASH_SIZE],
     pub(crate) transcript: TranscriptHasher,
-    pub(crate) app_proto: [u8; 256],
-}
-
-pub(crate) struct ExtState {
     pub(crate) app_proto: [u8; 256],
 }
 
