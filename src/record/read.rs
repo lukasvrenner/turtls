@@ -69,9 +69,9 @@ impl RecordLayer {
                             .try_into()
                             .unwrap(),
                     ) as usize;
-                        if self.rbuf.len > Self::MAX_LEN {
-                            return Err(FullError::sending_alert(TurtlsAlert::RecordOverflow));
-                        }
+                    if self.rbuf.len > Self::MAX_LEN {
+                        return Err(FullError::sending_alert(TurtlsAlert::RecordOverflow));
+                    }
                     self.rbuf.status = ReadStatus::NeedsData(0);
                 },
                 ReadStatus::NeedsData(ref mut bytes_read) => {

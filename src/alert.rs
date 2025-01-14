@@ -7,7 +7,7 @@ pub enum AlertLevel {
 
 /// TLS error reporting.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[repr(u8)]
+#[repr(C)]
 pub enum TurtlsAlert {
     /// The connection is being closed
     CloseNotify = 0,

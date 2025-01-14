@@ -6,7 +6,7 @@ use crate::state::TurtlsConn;
 /// All values other than `None` represent an error.
 #[derive(Debug, Clone, Copy)]
 #[must_use]
-#[repr(u8)]
+#[repr(C)]
 pub enum TurtlsError {
     /// There was an error in the TLS protocol.
     ///

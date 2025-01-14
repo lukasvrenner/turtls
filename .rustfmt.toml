@@ -1,11 +1,9 @@
 match_block_trailing_comma = true
 
 # nightly -- add once stabilized or when nightly use in stable is added
-# unstable_features = true
 # wrap_comments = true
 # format_code_in_doc_comments = true
 # hex_literal_case = Lower
 # imports_granularity = Module
 # normalize_comments = true
 # reorder_impl_items = true
-

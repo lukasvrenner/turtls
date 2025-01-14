@@ -20,11 +20,7 @@
 /**
  * TLS error reporting.
  */
-enum TurtlsAlert
-#ifdef __cplusplus
-  : uint8_t
-#endif // __cplusplus
- {
+enum TurtlsAlert {
     /**
      * The connection is being closed
      */
@@ -134,20 +130,13 @@ enum TurtlsAlert
      */
     TURTLS_ALERT_NO_APP_PROTOCOL = 120,
 };
-#ifndef __cplusplus
-typedef uint8_t TurtlsAlert;
-#endif // __cplusplus
 
 /**
  * The result of a TLS operation.
  *
  * All values other than `None` represent an error.
  */
-enum TurtlsError
-#ifdef __cplusplus
-  : uint8_t
-#endif // __cplusplus
- {
+enum TurtlsError {
     /**
      * There was an error in the TLS protocol.
      *
@@ -185,9 +174,6 @@ enum TurtlsError
      */
     TURTLS_ERROR_MISSING_EXTENSIONS,
 };
-#ifndef __cplusplus
-typedef uint8_t TurtlsError;
-#endif // __cplusplus
 
 /**
  * A TLS connection object.
@@ -378,7 +364,7 @@ struct TurtlsConfig *turtls_get_config(struct TurtlsConn *tls_conn);
  * # Safety
  * `tls_conn` must be valid
  */
-TurtlsError turtls_get_error(const struct TurtlsConn *tls_conn);
+enum TurtlsError turtls_get_error(const struct TurtlsConn *tls_conn);
 
 /**
  * Returns last TLS error to occur.
@@ -386,7 +372,7 @@ TurtlsError turtls_get_error(const struct TurtlsConn *tls_conn);
  * # Safety
  * `tls_conn` must be valid
  */
-TurtlsAlert turtls_get_tls_error(const struct TurtlsConn *tls_conn);
+enum TurtlsAlert turtls_get_tls_error(const struct TurtlsConn *tls_conn);
 
 /**
  * Creates a new connection object.
@@ -404,7 +390,7 @@ struct TurtlsConn *turtls_new(struct TurtlsIo io);
  * Lifetime: the returned string has a static lifetime and as such can be used for the duration of
  * the program.
  */
-const char *turtls_stringify_alert(TurtlsAlert alert);
+const char *turtls_stringify_alert(enum TurtlsAlert alert);
 
 #ifdef __cplusplus
 }  // extern "C"
