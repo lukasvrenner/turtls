@@ -4,6 +4,7 @@ use crate::aead::TlsAead;
 use crate::client_hello::client_hello_client;
 use crate::config::TurtlsConfig;
 use crate::error::{FullError, TurtlsError};
+use crate::extensions::parse_encrypted_extensions;
 use crate::record::{ContentType, RecordLayer};
 use crate::server_hello::server_hello_client;
 use crate::state::{
@@ -40,25 +41,19 @@ pub(crate) fn handshake_client(
                 UnprotShakeMsg::ServerHello => {
                     shake_state
                         .buf
-                        .get_raw(&mut global_state.rl, &mut global_state.transcript)
+                        .read_raw(&mut global_state.rl, &mut global_state.transcript)
                         .map_err(|err| {
                             if let TurtlsError::Tls = err.turtls_error {
                                 global_state.rl.close_raw(err.alert);
                             }
                             global_state.error = err
                         })?;
-                    let aead = match server_hello_client(
-                        shake_state.buf.data(),
-                        unprot_state,
-                        global_state,
-                    ) {
-                        Ok(aead) => aead,
-                        Err(alert) => {
-                            global_state.rl.close_raw(alert);
-                            global_state.error = FullError::sending_alert(alert);
-                            return Err(());
-                        },
-                    };
+                    let aead =
+                        server_hello_client(shake_state.buf.data(), unprot_state, global_state)
+                            .map_err(|alert| {
+                                global_state.rl.close_raw(alert);
+                                global_state.error = FullError::sending_alert(alert);
+                            })?;
                     shake_state.state = MaybeProt::Prot {
                         next: ProtShakeMsg::EncryptedExtensions,
                         aead,
@@ -72,10 +67,20 @@ pub(crate) fn handshake_client(
                 ProtShakeMsg::EncryptedExtensions => {
                     shake_state
                         .buf
-                        .get(&mut global_state.rl, aead, &mut global_state.transcript)
-                        .unwrap();
-                    println!("{:?}", shake_state.buf.data());
-                    todo!("parse EncryptedExtensions");
+                        .read(&mut global_state.rl, aead, &mut global_state.transcript)
+                        .map_err(|err| {
+                            if let TurtlsError::Tls = err.turtls_error {
+                                global_state.rl.close(err.alert, aead);
+                            }
+                            global_state.error = err
+                        })?;
+                    parse_encrypted_extensions(shake_state.buf.data(), global_state).map_err(
+                        |alert| {
+                            global_state.rl.close(alert, aead);
+                            global_state.error = FullError::sending_alert(alert);
+                        },
+                    )?;
+                    *next = ProtShakeMsg::Certificate;
                 },
                 _ => todo!("Finish handshake"),
             },
@@ -86,7 +91,6 @@ pub(crate) fn handshake_client(
 /// The message type of a handshake message.
 #[derive(Debug, PartialEq, Eq)]
 #[expect(unused, reason = "not all handshake messages are implemented yet")]
-#[repr(u8)]
 pub(crate) enum ShakeType {
     ClientHello = 1,
     ServerHello = 2,
@@ -242,7 +246,7 @@ impl ShakeBuf {
     }
 
     /// Reads an entire plaintext handshake message.
-    pub(crate) fn get_raw(
+    pub(crate) fn read_raw(
         &mut self,
         rl: &mut RecordLayer,
         transcript: &mut TranscriptHasher,
@@ -251,7 +255,7 @@ impl ShakeBuf {
         self.read_inner(rl, get_fn, transcript)
     }
 
-    pub(crate) fn get(
+    pub(crate) fn read(
         &mut self,
         rl: &mut RecordLayer,
         aead: &mut TlsAead,

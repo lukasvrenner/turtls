@@ -1,20 +1,21 @@
 use super::{ExtensionType, TurtlsExts};
 use crate::handshake::ShakeBuf;
 use crate::state::TurtlsConn;
+use crate::TurtlsAlert;
 
 use std::ffi::c_char;
 use std::ptr::null;
 
 impl TurtlsExts {
-    pub(super) fn app_proto_len(&self) -> usize {
+    pub(super) fn app_protos_len(&self) -> usize {
         if self.app_protos.is_null() || self.app_protos_len == 0 {
             return 0;
         }
         size_of::<u16>() + self.app_protos_len
     }
-    pub(super) fn write_app_proto_client(&self, shake_buf: &mut ShakeBuf) {
+    pub(super) fn write_app_protos_client(&self, shake_buf: &mut ShakeBuf) {
         // TODO: properly handle the error
-        let len: u16 = self.app_proto_len().try_into().unwrap();
+        let len: u16 = self.app_protos_len().try_into().unwrap();
 
         if len == 0 {
             return;
@@ -31,6 +32,31 @@ impl TurtlsExts {
         shake_buf.extend_from_slice(&(len - size_of::<u16>() as u16).to_be_bytes());
         shake_buf.extend_from_slice(as_slice)
     }
+}
+
+pub(crate) fn parse_app_proto_client(
+    alpn: &[u8],
+    alpn_state: &mut [u8; 256],
+) -> Result<(), TurtlsAlert> {
+    if alpn.len() < 4 {
+        return Err(TurtlsAlert::DecodeError);
+    }
+    let (len, alpn) = alpn.split_at(2);
+    let len = u16::from_be_bytes(len.try_into().unwrap()) as usize;
+    if len != alpn.len() {
+        return Err(TurtlsAlert::DecodeError);
+    }
+    let len = alpn[0] as usize;
+    let alpn = &alpn[1..];
+
+    if len != alpn.len() {
+        return Err(TurtlsAlert::DecodeError);
+    }
+
+    // `alpn.len` is guaranteed to be less than or equal to `256` because the length is encoded as
+    // a single byte
+    alpn_state[..alpn.len()].copy_from_slice(alpn);
+    Ok(())
 }
 
 /// Returns a pointer to name of the negotiated application protocol.

@@ -46,7 +46,7 @@ A work-in-progress implementation of the TLS 1.3 protocol (RFC 8446) in Rust, pr
 - [ ] Handle HelloRetryRequest
 - [x] Derive client_handshake_traffic
 - [x] Derive server_handshake_traffic
-- [ ] EncryptedExtensions
+- [x] EncryptedExtensions
 - [ ] CertificateRequest support (optional)
 - [ ] Certificate handling
     - [ ] Get certificates from user
@@ -94,7 +94,7 @@ A work-in-progress implementation of the TLS 1.3 protocol (RFC 8446) in Rust, pr
 - [x] Record Layer Protocol
     - [x] Pprotected and unprotected read
     - [x] Protected and unprotected write
-    - [x] Buffered reading to ensure no data is lost 
+    - [x] Buffered reading to ensure no data is lost
 - [ ] Handshake Protocol
 - [x] Alert Protocol
 

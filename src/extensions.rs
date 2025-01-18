@@ -12,6 +12,7 @@ pub mod server_name;
 pub mod sig_algs;
 pub mod versions;
 
+use app_proto::parse_app_proto_client;
 use key_share::{GroupKeys, TURTLS_SECP256R1};
 use sig_algs::TURTLS_ECDSA_SECP256R1;
 
@@ -132,7 +133,7 @@ impl TurtlsExts {
         len += ext_len(self.sup_groups_len());
         len += ext_len(self.sup_versions_len());
         len += ext_len(self.key_share_client_len());
-        len += ext_len(self.app_proto_len());
+        len += ext_len(self.app_protos_len());
 
         len
     }
@@ -144,7 +145,7 @@ impl TurtlsExts {
         self.write_sup_versions_client(shake_buf);
         self.write_sup_groups(shake_buf);
         self.write_key_share_client(shake_buf, keys);
-        self.write_app_proto_client(shake_buf);
+        self.write_app_protos_client(shake_buf);
     }
 }
 
@@ -194,11 +195,15 @@ pub(crate) fn parse_ser_hel_exts(
     global_state: &mut GlobalState,
 ) -> Result<TlsAead, TurtlsAlert> {
     let mut maybe_aead = Err(TurtlsAlert::MissingExtension);
-    let len = u16::from_be_bytes(exts[..TurtlsExts::LEN_SIZE].try_into().unwrap()) as usize;
-    if len != exts.len() - TurtlsExts::LEN_SIZE {
+
+    let (len, exts) = exts.split_at(TurtlsExts::LEN_SIZE);
+    let len = u16::from_be_bytes(len.try_into().unwrap()) as usize;
+
+    if len != exts.len() {
         return Err(TurtlsAlert::DecodeError);
     }
-    for ext in ExtIter::new(&exts[TurtlsExts::LEN_SIZE..]) {
+
+    for ext in ExtIter::new(exts) {
         match ext.ext_type {
             x if x == &ExtensionType::SupportedVersions.to_be_bytes() => {
                 versions::parse_ser(ext.data)?;
@@ -210,4 +215,30 @@ pub(crate) fn parse_ser_hel_exts(
         }
     }
     maybe_aead
+}
+
+pub(crate) fn parse_encrypted_extensions(
+    exts: &[u8],
+    global_state: &mut GlobalState,
+) -> Result<(), TurtlsAlert> {
+    let (len, exts) = exts.split_at(TurtlsExts::LEN_SIZE);
+    let len = u16::from_be_bytes(len.try_into().unwrap()) as usize;
+
+    if len != exts.len() {
+        return Err(TurtlsAlert::DecodeError);
+    }
+
+    for ext in ExtIter::new(exts) {
+        match ext.ext_type {
+            // ServerName from server is ignored
+            x if x == &ExtensionType::ServerName.to_be_bytes() => (),
+            // SupportedGroups from server is ignored
+            x if x == &ExtensionType::SupportedGroups.to_be_bytes() => (),
+            x if x == &ExtensionType::AppLayerProtoNeg.to_be_bytes() => {
+                parse_app_proto_client(ext.data, &mut global_state.app_proto)?
+            },
+            _ => return Err(TurtlsAlert::UnsupportedExtension),
+        }
+    }
+    Ok(())
 }
