@@ -150,7 +150,7 @@ impl TurtlsExts {
 }
 
 pub(crate) struct ExtRef<'a> {
-    ext_type: &'a [u8; 2],
+    ext_type: [u8; 2],
     data: &'a [u8],
 }
 
@@ -171,17 +171,16 @@ impl<'a> Iterator for ExtIter<'a> {
         if self.exts.len() < TurtlsExts::HEADER_SIZE {
             return None;
         }
-        let len = u16::from_be_bytes(
-            self.exts[TurtlsExts::HEADER_SIZE - TurtlsExts::LEN_SIZE..TurtlsExts::HEADER_SIZE]
-                .try_into()
-                .unwrap(),
-        ) as usize;
+        let len = u16::from_be_bytes([
+            self.exts[TurtlsExts::HEADER_SIZE - 2],
+            self.exts[TurtlsExts::HEADER_SIZE - 1],
+        ]) as usize;
         if len > self.exts.len() {
             return None;
         }
         let ext;
         (ext, self.exts) = self.exts.split_at(len + TurtlsExts::HEADER_SIZE);
-        let ext_type = ext[..size_of::<ExtensionType>()].try_into().unwrap();
+        let ext_type = [ext[0], ext[1]];
         Some(ExtRef {
             ext_type,
             data: &ext[TurtlsExts::HEADER_SIZE..],
@@ -205,10 +204,10 @@ pub(crate) fn parse_ser_hel_exts(
 
     for ext in ExtIter::new(exts) {
         match ext.ext_type {
-            x if x == &ExtensionType::SupportedVersions.to_be_bytes() => {
+            x if x == ExtensionType::SupportedVersions.to_be_bytes() => {
                 versions::parse_ser(ext.data)?;
             },
-            x if x == &ExtensionType::KeyShare.to_be_bytes() => {
+            x if x == ExtensionType::KeyShare.to_be_bytes() => {
                 maybe_aead = key_share::parse_ser(ext.data, shake_crypto, global_state);
             },
             _ => return Err(TurtlsAlert::UnsupportedExtension),
@@ -231,10 +230,10 @@ pub(crate) fn parse_encrypted_extensions(
     for ext in ExtIter::new(exts) {
         match ext.ext_type {
             // ServerName from server is ignored
-            x if x == &ExtensionType::ServerName.to_be_bytes() => (),
+            x if x == ExtensionType::ServerName.to_be_bytes() => (),
             // SupportedGroups from server is ignored
-            x if x == &ExtensionType::SupportedGroups.to_be_bytes() => (),
-            x if x == &ExtensionType::AppLayerProtoNeg.to_be_bytes() => {
+            x if x == ExtensionType::SupportedGroups.to_be_bytes() => (),
+            x if x == ExtensionType::AppLayerProtoNeg.to_be_bytes() => {
                 parse_app_proto_client(ext.data, &mut global_state.app_proto)?
             },
             _ => return Err(TurtlsAlert::UnsupportedExtension),
