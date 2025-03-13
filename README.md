@@ -18,20 +18,6 @@ TODO: generate documentation for the master branch.
 ## Features
 See `./ROADMAP.md` for a roadmap and complete list of features
 
-### API
-1. The TurTLS API only contains a few functions:
-- `turtls_generate_config`: Generate the default configuration struct.
-- `turtls_alloc`: Allocate the connection state buffer.
-- `turtls_free`: Free the connection state buffer.
-- `turtls_connect`: Perform the TLS handshake as the client.
-- `turtls_accept`: Perform the TLS handshake as the server (not yet implemented).
-- `turtls_send`: send data to the peer (not yet implemented).
-- `turtls_read`: read data from the peer (not yet implemented).
-- `turtls_close`: close the connection.
-- `turtls_stringify_alert`: return a string representation of a TLS alert.
-- `turtls_app_proto`: get the name of the negotiated application protocol
-2. Configuration struct: all configuration is done via a single config struct
-
 ### Cryptography
 TurTLS maintains a general-purpose crypto library called [crylib](https://docs.rs/crylib). Its code can be found at `./crylib/`.
 
