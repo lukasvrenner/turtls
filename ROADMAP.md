@@ -14,10 +14,10 @@ A work-in-progress implementation of the TLS 1.3 protocol (RFC 8446) in Rust.
     - [x] ECDH
     - Curves:
         - [x] Sepc256r1
-- Big Integer
-    - [x] Unsigned big integers
-    - [x] Signed big integers
-    - [x] Big integer modular arithmetic
+- Multiprecision
+    - [x] Unsigned multiprecision integers
+    - [x] Signed multiprecision integers
+    - [x] Multiprecision integer modular arithmetic
 - Hash
     - [x] SHA-256
     - [x] SHA-512
