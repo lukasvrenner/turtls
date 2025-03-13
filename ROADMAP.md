@@ -1,21 +1,7 @@
 # TurTLS Roadmap and Feature Description
 
 ## Project Overview
-A work-in-progress implementation of the TLS 1.3 protocol (RFC 8446) in Rust, providing a C ABI for broad compatibility. The project emphasizes memory safety, standards compliance, and secure cryptographic operations.
-
-## Meeting Structure
-- Set up regular weekly 1-hour meetings
-- Establish agenda format:
-    - Previous week's goals review
-    - Progress updates
-    - Technical questions
-    - Next week's goals
-- [x] Create informal communication channel for ad-hoc questions
-  <details>
-  <summary>How it was completed</summary>
-  <!-- Add your description here -->
-  We are using HackMD for collaborative project notes.
-  </details>
+A work-in-progress implementation of the TLS 1.3 protocol (RFC 8446) in Rust.
 
 ## Implementation Goals and Features
 
