@@ -78,7 +78,7 @@ A work-in-progress implementation of the TLS 1.3 protocol (RFC 8446) in Rust.
 - [x] Mandatory Cipher Suites
     - [x] AES_128_GCM_SHA_256
 - [x] Record Layer Protocol
-    - [x] Pprotected and unprotected read
+    - [x] Protected and unprotected read
     - [x] Protected and unprotected write
     - [x] Buffered reading to ensure no data is lost
 - [ ] Handshake Protocol
