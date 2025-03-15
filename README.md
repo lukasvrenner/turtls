@@ -22,6 +22,7 @@ See `./ROADMAP.md` for a roadmap and complete list of features
 ### Cryptography
 TurTLS maintains a general-purpose crypto library called [crylib](https://docs.rs/crylib). Its code can be found at `./crylib/`.
 
+
 ## Building
 Make sure you have a recent version of Rust installed. This project uses on new language features as they release,
 so make sure your version is recent enough.
@@ -35,8 +36,16 @@ To build in release mode:
 ```bash
 cargo build --release
 ```
-
 Move `libturtls.so` from `./target/debug/` -- debug -- or `./target/release/` -- release to the desired directory.
+
+## Testing
+Most tests can be run with `cargo`:
+```bash
+cargo test
+```
+This will run all unit tests. (TODD: add integration tests.)
+
+[pull](https://github.com/lukasvrenner/pull) can be used to test TurTLS against real-world TLS implementations.
 
 ## License
 Copyright 2024 Lukas Renner
