@@ -33,7 +33,7 @@ A work-in-progress implementation of the TLS 1.3 protocol (RFC 8446) in Rust.
 - [x] Derive client_handshake_traffic
 - [x] Derive server_handshake_traffic
 - [x] EncryptedExtensions
-- [ ] CertificateRequest support (optional)
+- [ ] CertificateRequest
 - [ ] Certificate handling
     - [ ] Get certificates from user
 - [ ] CertificateVerify
