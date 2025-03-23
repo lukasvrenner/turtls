@@ -1,3 +1,6 @@
+/// The Hash-based Message Authentication Code algorithm.
+///
+/// HMAC was designed by Mihir Bellare, Ran Canetti, and Hugo Krawczyk.
 use crate::hash::{BlockHasher, BufHasher};
 
 pub struct Hmac<const H_LEN: usize, const B_LEN: usize, H>

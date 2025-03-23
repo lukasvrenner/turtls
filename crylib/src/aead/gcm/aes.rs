@@ -1,5 +1,7 @@
 //! A software implementation of [`AES`].
 //!
+//! AES was designed by John Daemen and Vincent Rijmen.
+//!
 //! 128, 192, and 256-bit keys are supported.
 //!
 //! Decryption is not yet supported because

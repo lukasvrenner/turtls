@@ -1,4 +1,6 @@
 //! The ChaCha20 stream cipher.
+//!
+//! ChaCha20 was designed by Daniel J. Bernstein.
 const fn quarter_round(mut a: u32, mut b: u32, mut c: u32, mut d: u32) -> (u32, u32, u32, u32) {
     a = a.wrapping_add(b);
     d ^= a;

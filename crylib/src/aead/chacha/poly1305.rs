@@ -1,4 +1,6 @@
 //! The Poly1305 authenticator.
+//!
+//! Poly1305 was designed by Daniel J. Bernstein.
 
 use super::ChaCha20Poly1305;
 use crate::{

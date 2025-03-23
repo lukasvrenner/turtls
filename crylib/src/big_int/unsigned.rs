@@ -714,6 +714,8 @@ macro_rules! impl_non_generic {
             /// # Constant-timedness
             /// TODO: document constant-timedness
             pub fn div(&self, rhs: &Self) -> (Self, Self) {
+                // This is a modified version of OpenSSL's `BN_div` which was originally written in C.
+
                 assert_ne!(*rhs, Self::ZERO);
 
                 let num_len = self.count_digits() + 1;
