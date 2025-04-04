@@ -1,0 +1,12 @@
+.main-links {
+    display: flex;
+    justify-content: center;
+    margin: 0;
+}
+
+.main-links > div {
+    padding-left: 1rem;
+    padding-right: 1rem;
+    margin: 0.5rem;
+    background: var(--bg-1);
+}

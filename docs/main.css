@@ -1,0 +1,55 @@
+:root {
+    --highlight-color: #B16286;
+    --url-color: #458588;
+}
+
+body {
+    background-color: var(--bg);
+    color: var(--text);
+}
+
+h1, h2, h3, p, pre {
+    color: var(--text);
+}
+a {
+    color: var(--url-color);
+}
+
+body {
+    margin: 0 auto;
+    max-width: 1000px;
+    font-size: 1.25em;
+}
+
+header {
+    text-align: center;
+    margin: 1rem;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-weight: bold;
+    margin: 0rem;
+}
+
+ul {
+    margin: 0.5rem;
+}
+
+a {
+    text-decoration: none;
+}
+
+a:hover {
+    color: var(--highlight-color);
+}
+
+footer {
+    text-align: center;
+    padding: 1rem;
+}
+
+@media (max-width: 768px) {
+    .container {
+        padding: 1rem;
+    }
+}
