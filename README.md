@@ -1,7 +1,5 @@
 # TurTLS 🐢
-
-## A work-in-progress TLS 1.3 dynamic library
-Note: Although turtls is written in Rust, it only provides a C API.
+A reasonable TLS library.
 
 WARNING: This code has not been audited. Use it at your own risk.
 ================================================================
