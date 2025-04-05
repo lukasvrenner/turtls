@@ -15,7 +15,7 @@ Warning: this documentation is very outdated. Generate up-to-date documentation 
 TODO: generate documentation for the master branch.
 
 ## Features
-See [ROADMAP](https://github.com/lukasvrenner/turtls/blob/master/ROADMAP.md) for a roadmap and complete list of features.
+See [the features list](https://lukasvrenner.github.io/web-turtls/features.html).
 
 ### Cryptography
 TurTLS maintains a general-purpose crypto library called [crylib](https://docs.rs/crylib). Its code can be found at `./crylib/`.
