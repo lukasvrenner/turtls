@@ -10,3 +10,7 @@
     margin: 0.5rem;
     background: var(--bg-1);
 }
+
+.checkbox-list ul {
+    list-style: none;
+}

@@ -23,8 +23,8 @@
 
             <h3><a href="https://en.wikipedia.org/wiki/Authenticated_encryption">AEADs</a></h3>
             <ul>
-                <li><a href="hhttps://en.wikipedia.org/wiki/galois/counter_mode">aes-*-gcm</a></li>
-                <li><a href="https://en.wikipedia.org/wiki/chacha20-poly1305">chacha20-poly1305</a></li>
+                <li><a href="hhttps://en.wikipedia.org/wiki/galois/counter_mode">AES-*-GCM</a></li>
+                <li><a href="https://en.wikipedia.org/wiki/chacha20-poly1305">ChaCha20-Poly1305</a></li>
             </ul>
 
             <h3><a href="https://en.wikipedia.org/wiki/Elliptic-curve_cryptography">Elliptic-Curve</a></h3>
@@ -52,8 +52,125 @@
                 <li><a href="https://en.wikipedia.org/wiki/HKDF">HKDF</a></li>
             </ul>
 
+            <h2>TLS 1.3</h2>
 
-            <!--<input type="checkbox" disabled checked />-->
+            <h3>Handshake Protocol</h3>
+
+            <h4>Client</h4>
+            <div class="checkbox-list">
+                <ul>
+                    <li><label><input type="checkbox" disabled checked /> Send ClientHello</label></li>
+                    <li><label><input type="checkbox" disabled checked /> Parse ServerHello</label></li>
+                    <li><label><input type="checkbox" disabled /> Parse HelloRetryRequest</label></li>
+                    <li><label><input type="checkbox" disabled checked /> Ignore ChangeCipherSpec</label></li>
+                    <li><label><input type="checkbox" disabled checked /> Parse EncryptedExtensions</label></li>
+                    <li><label><input type="checkbox" disabled /> Parse Certificate</label></li>
+                    <li><label><input type="checkbox" disabled /> Parse CertificateVerify</label></li>
+                    <li><label><input type="checkbox" disabled /> Parse Finished</label></li>
+                    <li><label><input type="checkbox" disabled /> Parse Certificate Request</label></li>
+                    <li><label><input type="checkbox" disabled /> Send ClientCertificate</label></li>
+                    <li><label><input type="checkbox" disabled /> Send ClientCertificateVerify</label></li>
+                    <li><label><input type="checkbox" disabled /> Send Finished</label></li>
+                </ul>
+            </div>
+
+            <h4>Server</h4>
+
+            <div class="checkbox-list">
+                <ul>
+                    <li><label><input type="checkbox" disabled /> Parse ClientHello</label></li>
+                    <li><label><input type="checkbox" disabled /> Send ServerHello</label></li>
+                    <li><label><input type="checkbox" disabled /> Send HelloRetryRequest</label></li>
+                    <li><label><input type="checkbox" disabled /> Send EncryptedExtensions</label></li>
+                    <li><label><input type="checkbox" disabled /> Send Certificate</label></li>
+                    <li><label><input type="checkbox" disabled /> Send CertificateVerify</label></li>
+                    <li><label><input type="checkbox" disabled /> Send Finished</label></li>
+                    <li><label><input type="checkbox" disabled /> Send Certificate Request</label></li>
+                    <li><label><input type="checkbox" disabled /> Parse ClientCertificate</label></li>
+                    <li><label><input type="checkbox" disabled /> Parse ClientCertificateVerify</label></li>
+                    <li><label><input type="checkbox" disabled /> Parse Finished</label></li>
+                </ul>
+            </div>
+
+            <h3>Record Protocol</h3>
+            <div class="checkbox-list">
+                <ul>
+                    <li><label><input type="checkbox" disabled checked /> Send plaintext records</li>
+                    <li><label><input type="checkbox" disabled checked /> Parse plaintext records</li>
+                    <li><label><input type="checkbox" disabled checked /> Encrypt and send encrypted records</li>
+                    <li><label><input type="checkbox" disabled checked /> Decrypt and parse encrypted records</li>
+                </ul>
+            </div>
+
+            <h3>Alert Protocol</h3>
+            <div class="checkbox-list">
+                <ul>
+                    <li><label><input type="checkbox" disabled checked /> Send alerts</li>
+                    <li><label><input type="checkbox" disabled checked /> Parse and handle alerts</li>
+                </ul>
+            </div>
+
+            <h3>Extensions</h3>
+            <div class="checkbox-list">
+                <ul>
+                    <li><label><input type="checkbox" disabled checked /> server_name</li>
+                    <li><label><input type="checkbox" disabled /> max_fragment_length</li>
+                    <li><label><input type="checkbox" disabled /> status_request</li>
+                    <li><label><input type="checkbox" disabled checked /> supported_groups</li>
+                    <li><label><input type="checkbox" disabled checked /> signature_algoritms</li>
+                    <li><label><input type="checkbox" disabled /> use_srtp</li>
+                    <li><label><input type="checkbox" disabled /> heartbeat</li>
+                    <li><label><input type="checkbox" disabled checked /> application_layer_protocol_negotiation</li>
+                    <li><label><input type="checkbox" disabled /> signed_certificate_timestamp</li>
+                    <li><label><input type="checkbox" disabled /> client_certificate_type</li>
+                    <li><label><input type="checkbox" disabled /> server_certificate_type</li>
+                    <li><label><input type="checkbox" disabled /> padding</li>
+                    <li><label><input type="checkbox" disabled checked /> key_share</li>
+                    <li><label><input type="checkbox" disabled /> pre_shared_key</li>
+                    <li><label><input type="checkbox" disabled /> psk_key_exchange_modes</li>
+                    <li><label><input type="checkbox" disabled /> early_data</li>
+                    <li><label><input type="checkbox" disabled /> cookie</li>
+                    <li><label><input type="checkbox" disabled checked /> supported_versions</li>
+                    <li><label><input type="checkbox" disabled /> certificate_authorities</li>
+                    <li><label><input type="checkbox" disabled /> oid_filters</li>
+                    <li><label><input type="checkbox" disabled /> post_handshake_auth</li>
+                    <li><label><input type="checkbox" disabled /> signature_algoritms_cert</li>
+                </ul>
+            </div>
+
+            <h3>Compliance Requirements</h3>
+
+            <h4>Mandatory Cipher Suites</h4>
+            <div class="checkbox-list">
+                <ul>
+                    <li><label><input type="checkbox" disabled checked /> TLS_AES_128_GCM_SHA_256</li>
+                </ul>
+            </div>
+
+            <h4>Mandatory Signature Algorithms</h4>
+            <div class="checkbox-list">
+                <ul>
+                    <li><label><input type="checkbox" disabled /> rsa_pkcs1_sha256</li>
+                    <li><label><input type="checkbox" disabled /> rsa_pss_rsae_sha256</li>
+                    <li><label><input type="checkbox" disabled checked /> ecdsa_secp256r1_sha256</li>
+                </ul>
+            </div>
+
+            <h4>Mandatory Extensions</h4>
+            <div class="checkbox-list">
+                <ul>
+                    <li><label><input type="checkbox" disabled checked /> server_name</li>
+                    <li><label><input type="checkbox" disabled checked /> supported_groups</li>
+                    <li><label><input type="checkbox" disabled checked /> signature_algoritms</li>
+                    <li><label><input type="checkbox" disabled checked /> key_share</li>
+                    <li><label><input type="checkbox" disabled /> cookie</li>
+                    <li><label><input type="checkbox" disabled checked /> supported_versions</li>
+                    <li><label><input type="checkbox" disabled /> signature_algoritms_cert</li>
+                </ul>
+            </div>
+
+
+
         </main>
 
         <footer>
