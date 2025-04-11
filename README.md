@@ -1,5 +1,5 @@
 # TurTLS 🐢
-A reasonable TLS library.
+A TLS library.
 
 WARNING: This code has not been audited. Use it at your own risk.
 ================================================================
