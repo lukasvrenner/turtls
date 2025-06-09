@@ -20,6 +20,7 @@ pub(crate) fn handshake_client(
     global_state: &mut GlobalState,
     config: &TurtlsConfig,
 ) -> Result<(), ()> {
+    // This would be so much cleaner with C-style switch statement :)
     loop {
         match shake_state.state {
             MaybeProt::Unprot {
@@ -82,6 +83,29 @@ pub(crate) fn handshake_client(
                     )?;
                     *next = ProtShakeMsg::Certificate;
                 },
+                ProtShakeMsg::Certificate => {
+                    shake_state
+                        .buf
+                        .read(&mut global_state.rl, aead, &mut global_state.transcript)
+                        .map_err(|err| {
+                            if let TurtlsError::Tls = err.turtls_error {
+                                global_state.rl.close(err.alert, aead);
+                            }
+                            global_state.error = err
+                        })?;
+                    let cert_msg = shake_state.buf.data();
+
+                    let context_len = cert_msg[0] as usize;
+                    let certs = &cert_msg[1 + context_len as usize..];
+
+                    let data_len = u32::from_be_bytes([0, certs[0], certs[1], certs[2]]) as usize;
+                    let count = crate::certificates::CertIter::new(&certs[3..][..data_len])
+                        .unwrap()
+                        .count();
+
+                    println!("number of certificates: {count}");
+                    todo!("validate certificate");
+                },
                 _ => todo!("Finish handshake"),
             },
         };
@@ -112,13 +136,9 @@ impl ShakeType {
 }
 
 /// Stores handshake messages for them to be parsed.
-///
-/// It can grow dynamically to adjust to larger sizes.
-/// Currently, once it grows, it does not shrink. This may change.
-///
-/// This struct is only used for reading messages, not writing.
 pub(crate) struct ShakeBuf {
     buf: Box<[u8]>,
+    /// The length of the message excluding the header.
     len: usize,
     /// The maximum size `buf` is allowed to be.
     max_size: usize,
@@ -147,7 +167,6 @@ impl ShakeBuf {
     pub(crate) const LEN_SIZE: usize = 3;
     pub(crate) const HEADER_SIZE: usize = size_of::<ShakeType>() + Self::LEN_SIZE;
 
-    /// Constructs a new [`MsgBug`] with
     pub(crate) fn new(max_len: usize) -> Self {
         // TODO: use new_zeroed_slice or similar once stabilized.
         let mut buf = Box::new_uninit_slice(Self::INIT_SIZE);
@@ -169,7 +188,7 @@ impl ShakeBuf {
 
     pub(crate) fn push(&mut self, value: u8) {
         if self.len + Self::HEADER_SIZE + 1 > self.buf.len() {
-            todo!()
+            todo!("grow handshake buffer");
         }
         self.buf[self.len + Self::HEADER_SIZE] = value;
         self.len += 1;
@@ -177,7 +196,7 @@ impl ShakeBuf {
 
     pub(crate) fn extend_from_slice(&mut self, slice: &[u8]) {
         if self.len + Self::HEADER_SIZE + slice.len() > self.buf.len() {
-            todo!()
+            todo!("grow handshake buffer");
         }
         self.buf[Self::HEADER_SIZE + self.len..][..slice.len()].copy_from_slice(slice);
         self.len += slice.len();
@@ -222,7 +241,7 @@ impl ShakeBuf {
                     self.len =
                         u32::from_be_bytes([0, self.buf[1], self.buf[2], self.buf[3]]) as usize;
                     if self.len > self.buf.len() {
-                        todo!("resize handshake buffer");
+                        todo!("grow handshake buffer");
                     }
                     self.status = ReadStatus::NeedsData(0);
                 },

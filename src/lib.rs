@@ -5,6 +5,7 @@
 
 mod aead;
 mod alert;
+mod certificates;
 mod cipher_suites;
 mod client_hello;
 mod config;
