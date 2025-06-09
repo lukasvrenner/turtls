@@ -100,7 +100,6 @@ pub(crate) fn handshake_client(
 
                     let data_len = u32::from_be_bytes([0, certs[0], certs[1], certs[2]]) as usize;
                     let count = crate::certificates::CertIter::new(&certs[3..][..data_len])
-                        .unwrap()
                         .count();
 
                     println!("number of certificates: {count}");
