@@ -276,21 +276,18 @@ impl_aes_cipher!(Aes128, 16, 10);
 impl_aes_cipher!(Aes192, 24, 12);
 impl_aes_cipher!(Aes256, 32, 14);
 
-#[inline]
 fn add_round_key(state: &mut [u8; BLOCK_SIZE], round_key: [u8; BLOCK_SIZE]) {
     for (state_byte, key_byte) in state.iter_mut().zip(round_key) {
         *state_byte ^= key_byte;
     }
 }
 
-#[inline]
 fn sub_bytes(state: &mut [u8; BLOCK_SIZE]) {
     for byte in state {
         *byte = s_box(*byte);
     }
 }
 
-#[inline]
 fn shift_rows(state: &mut [u8; BLOCK_SIZE]) {
     // TODO: consider using uninitialized array
     let mut auxiliary = [0; 4];
@@ -304,7 +301,6 @@ fn shift_rows(state: &mut [u8; BLOCK_SIZE]) {
     }
 }
 
-#[inline]
 fn mix_columns(state: &mut [u8; BLOCK_SIZE]) {
     let mult_matrix = [
         [0x01, 0x02, 0x00, 0x00],
