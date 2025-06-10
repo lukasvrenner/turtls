@@ -20,9 +20,8 @@ See [the features list](https://lukasvrenner.github.io/web-turtls/features.html)
 ### Cryptography
 TurTLS maintains a general-purpose crypto library called [crylib](https://docs.rs/crylib). Its code can be found at `./crylib/`.
 
-
 ## Building
-Make sure you have a recent version of Rust installed. This project uses on new language features as they release,
+Make sure you have a recent version of Rust installed. This project uses new language features as they release,
 so make sure your version is recent enough.
 
 To build in debug mode:
@@ -34,7 +33,7 @@ To build in release mode:
 ```bash
 cargo build --release
 ```
-Move `libturtls.so` from `./target/debug/` -- debug -- or `./target/release/` -- release to the desired directory.
+Move `libturtls.so` from `./target/debug/` (debug) or `./target/release/` (release) to the desired directory.
 
 ## Testing
 Most tests can be run with `cargo`:
