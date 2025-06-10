@@ -269,7 +269,6 @@ mod tests {
             0x15, 0x43, 0x3c, 0xe8, 0xdc, 0xf3, 0xc0, 0x31,
         ];
         assert_eq!(Sha512::hash(&msg), digest);
-
     }
 
     #[test]
