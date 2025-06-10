@@ -1,5 +1,8 @@
 use std::iter::Iterator;
 
+mod der;
+mod x509;
+
 enum CertType {
     X509 = 0,
     RawPublicKey = 2,
