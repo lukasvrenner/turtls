@@ -13,6 +13,12 @@ pub(crate) struct DerIter<'a> {
     der_objs: &'a [u8],
 }
 
+impl<'a> DerIter<'a> {
+    pub(crate) fn new(der_objs: &'a [u8]) -> Self {
+        Self { der_objs }
+    }
+}
+
 impl<'a> Iterator for DerIter<'a> {
     type Item = DerObj<'a>;
 
@@ -39,7 +45,7 @@ impl<'a> Iterator for DerIter<'a> {
                 return None;
             }
             for i in 0..num_len_bytes {
-                len |= (self.der_objs[2 + i] as usize) << (num_len_bytes - i);
+                len |= (self.der_objs[2 + i] as usize) << 8 * (num_len_bytes - i);
             }
 
             pos += num_len_bytes;
