@@ -30,9 +30,10 @@ impl<'a> Iterator for DerIter<'a> {
         let tag = self.der_objs[0];
 
         // Only accept one-byte tags.
-        if tag > 30 {
+        if tag & 0x1f == 0x1f {
             return None;
         }
+
 
         let mut len: usize = 0;
 
@@ -44,9 +45,11 @@ impl<'a> Iterator for DerIter<'a> {
             if num_len_bytes > 4 || num_len_bytes > self.der_objs.len() - 2 {
                 return None;
             }
+            println!("{:x?}", &self.der_objs[2..][..num_len_bytes]);
             for i in 0..num_len_bytes {
-                len |= (self.der_objs[2 + i] as usize) << 8 * (num_len_bytes - i);
+                len |= (self.der_objs[2 + i] as usize) << 8 * (num_len_bytes - i - 1);
             }
+            println!("{:x}", len);
 
             pos += num_len_bytes;
         } else {
@@ -60,6 +63,7 @@ impl<'a> Iterator for DerIter<'a> {
         let data = &self.der_objs[pos..][..len];
 
         self.der_objs = &self.der_objs[pos + len..];
+
 
         return Some(DerObj {
             tag,
