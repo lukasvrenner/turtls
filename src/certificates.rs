@@ -1,7 +1,7 @@
 use std::iter::Iterator;
 
-mod der;
-mod x509;
+pub(crate) mod x509;
+pub(crate) mod der;
 
 enum CertType {
     X509 = 0,
@@ -15,8 +15,8 @@ impl CertType {
 }
 
 pub(crate) struct CertEntry<'a> {
-    data: &'a [u8],
-    extensions: &'a [u8],
+    pub(crate) data: &'a [u8],
+    pub(crate) extensions: &'a [u8],
 }
 
 pub(crate) struct CertIter<'a> {
