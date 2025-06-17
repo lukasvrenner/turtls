@@ -44,7 +44,6 @@ pub(crate) enum DerClass {
 pub(crate) enum DerPrimCon {
     Primitive = 0x00,
     Constructed = 0x20,
-
 }
 
 pub(crate) const fn der_gen_tag(class: DerClass, prim_con: DerPrimCon, num: u8) -> u8 {
@@ -103,7 +102,6 @@ impl<'a> Iterator for DerIter<'a> {
             return None;
         }
 
-
         let mut len: usize = 0;
 
         let mut pos: usize = 2;
@@ -131,11 +129,6 @@ impl<'a> Iterator for DerIter<'a> {
 
         self.der_objs = &self.der_objs[pos + len..];
 
-
-        return Some(DerObj {
-            tag,
-            data,
-        });
-
+        return Some(DerObj { tag, data });
     }
 }

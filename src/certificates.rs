@@ -1,7 +1,7 @@
 use std::iter::Iterator;
 
-pub(crate) mod x509;
 pub(crate) mod der;
+pub(crate) mod x509;
 
 enum CertType {
     X509 = 0,
