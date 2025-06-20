@@ -1,4 +1,11 @@
 use super::der::{DerClass, DerIter, DerObj, DerTag, DerPrimCon, der_gen_tag};
+
+use crylib::ec::ecdsa::Signature;
+use crylib::ec::Secp256r1;
+use crylib::big_int::UBigInt;
+use crylib::finite_field::FieldElement;
+
+
 pub(crate) fn validate_cert(cert_buf: &[u8]) -> Result<(), CertError> {
     let cert = DerIter::new(cert_buf).next().ok_or(CertError::ParseError)?;
     if cert.tag != DerTag::Sequence as u8 {
@@ -12,7 +19,45 @@ pub(crate) fn validate_cert(cert_buf: &[u8]) -> Result<(), CertError> {
     parse_sig_alg(sig_alg)?;
 
     let sig_value = cert_iter.next().ok_or(CertError::ParseError)?;
+    parse_signature(sig_value)?;
     Ok(())
+}
+
+fn parse_signature(signature: DerObj) -> Result<Signature<Secp256r1>, CertError> {
+    if signature.tag != DerTag::BitString as u8 {
+        return Err(CertError::ParseError);
+    }
+    if signature.data[0] != 0 {
+        // there should never be unused bits
+        return Err(CertError::ParseError);
+    }
+    let sig_obj = DerIter::new(&signature.data[1..]).next().ok_or(CertError::ParseError)?;
+    if sig_obj.tag != DerTag::Sequence as u8 {
+        return Err(CertError::ParseError);
+    }
+    let mut sig_iter = DerIter::new(sig_obj.data);
+    let r_obj = sig_iter.next().ok_or(CertError::ParseError)?;
+
+    if r_obj.tag != DerTag::Integer as u8 {
+        return Err(CertError::ParseError);
+    }
+
+    // remove leading zeros
+    let leading_bytes = r_obj.data.len().checked_sub(32).ok_or(CertError::ParseError)?;
+    let r = UBigInt::<4>::from_be_bytes(r_obj.data[leading_bytes..].try_into().unwrap());
+    let r = FieldElement::<4, Secp256r1>::try_new(r).ok_or(CertError::CertInvalid)?;
+
+    let s_obj = sig_iter.next().ok_or(CertError::ParseError)?;
+    if s_obj.tag != DerTag::Integer as u8 {
+        return Err(CertError::ParseError);
+    }
+
+    // remove leading zeros
+    let leading_bytes = s_obj.data.len().checked_sub(32).ok_or(CertError::ParseError)?;
+    let s = UBigInt::<4>::from_be_bytes(s_obj.data[leading_bytes..].try_into().unwrap());
+    let s = FieldElement::<4, Secp256r1>::try_new(s).ok_or(CertError::CertInvalid)?;
+
+    Ok(Signature::new(r, s))
 }
 
 fn parse_tbs_cert(tbs_cert: DerObj) -> Result<(), CertError> {
@@ -71,8 +116,12 @@ fn parse_tbs_cert(tbs_cert: DerObj) -> Result<(), CertError> {
 
 const ECDSA_SHA256_OID: [u8; 8] = [0x2a, 0x86, 0x48, 0xce, 0x3d, 0x04, 0x03, 0x02,];
 
+/// Determines the signature algorithm used in the certificate.
+///
+/// TurTLS currently only supports one signature algorithm so this function only
+/// verifies that used algorithm is supported. In the future, this may return which signature
+/// algorithm is chosen.
 fn parse_sig_alg(sig_alg: DerObj) -> Result<(), CertError> {
-    // TODO: do this
     if sig_alg.tag != DerTag::Sequence as u8 {
         return Err(CertError::ParseError);
     }

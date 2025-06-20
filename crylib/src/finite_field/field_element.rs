@@ -51,11 +51,11 @@ impl<const N: usize, F: FiniteField<N>> FieldElement<N, F> {
     /// is greater than or equal to [`F::MODULUS`](super::FiniteField::MODULUS).
     ///
     /// This is the safe version of [`Self::new_unchecked()`]
-    pub fn try_new(int: UBigInt<N>) -> Result<Self, InputTooLargeError> {
+    pub fn try_new(int: UBigInt<N>) -> Option<Self> {
         if int >= F::MODULUS {
-            return Err(InputTooLargeError);
+            return None;
         };
-        Ok(Self(int, PhantomData))
+        Some(Self(int, PhantomData))
     }
 
     pub fn inner(&self) -> &UBigInt<N> {
@@ -271,7 +271,7 @@ impl_field_element!(4);
 impl<const N: usize, F: FiniteField<N>> TryFrom<UBigInt<N>> for FieldElement<N, F> {
     type Error = InputTooLargeError;
     fn try_from(value: UBigInt<N>) -> Result<Self, Self::Error> {
-        FieldElement::try_new(value)
+        FieldElement::try_new(value).ok_or(InputTooLargeError)
     }
 }
 
