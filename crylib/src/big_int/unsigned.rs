@@ -637,6 +637,7 @@ impl<const N: usize> UBigInt<N> {
     }
 }
 
+// credits: this function was borrowed from OpenSSL's `bn_div_3_words`.
 // TODO: figure out what this does to see if it can be simplified
 fn partial_div(m0: u64, m1: u64, d1: u64, d0: u64) -> u64 {
     let mut r = ((m0 as u128) << 64) | m1 as u128;
@@ -713,6 +714,7 @@ macro_rules! impl_non_generic {
             ///
             /// # Constant-timedness
             /// TODO: document constant-timedness
+            // credits: this function is a modified version of OpenSSL's `bn_div_fixed_top`.
             pub fn div(&self, rhs: &Self) -> (Self, Self) {
                 // This is a modified version of OpenSSL's `BN_div` which was originally written in C.
 
