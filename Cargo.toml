@@ -3,7 +3,7 @@ default-members = [".", "crylib"]
 
 [package]
 name = "turtls"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Lukas Renner"]
 edition = "2021"
 readme = "./README.md"
@@ -15,7 +15,7 @@ documentation = "https://docs.rs/turtls/latest/turtls"
 categories = ["network-programming", "cryptography"]
 
 [dependencies]
-crylib = { path = "./crylib/", version = "0.1.0" }
+crylib = { path = "./crylib/", version = "0.2.0" }
 getrandom = "0.2.15"
 
 [lib]

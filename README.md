@@ -7,7 +7,6 @@ WARNING: This code has not been audited. Use it at your own risk.
 ## Documentation
 
 #### Latest Release
-Warning: this documentation is very outdated. Generate up-to-date documentation with rustdoc.
 - [TurTLS](https://docs.rs/turtls)
 - [crylib](https://docs.rs/crylib)
 
